@@ -40,16 +40,14 @@ O roteador só abre os ramos que têm interações daquela rota no lote. Os ramo
 
 | Caminho | O que é | Dono |
 | --- | --- | --- |
-| `app/schemas.py` | Contrato JSON de entrada e saída | Todos |
-| `app/prompts.py` | Prompts por canal com few-shot | Pessoa 1 |
-| `app/ia.py` | Classificação, regra de rota e geração | Pessoa 1 |
-| `app/llm.py` | Cliente Gemini com retry e modo simulado | Pessoa 2 |
-| `app/grafo.py` | Orquestração LangGraph | Pessoa 2 |
-| `app/main.py` | API FastAPI | Pessoa 2 |
-| `ui/painel.py` | Painel de curadoria Streamlit | Pessoa 3 |
-| `app/storage.py` | Upload para o OCI Object Storage | Pessoa 4 |
-| `data/` | Lotes de exemplo | Pessoa 4 |
-| `tests/` | Testes em modo simulado | Todos |
+| `app/schemas.py` | Contrato JSON de entrada e saída | Todos (mudanças combinadas) |
+| `app/ia.py` (classificar), `app/prompts.py` (classificador) | Análise e regra de rota | Pessoa 1 · IA: análise |
+| `app/ia.py` (gerar_*), `app/prompts.py` | Geração de conteúdo por canal | Pessoa 2 · IA: geração |
+| `app/grafo.py`, `app/llm.py`, `app/main.py` | Orquestração, retry e API | Pessoa 3 · Backend |
+| `ui/painel.py` | Painel de curadoria Streamlit | Pessoa 4 · Interface |
+| `app/storage.py` | Upload OCI e deploy | Pessoa 5 · Cloud OCI |
+| `data/`, `tests/` | Dataset e testes | Pessoa 6 · Dados e qualidade |
+| `docs/`, `README.md` | Diferenciais, documentação e demo | Pessoa 7 · Diferenciais |
 
 ## Como rodar
 
@@ -94,7 +92,10 @@ Use **somente recursos Always Free**. O Object Storage gratuito tem limite de ar
 
 ## Próximos passos por pessoa
 
-- **Pessoa 1:** ajustar os prompts com a voz da marca e testar o classificador real no lote de exemplo.
-- **Pessoa 2:** ligar o Gemini, tratar respostas fora do formato JSON e medir o tempo por lote.
-- **Pessoa 3:** melhorar o painel (filtros, exportar aprovados, gráfico de tópicos).
-- **Pessoa 4:** criar conta e bucket OCI, ampliar o dataset para 40 a 60 mensagens e montar os 3 exemplos da demo.
+- **Pessoa 1:** testar o classificador real no dataset rotulado e medir acertos.
+- **Pessoa 2:** ajustar os prompts com a voz da marca e impedir fatos inventados.
+- **Pessoa 3:** ligar o Gemini, tratar JSON inválido e limite de requisições.
+- **Pessoa 4:** filtros, exportação dos aprovados e gráfico de tópicos no painel.
+- **Pessoa 5:** criar conta e bucket OCI, testar o upload real e preparar a VM Always Free.
+- **Pessoa 6:** ampliar o dataset para 40 a 60 mensagens com a rota esperada e cobrir as 4 rotas nos testes.
+- **Pessoa 7:** webhook do Discord, card de imagem, README final e roteiro da demo.

@@ -1,0 +1,43 @@
+```gitignore
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# VariÃ¡veis de ambiente e credenciais
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Testes e cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editores
+.vscode/
+.idea/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs e arquivos temporÃ¡rios
+*.log
+*.tmp
+
+# Resultados locais
+data/output/*
+!data/output/.gitkeep
+```
+
+# Resultados gerados localmente pela API
+saida_local/
+
+requirements.txt.backup

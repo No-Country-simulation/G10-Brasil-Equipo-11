@@ -4,6 +4,34 @@ Motor inteligente que transforma a atividade de uma comunidade digital em ativos
 
 Projeto do Hackathon ONE G10 (Oracle Next Education & Alura).
 
+## Sobre este esqueleto
+
+Este é o ponto de partida da equipe: um esqueleto que **já roda de ponta a ponta**, sem nenhuma chave configurada. Ele existe para que as 7 pessoas comecem em paralelo, cada uma na sua parte, sem esperar pelas outras.
+
+**O que já funciona**
+
+- Contrato JSON de entrada e saída (`app/schemas.py`), no formato do enunciado
+- Pipeline LangGraph com roteamento condicional: case de sucesso, FAQ, alerta e newsletter
+- API FastAPI com `POST /processar` e `GET /saude`
+- Painel Streamlit com métricas, gráficos, edição e aprovação dos ativos
+- Upload para o OCI Object Storage, com gravação local enquanto a conta não existe
+- Lote de exemplo com 12 mensagens fictícias e 3 testes automatizados
+
+**O que é simulado por enquanto**
+
+- **LLM:** sem `GEMINI_API_KEY`, a classificação e os textos saem de regras simples por palavra-chave. O formato é o real, o conteúdo não. Basta preencher a chave no `.env` para usar o Gemini.
+- **OCI:** sem `OCI_NAMESPACE` e `~/.oci/config`, o pacote vai para `saida_local/` em vez do bucket.
+
+**O que falta fazer:** ver [Próximos passos por pessoa](#próximos-passos-por-pessoa).
+
+**Como contribuir**
+
+1. Crie uma branch a partir desta: `git checkout -b feat/<sua-parte>`
+2. Rode `pytest` antes de cada commit. Os testes não gastam cota da API.
+3. Abra um pull request para `no-code-developer`.
+4. Mudanças em `app/schemas.py` afetam todo mundo. Combine com a equipe antes.
+5. Nunca suba o `.env` nem chaves `.pem`. O `.gitignore` já bloqueia esses arquivos.
+
 ## Arquitetura
 
 ```mermaid

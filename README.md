@@ -121,10 +121,18 @@ O endpoint `GET /` não está implementado nesta versão.
 Em outro terminal, com o ambiente virtual ativado:
 
 ```powershell
-streamlit run ui/painel.py
+python -m streamlit run ui/painel.py
 ```
 
-O painel permite carregar um lote JSON, processar interações, visualizar classificações e revisar os conteúdos gerados.
+O painel abre em http://localhost:8501 e tem três telas:
+
+| Tela | O que faz |
+| --- | --- |
+| **Importar** | Recebe um JSON ou CSV (colunas `autor`, `canal`, `tipo`, `texto`), mostra as primeiras linhas e explica como corrigir CSV do Excel com ponto e vírgula ou codificação antiga |
+| **Visão geral** | Indicadores, sentimento, rotas, membros que precisam de apoio e tabela de interações com filtro por rota |
+| **Curadoria** | Edição, aprovação e descarte do post, da newsletter e das dicas de FAQ. O post só é aprovado com a autorização do membro marcada. Os aprovados são exportados para `saida_local/ativos/<ano>-semana-XX/aprovados.json` |
+
+Código do painel: `ui/painel.py` (telas), `ui/importacao.py` (leitura de arquivos), `ui/curadoria.py` (regras de aprovação e exportação) e `ui/estilo.py` (visual). Os testes ficam em `tests/test_painel.py`.
 
 ## Executando os testes
 

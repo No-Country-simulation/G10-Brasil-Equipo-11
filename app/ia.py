@@ -10,7 +10,7 @@ from .llm import chamar_llm_json, modo_mock
 from .schemas import Analise, DestaqueNewsletter, Interacao, PostLinkedin, SugestaoFaq
 
 POSITIVOS = ("passei", "contratad", "consegui", "aprovad", "grat", "obrigad", "incrível", "adorei", "vaga")
-NEGATIVOS = ("difícil", "dificil", "frustrad", "não consigo", "nao consigo", "desistir", "péssim", "ruim", "travad")
+NEGATIVOS = ("difícil", "dificil", "frustrad", "não consigo", "nao consigo", "não consegui", "nao consegui", "não fui aprovado", "nao fui aprovado", "não passei", "nao passei", "sem conseguir", "desistir", "péssim", "ruim", "travad")
 
 
 # ---------- Roteamento (regra de negócio, não depende do LLM) ----------

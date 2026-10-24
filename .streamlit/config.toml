@@ -1,0 +1,14 @@
+# Tema do painel CommunityLab, seguindo a prévia aprovada pela equipe.
+[theme]
+base = "light"
+primaryColor = "#2B59C3"
+backgroundColor = "#F4F5F7"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#15171C"
+font = "sans serif"
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"

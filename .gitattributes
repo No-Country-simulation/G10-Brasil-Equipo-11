@@ -1,0 +1,12 @@
+# Mantém estáveis os bytes e hashes dos novos artefatos de análise.
+/.gitattributes text eol=lf
+/data/avaliacao_classificacoes.json text eol=lf
+/src/communitylab/avaliacao.py text eol=lf
+/src/communitylab/relatorio_avaliacao.py text eol=lf
+/src/communitylab/radar.py text eol=lf
+/scripts/avaliar_classificacoes.py text eol=lf
+/scripts/analisar_comunidade.py text eol=lf
+/tests/test_avaliacao.py text eol=lf
+/tests/test_radar.py text eol=lf
+/docs/*.md text eol=lf
+/.github/workflows/*.yml text eol=lf

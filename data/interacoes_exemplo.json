@@ -1,0 +1,30 @@
+{
+  "origem_comunidade": "Discord_Grupo_ONE_G10",
+  "periodo_referencia": "Semana_04",
+  "interacoes": [
+    {"autor": "Mariana Souza", "canal": "#conquistas-e-vagas", "tipo": "depoimento",
+     "texto": "Pessoal, passei no processo seletivo para Desenvolvedora Júnior de IA! O projeto do curso de LangChain e OCI que construí no portfólio fez toda a diferença na entrevista técnica. Muito grata à comunidade pelo apoio!"},
+    {"autor": "Lucas Albuquerque", "canal": "#duvidas-langgraph", "tipo": "pergunta_tecnica",
+     "texto": "Estou com dúvida de como estruturar os nós condicionais no LangGraph quando a resposta do Gemini precisa de retry. Alguém tem um exemplo prático de router?"},
+    {"autor": "Bianca Torres", "canal": "#duvidas-langgraph", "tipo": "pergunta_tecnica",
+     "texto": "Como faço para o LangGraph rodar dois nós em paralelo e juntar o resultado depois?"},
+    {"autor": "Rafael Mendes", "canal": "#duvidas-oci", "tipo": "pergunta_tecnica",
+     "texto": "Meu upload pro bucket do OCI dá erro 404. O namespace é o nome da tenancy?"},
+    {"autor": "Camila Rocha", "canal": "#projetos", "tipo": "projeto",
+     "texto": "Terminei meu bot de Discord que resume as discussões do dia com Gemini! Consegui deixar ele rodando numa VM Always Free da OCI. Adorei o resultado."},
+    {"autor": "Thiago Nunes", "canal": "#feedback-curso", "tipo": "feedback",
+     "texto": "O módulo de engenharia de prompts está muito bom, mas os exercícios de few-shot poderiam ter mais exemplos."},
+    {"autor": "Juliana Prado", "canal": "#geral", "tipo": "outro",
+     "texto": "Estou travada no módulo de agentes há uma semana e pensando em desistir. Está muito difícil conciliar com o trabalho."},
+    {"autor": "Diego Faria", "canal": "#conquistas-e-vagas", "tipo": "depoimento",
+     "texto": "Fui aprovado no estágio em Engenharia de Dados! Mostrei o pipeline de RAG que fiz no hackathon passado. Obrigado, comunidade!"},
+    {"autor": "Patrícia Lemos", "canal": "#geral", "tipo": "outro",
+     "texto": "Bom dia, pessoal! Alguém vai na live de quinta?"},
+    {"autor": "Gustavo Reis", "canal": "#duvidas-oci", "tipo": "pergunta_tecnica",
+     "texto": "Qual shape de VM é Always Free na OCI? Não quero ser cobrado sem querer."},
+    {"autor": "Fernanda Castro", "canal": "#feedback-curso", "tipo": "reclamacao",
+     "texto": "Os vídeos do módulo 3 estão com áudio ruim, fica difícil acompanhar."},
+    {"autor": "André Lopes", "canal": "#projetos", "tipo": "projeto",
+     "texto": "Publiquei no GitHub um template de Streamlit para painéis de curadoria. Quem quiser usar no hackathon, fiquem à vontade!"}
+  ]
+}

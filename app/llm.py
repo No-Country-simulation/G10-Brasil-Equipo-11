@@ -16,7 +16,7 @@ log = logging.getLogger("communitylab.llm")
 # Erros que valem nova tentativa: limite de requisições e falhas temporárias do servidor
 CODIGOS_TEMPORARIOS = {408, 429, 500, 502, 503, 504}
 ESPERA_LIMITE_S = (10, 20, 40)   # 429: o plano gratuito libera a cota por minuto
-ESPERA_FALHA_S = (2, 4, 8)
+ESPERA_FALHA_S = (4, 10, 20)  # 503 (servidor sobrecarregado) costuma passar em segundos
 
 # Contadores para o relatório do teste controlado (scripts/teste_gemini.py)
 ESTATISTICAS = {"chamadas": 0, "novas_tentativas": 0, "respostas_invalidas": 0}
@@ -27,7 +27,7 @@ class ErroLLM(RuntimeError):
 
 
 def modelo() -> str:
-    return os.getenv("GEMINI_MODELO", "gemini-2.5-flash")
+    return os.getenv("GEMINI_MODELO", "gemini-3.6-flash")
 
 
 def modo_mock() -> bool:

@@ -26,8 +26,36 @@ class ErroLLM(RuntimeError):
     """Falha definitiva ao obter uma resposta válida do modelo."""
 
 
+# Gemini 3.5 Flash Lite: no plano gratuito, 15 chamadas/min e 500/dia (o 3.6 Flash permite 5/min e 20/dia).
+# No teste controlado de 26/10/2026 acertou 7 de 7 rotas, em 11 s.
+MODELO_PADRAO = "gemini-3.5-flash-lite"
+RPM_PADRAO = 15
+
+
 def modelo() -> str:
-    return os.getenv("GEMINI_MODELO", "gemini-3.6-flash")
+    return os.getenv("GEMINI_MODELO") or MODELO_PADRAO
+
+
+def chamadas_por_minuto() -> float:
+    """Limite de chamadas por minuto do plano (GEMINI_RPM no .env). 0 desliga o ritmo."""
+    try:
+        return max(0.0, float(os.getenv("GEMINI_RPM") or RPM_PADRAO))
+    except ValueError:
+        return float(RPM_PADRAO)
+
+
+_ultima_chamada = None
+
+
+def _aguardar_vez():
+    """Espaça as chamadas para nunca passar do limite por minuto (evita o HTTP 429 em vez de reagir a ele)."""
+    global _ultima_chamada
+    rpm = chamadas_por_minuto()
+    if rpm and _ultima_chamada is not None:
+        falta = 60.0 / rpm - (time.monotonic() - _ultima_chamada)
+        if falta > 0:
+            time.sleep(falta)
+    _ultima_chamada = time.monotonic()
 
 
 def modo_mock() -> bool:
@@ -62,6 +90,7 @@ def chamar_llm(sistema: str, usuario: str, json_saida: bool = False, tentativas:
         response_mime_type="application/json" if json_saida else "text/plain",
     )
     for tentativa in range(tentativas):
+        _aguardar_vez()
         ESTATISTICAS["chamadas"] += 1
         try:
             resposta = _obter_cliente().models.generate_content(model=modelo(), contents=usuario, config=config)

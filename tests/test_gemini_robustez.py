@@ -20,6 +20,8 @@ def gemini_falso(monkeypatch, tmp_path):
     monkeypatch.delenv("LLM_MODO", raising=False)
     monkeypatch.delenv("OCI_NAMESPACE", raising=False)
     monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+    monkeypatch.setenv("GEMINI_RPM", "0")  # ritmo desligado; ele tem testes próprios no fim do arquivo
+    monkeypatch.setattr(llm, "_ultima_chamada", None)
     ia.FALHAS.clear()
     for k in llm.ESTATISTICAS:
         llm.ESTATISTICAS[k] = 0
@@ -176,3 +178,51 @@ def test_sem_chave_o_modo_simulado_continua(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY")
     assert llm.modo_mock()
     assert ia.classificar(MSG).sentimento == "Altamente Positivo"
+
+
+# ---------------------------------------------------------------------------
+# Ritmo das chamadas (evita o HTTP 429)
+# ---------------------------------------------------------------------------
+class Relogio:
+    def __init__(self):
+        self.agora, self.esperas = 1000.0, []
+
+    def monotonic(self):
+        return self.agora
+
+    def sleep(self, s):
+        self.esperas.append(round(s, 2))
+        self.agora += s
+
+
+def test_ritmo_espaca_as_chamadas_pelo_limite_por_minuto(com_cliente, monkeypatch):
+    relogio = Relogio()
+    monkeypatch.setattr(llm.time, "monotonic", relogio.monotonic)
+    monkeypatch.setattr(llm.time, "sleep", relogio.sleep)
+    monkeypatch.setenv("GEMINI_RPM", "15")  # uma chamada a cada 4 s
+    com_cliente(ClienteFalso([]))
+    llm.chamar_llm("s", "u")
+    relogio.agora += 1.5          # a próxima chega 1,5 s depois
+    llm.chamar_llm("s", "u")
+    relogio.agora += 10           # esta chega bem depois: não precisa esperar
+    llm.chamar_llm("s", "u")
+    assert relogio.esperas == [2.5]
+
+
+def test_rpm_zero_desliga_o_ritmo(com_cliente, monkeypatch):
+    relogio = Relogio()
+    monkeypatch.setattr(llm.time, "monotonic", relogio.monotonic)
+    monkeypatch.setattr(llm.time, "sleep", relogio.sleep)
+    com_cliente(ClienteFalso([]))
+    for _ in range(3):
+        llm.chamar_llm("s", "u")
+    assert relogio.esperas == []
+
+
+def test_modelo_e_ritmo_padrao(monkeypatch):
+    monkeypatch.delenv("GEMINI_MODELO", raising=False)
+    monkeypatch.delenv("GEMINI_RPM", raising=False)
+    assert llm.modelo() == "gemini-3.5-flash-lite"
+    assert llm.chamadas_por_minuto() == 15
+    monkeypatch.setenv("GEMINI_RPM", "abc")
+    assert llm.chamadas_por_minuto() == 15

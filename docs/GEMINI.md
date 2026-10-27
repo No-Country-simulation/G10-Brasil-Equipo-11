@@ -15,7 +15,7 @@ No `.env`:
 
 1. Preencha `GEMINI_API_KEY=` com a sua chave.
 2. **Apague a linha `LLM_MODO=mock`.** Enquanto ela existir, o sistema fica no modo simulado.
-3. Confira o modelo. O padrão é `gemini-3.6-flash`. Para usar outro, acrescente `GEMINI_MODELO=nome-do-modelo`.
+3. Confira o modelo e o ritmo. O padrão é `GEMINI_MODELO=gemini-3.5-flash-lite` com `GEMINI_RPM=15` (chamadas por minuto). Se o seu plano tiver outro limite, ajuste o `GEMINI_RPM` (veja a seção 3).
 4. Salve e feche.
 
 > O `gemini-2.5-flash` ainda aparece na lista de modelos, mas responde **HTTP 404** para chaves novas. Para ver os modelos que a sua chave pode usar:
@@ -61,19 +61,20 @@ Como ler o relatório:
 | `ERRO` / ❌ | O Gemini escolheu outra rota. Avaliar com o Matheus se é erro do modelo ou do gabarito |
 | `SIM` / "(simulado)" | O Gemini falhou duas vezes nessa mensagem e o sistema usou o modo simulado. A seção "Erros" explica o motivo |
 
-### Primeiro teste (26/10/2026, `gemini-3.6-flash`)
+### Resultados dos testes (26/10/2026)
 
-| Indicador | Resultado |
-| --- | --- |
-| Rotas certas | **7 de 7**, incluindo a mensagem irônica e a tentativa de manipulação |
-| Respostas fora do formato | 0 |
-| Tempo | cerca de 5 s por mensagem; 117 s no total, com as esperas |
-| Falhas | o post do LinkedIn caiu no simulado após três respostas HTTP 503 (servidor sobrecarregado). Por isso as esperas para 5xx foram aumentadas |
+| Modelo | Rotas certas | Falhas | Tempo | Limite no plano gratuito |
+| --- | --- | --- | --- | --- |
+| **`gemini-3.5-flash-lite` (padrão)** | **7 de 7** | 0 | **11 s** | 15 por minuto, **500 por dia** |
+| `gemini-3.6-flash` | 7 de 7 | 1 a 4 itens caíram no simulado (HTTP 503 e 429) | 117 a 222 s | 5 por minuto, **20 por dia** |
+
+Os dois modelos acertaram todas as rotas, incluindo a mensagem irônica e a tentativa de manipulação. O 3.6 Flash não serve para o plano gratuito: um lote de 12 mensagens gasta cerca de 19 chamadas, quase o limite do dia inteiro. O 3.5 Flash Lite aguenta cerca de 26 lotes por dia, e os textos gerados (post, FAQ e newsletter) ficaram com boa qualidade.
 
 Pontos para avaliar com quem cuida da classificação:
 
-- A relevância mede o potencial de virar conteúdo, então alertas saem com nota baixa: 3 para risco de desistência. Para alertas, talvez valha uma medida de **urgência**.
-- A mensagem de risco de desistência foi classificada com tipo `reclamacao`. A rota está certa, mas o tipo é discutível.
+- **A relevância muda de um modelo para outro.** Para os mesmos alertas, o 3.6 deu nota 2 ou 3, e o 3.5 Lite deu 8. Vale calibrar o prompt com exemplos de nota para cada tipo de mensagem.
+- A relevância mede o potencial de virar conteúdo. Para alertas, talvez valha uma medida separada de **urgência**.
+- O 3.6 classificou o risco de desistência com tipo `reclamacao`. A rota está certa, mas o tipo é discutível.
 
 ## 3. O que protege o pipeline
 
@@ -81,7 +82,8 @@ Pontos para avaliar com quem cuida da classificação:
 | --- | --- |
 | Resposta que não é JSON, ou com rótulo desconhecido | Pede de novo uma vez. Persistindo, **só aquela mensagem** usa o modo simulado, e a falha é registrada. O lote continua |
 | Variações de rótulo ("Positiva", "Pergunta Técnica", relevância "7") | Normalizadas para o contrato |
-| Limite de requisições (HTTP 429) | Espera 10, 20 e 40 s antes de tentar de novo |
+| Muitas chamadas seguidas | As chamadas são espaçadas para não passar de `GEMINI_RPM` por minuto (padrão 15, ou seja, uma a cada 4 s). Use `GEMINI_RPM=0` para desligar |
+| Limite de requisições (HTTP 429) mesmo assim | Espera 10, 20 e 40 s antes de tentar de novo |
 | Falha temporária do servidor (5xx) ou de rede | Espera 4, 10 e 20 s antes de tentar de novo |
 | Chave inválida ou modelo inexistente (4xx) | Falha na hora com mensagem clara, sem gastar tentativas |
 | Mensagem com instruções ("ignore as instruções...") | O texto do membro vai delimitado por `<mensagem>`, e o prompt manda tratá-lo como dado |

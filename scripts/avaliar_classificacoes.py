@@ -55,7 +55,7 @@ def main(argv=None):
             commit = "indisponivel"
         metadados = {"modo": args.modo, "commit_base": commit,
                      "dependencias": {"pydantic": version("pydantic")},
-                     "modelo": "regras_mock" if args.modo == "mock" else llm.MODELO,
+                     "modelo": "regras_mock" if args.modo == "mock" else llm.modelo(),
                      "arquivos_sha256": {p: hashlib.sha256((RAIZ / p).read_bytes()).hexdigest() for p in (
                          "app/ia.py", "app/llm.py", "app/prompts.py", "app/schemas.py",
                          "src/communitylab/avaliacao.py", "src/communitylab/relatorio_avaliacao.py",

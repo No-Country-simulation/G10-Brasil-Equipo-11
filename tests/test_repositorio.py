@@ -7,7 +7,7 @@ import psycopg
 import pytest
 
 import ui.curadoria as cur
-from app import repositorio
+from app import grafo, repositorio
 from app.grafo import processar
 from app.schemas import LoteEntrada
 
@@ -162,3 +162,32 @@ def test_post_aprovado_sem_autorizacao_e_recusado_pelo_banco(banco_real, lote_re
     lote_id = repositorio.gravar_lote(lote_real, resposta_real, "mock")
     with pytest.raises(psycopg.errors.CheckViolation):
         repositorio.salvar_decisao(lote_id, "post", "a", {}, autorizacao=False)
+
+
+def test_sem_banco_nao_tenta_gravar(lote_exemplo, monkeypatch):
+    monkeypatch.setattr(repositorio, "gravar_lote", lambda *a: pytest.fail("não devia gravar"))
+    resposta, registro = grafo.processar_com_registro(lote_exemplo)
+    assert registro == {"lote_id": None, "erro": None}
+    assert resposta["status"] == "sucesso"
+
+
+def test_falha_do_banco_nao_derruba_o_processamento(lote_exemplo, monkeypatch, capsys):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+
+    def explode(*a):
+        raise RuntimeError("senha errada")
+
+    monkeypatch.setattr(repositorio, "gravar_lote", explode)
+    resposta, registro = grafo.processar_com_registro(lote_exemplo)
+    assert registro == {"lote_id": None, "erro": "senha errada"}
+    assert resposta["resumo_comunidade"]["total_interacoes_processadas"] == 12
+    assert "[Supabase]" in capsys.readouterr().out
+
+
+def test_processar_grava_com_o_modo_atual(lote_exemplo, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+    chamadas = []
+    monkeypatch.setattr(repositorio, "gravar_lote", lambda l, r, m: chamadas.append(m) or 42)
+    assert grafo.processar_com_registro(lote_exemplo)[1] == {"lote_id": 42, "erro": None}
+    assert grafo.processar(lote_exemplo)["status"] == "sucesso"
+    assert chamadas == ["mock", "mock"]

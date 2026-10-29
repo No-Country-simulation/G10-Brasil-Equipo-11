@@ -12,7 +12,7 @@ from typing import Annotated, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from . import ia
+from . import ia, repositorio
 from .schemas import Alerta, Analise, LoteEntrada
 from .storage import salvar_pacote
 
@@ -102,6 +102,21 @@ def construir_grafo():
 GRAFO = construir_grafo()
 
 
-def processar(lote: LoteEntrada) -> dict:
+def processar_com_registro(lote: LoteEntrada) -> tuple[dict, dict]:
+    """Processa o lote e, se houver banco configurado, grava o resultado.
+
+    Falha ao gravar não derruba o processamento: o erro volta no registro."""
     estado = GRAFO.invoke({"lote": lote, "ativos": {}})
-    return montar_resposta(estado, estado["armazenamento"])
+    resposta = montar_resposta(estado, estado["armazenamento"])
+    registro = {"lote_id": None, "erro": None}
+    if repositorio.banco_configurado():
+        try:
+            registro["lote_id"] = repositorio.gravar_lote(lote, resposta, repositorio.modo_atual())
+        except Exception as e:
+            print(f"[Supabase] falha ao gravar: {e}")
+            registro["erro"] = str(e)
+    return resposta, registro
+
+
+def processar(lote: LoteEntrada) -> dict:
+    return processar_com_registro(lote)[0]

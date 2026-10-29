@@ -267,6 +267,7 @@ def gemini_real(monkeypatch):
         monkeypatch.setenv(chave, valor)
     monkeypatch.delenv("LLM_MODO", raising=False)
     monkeypatch.delenv("OCI_NAMESPACE", raising=False)  # este teste não sobe nada para a nuvem
+    monkeypatch.setenv("DATABASE_URL", "")  # este teste não grava no banco
 
 
 @pytest.mark.real

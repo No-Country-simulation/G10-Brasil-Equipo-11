@@ -4,6 +4,7 @@ Este arquivo é a referência para toda a equipe: IA, backend, interface e cloud
 trabalham em cima destes modelos. Mudou o contrato? Combine com todos antes.
 """
 import warnings
+from datetime import date
 from typing import Literal, Optional
 
 # O enunciado usa o campo "copy", que coincide com um método antigo do Pydantic. É inofensivo.
@@ -25,6 +26,7 @@ class Interacao(BaseModel):
     canal: str
     tipo: TipoInteracao = "outro"
     texto: str
+    data: Optional[date] = None  # dia em que a mensagem foi escrita; sem ela, vale o dia da importação
 
 
 class LoteEntrada(BaseModel):

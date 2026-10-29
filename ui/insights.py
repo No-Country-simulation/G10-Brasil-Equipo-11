@@ -6,21 +6,21 @@ com as colunas, nunca divisão por zero.
 """
 import pandas as pd
 
-from app.repositorio import FUSO
 from ui.estilo import ROTAS
 
 POSITIVOS = ("Positivo", "Altamente Positivo")
 NEGATIVOS = ("Negativo", "Altamente Negativo")
-ROTAS_GERADAS = ("case_sucesso", "faq", "alerta")
+ROTAS_GERADAS = ("case_sucesso", "faq", "alerta", "nenhuma")
+# Da ponta negativa à positiva: a barra divergente empilha nesta ordem, com o neutro no meio.
+ESCALA_SENTIMENTO = ("Altamente Negativo", "Negativo", "Neutro", "Positivo", "Altamente Positivo")
 
 
-def _com_rotulo(df: pd.DataFrame) -> pd.DataFrame:
-    """Cópia com `processado_em` em UTC e `rotulo` ("dd/mm HH:MM · período · comunidade") no fuso local."""
-    d = df.copy()
-    d["processado_em"] = pd.to_datetime(d["processado_em"], utc=True)
-    local = d["processado_em"].dt.tz_convert(FUSO).dt.strftime("%d/%m %H:%M")
-    d["rotulo"] = local + " · " + d["periodo_referencia"].astype(str) + " · " + d["comunidade"].astype(str)
-    return d
+def _por_dia(df: pd.DataFrame, coluna: str) -> pd.DataFrame:
+    """Mensagens por dia (a data em que foram escritas) e por `coluna`, somando todos os lotes daquele dia."""
+    d = df.assign(data=pd.to_datetime(df["data"]))
+    return (d.groupby(["data", coluna], as_index=False).size()
+            .rename(columns={"size": "quantidade"})
+            .sort_values(["data", coluna], kind="stable", ignore_index=True))
 
 
 def numeros_periodo(df: pd.DataFrame) -> dict:
@@ -35,14 +35,10 @@ def numeros_periodo(df: pd.DataFrame) -> dict:
     }
 
 
-def sentimento_por_lote(df: pd.DataFrame) -> pd.DataFrame:
-    colunas = ["lote_id", "processado_em", "rotulo", "sentimento", "quantidade"]
+def sentimento_por_dia(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
-        return pd.DataFrame(columns=colunas)
-    d = _com_rotulo(df)
-    return (d.groupby(["lote_id", "processado_em", "rotulo", "sentimento"], as_index=False).size()
-            .rename(columns={"size": "quantidade"})
-            .sort_values(["processado_em", "lote_id"], kind="stable", ignore_index=True)[colunas])
+        return pd.DataFrame(columns=["data", "sentimento", "quantidade"])
+    return _por_dia(df, "sentimento")
 
 
 def sentimento_por_canal(df: pd.DataFrame) -> pd.DataFrame:
@@ -54,6 +50,36 @@ def sentimento_por_canal(df: pd.DataFrame) -> pd.DataFrame:
     return s[colunas]
 
 
+def sentimento_divergente(df: pd.DataFrame) -> pd.DataFrame:
+    """Segmentos da barra centrada no neutro: negativos à esquerda de 0, positivos à direita, neutro dividido ao meio."""
+    colunas = ["canal", "sentimento", "percentual", "inicio", "fim"]
+    if df.empty:
+        return pd.DataFrame(columns=colunas)
+    linhas = []
+    for canal, grupo in df.groupby("canal"):
+        pct = grupo["sentimento"].value_counts(normalize=True) * 100
+        esquerda = -(pct.get("Altamente Negativo", 0) + pct.get("Negativo", 0) + pct.get("Neutro", 0) / 2)
+        for sentimento in ESCALA_SENTIMENTO:
+            p = float(pct.get(sentimento, 0))
+            if p:
+                linhas.append({"canal": canal, "sentimento": sentimento, "percentual": p,
+                               "inicio": esquerda, "fim": esquerda + p})
+                esquerda += p
+    return pd.DataFrame(linhas, columns=colunas)
+
+
+def resumo_por_canal(df: pd.DataFrame) -> pd.DataFrame:
+    """% de positivas e de negativas por canal, do canal mais positivo (saldo) ao mais negativo."""
+    colunas = ["canal", "pct_positivas", "pct_negativas"]
+    if df.empty:
+        return pd.DataFrame(columns=colunas)
+    g = df.groupby("canal")["sentimento"]
+    r = pd.DataFrame({"pct_positivas": g.apply(lambda s: 100 * s.isin(POSITIVOS).mean()),
+                      "pct_negativas": g.apply(lambda s: 100 * s.isin(NEGATIVOS).mean())}).reset_index()
+    saldo = r["pct_positivas"] - r["pct_negativas"]
+    return r.assign(saldo=saldo).sort_values(["saldo", "canal"], ascending=[False, True], ignore_index=True)[colunas]
+
+
 def topicos_mais_falados(df: pd.DataFrame, n: int = 10) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame(columns=["topico", "quantidade"])
@@ -62,13 +88,9 @@ def topicos_mais_falados(df: pd.DataFrame, n: int = 10) -> pd.DataFrame:
 
 
 def volume_por_canal(df: pd.DataFrame) -> pd.DataFrame:
-    colunas = ["processado_em", "rotulo", "canal", "quantidade"]
     if df.empty:
-        return pd.DataFrame(columns=colunas)
-    d = _com_rotulo(df)
-    return (d.groupby(["lote_id", "processado_em", "rotulo", "canal"], as_index=False).size()
-            .rename(columns={"size": "quantidade"})
-            .sort_values(["processado_em", "lote_id", "canal"], kind="stable", ignore_index=True)[colunas])
+        return pd.DataFrame(columns=["data", "canal", "quantidade"])
+    return _por_dia(df, "canal")
 
 
 def rotas_geradas(df: pd.DataFrame) -> pd.DataFrame:

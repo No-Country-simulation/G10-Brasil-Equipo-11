@@ -17,6 +17,8 @@ from psycopg.types.json import Jsonb
 from .llm import modo_mock
 from .schemas import LoteEntrada
 
+FUSO = "America/Sao_Paulo"
+
 
 def banco_configurado() -> bool:
     return bool(os.getenv("DATABASE_URL", "").strip())
@@ -30,9 +32,14 @@ def _norm(s: str) -> str:
     return unicodedata.normalize("NFC", s).strip()
 
 
+def hoje() -> date:
+    return pd.Timestamp.now(tz=FUSO).date()
+
+
 def hash_conteudo(lote: LoteEntrada) -> str:
     """SHA-256 do conteúdo: ignora ordem das interações, espaços nas pontas, forma Unicode e período."""
-    itens = sorted([_norm(i.autor), _norm(i.canal), i.tipo, _norm(i.texto)] for i in lote.interacoes)
+    itens = sorted([_norm(i.autor), _norm(i.canal), i.tipo, _norm(i.texto), str(i.data or "")]
+                   for i in lote.interacoes)
     bruto = json.dumps({"comunidade": _norm(lote.origem_comunidade), "interacoes": itens},
                        ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(bruto.encode("utf-8")).hexdigest()
@@ -41,6 +48,7 @@ def hash_conteudo(lote: LoteEntrada) -> str:
 def linhas_do_lote(lote: LoteEntrada, resposta: dict) -> dict:
     """Monta as linhas de interações, ativos e alertas a partir do lote e da resposta de processar()."""
     analises = resposta["analises"]
+    dia_da_importacao = hoje()
     interacoes = []
     for ordem, (entrada, a) in enumerate(zip(lote.interacoes, analises)):
         interacoes.append({
@@ -49,6 +57,7 @@ def linhas_do_lote(lote: LoteEntrada, resposta: dict) -> dict:
             "canal": entrada.canal,
             "tipo": entrada.tipo,
             "texto": entrada.texto,
+            "data": entrada.data or dia_da_importacao,
             "sentimento": a["sentimento"],
             "topico": a["topico"],
             "relevancia": a["relevancia"],
@@ -114,9 +123,9 @@ def gravar_lote(lote: LoteEntrada, resposta: dict, modo: str) -> int:
         id_por_ordem = {}
         for i in linhas["interacoes"]:
             interacao_id = conn.execute(
-                "insert into interacoes (lote_id, ordem, autor, canal, tipo, texto) "
-                "values (%s,%s,%s,%s,%s,%s) returning id",
-                (lote_id, i["ordem"], i["autor"], i["canal"], i["tipo"], i["texto"])).fetchone()[0]
+                "insert into interacoes (lote_id, ordem, autor, canal, tipo, texto, data) "
+                "values (%s,%s,%s,%s,%s,%s,%s) returning id",
+                (lote_id, i["ordem"], i["autor"], i["canal"], i["tipo"], i["texto"], i["data"])).fetchone()[0]
             id_por_ordem[i["ordem"]] = interacao_id
             conn.execute(
                 "insert into analises (interacao_id, sentimento, topico, relevancia, rota) "
@@ -197,17 +206,14 @@ def atualizar_alerta(lote_id: int, ordem: int, status: str) -> None:
             raise LookupError(_LOTE_SUBSTITUIDO)
 
 
-FUSO = "America/Sao_Paulo"
-
-_COLUNAS_INTERACOES = ["lote_id", "processado_em", "periodo_referencia", "comunidade", "canal",
-                       "sentimento", "topico", "rota"]
+_COLUNAS_INTERACOES = ["lote_id", "data", "comunidade", "canal", "sentimento", "topico", "rota"]
 _COLUNAS_ATIVOS = ["lote_id", "chave", "tipo", "status", "canal"]
 
 
-def _filtros(inicio: date, fim: date, modo: str, comunidades, canais, col_lote: str, col_modo: str,
+def _filtros(inicio: date, fim: date, modo: str, comunidades, canais, col_data: str, col_modo: str,
              col_comunidade: str, col_canal: str) -> tuple[str, list]:
-    """Monta o where (período inclusivo no fuso de São Paulo, modo e filtros opcionais) e seus parâmetros."""
-    condicoes = [f"({col_lote} at time zone '{FUSO}')::date between %s and %s", f"{col_modo} = %s"]
+    """Monta o where (período inclusivo pela data das mensagens, modo e filtros opcionais) e seus parâmetros."""
+    condicoes = [f"{col_data} between %s and %s", f"{col_modo} = %s"]
     params: list = [inicio, fim, modo]
     if comunidades:
         condicoes.append(f"{col_comunidade} = any(%s)")
@@ -220,17 +226,19 @@ def _filtros(inicio: date, fim: date, modo: str, comunidades, canais, col_lote: 
 
 def consultar_interacoes(inicio: date, fim: date, modo: str, comunidades: list[str] | None = None,
                          canais: list[str] | None = None) -> pd.DataFrame:
-    where, params = _filtros(inicio, fim, modo, comunidades, canais, "processado_em", "modo_llm", "comunidade", "canal")
+    where, params = _filtros(inicio, fim, modo, comunidades, canais, "data", "modo_llm", "comunidade", "canal")
     with conectar() as conn, conn.cursor() as cur:
-        cur.execute("select lote_id, processado_em, periodo_referencia, comunidade, canal, sentimento, topico, rota "
+        cur.execute("select lote_id, data, comunidade, canal, sentimento, topico, rota "
                     f"from vw_interacoes_analisadas where {where} "
-                    "order by processado_em, lote_id, ordem", params)
+                    "order by data, lote_id, ordem", params)
         return pd.DataFrame(cur.fetchall(), columns=_COLUNAS_INTERACOES)
 
 
 def consultar_ativos(inicio: date, fim: date, modo: str, comunidades: list[str] | None = None,
                      canais: list[str] | None = None) -> pd.DataFrame:
-    where, params = _filtros(inicio, fim, modo, comunidades, canais, "l.processado_em", "l.modo_llm", "c.nome", "i.canal")
+    # Ativo sem mensagem de origem (a newsletter) conta no dia da mensagem mais recente do lote.
+    data_do_ativo = "coalesce(i.data, (select max(data) from interacoes where lote_id = a.lote_id))"
+    where, params = _filtros(inicio, fim, modo, comunidades, canais, data_do_ativo, "l.modo_llm", "c.nome", "i.canal")
     with conectar() as conn, conn.cursor() as cur:
         cur.execute("select a.lote_id, a.chave, a.tipo, a.status, i.canal "
                     "from ativos a join lotes l on l.id = a.lote_id "

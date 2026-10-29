@@ -1,7 +1,9 @@
 """Dados montados à mão para os testes das agregações de Insights."""
+from datetime import date
+
 import pandas as pd
 
-COLUNAS = ["lote_id", "processado_em", "periodo_referencia", "comunidade", "canal", "sentimento", "topico", "rota"]
+COLUNAS = ["lote_id", "data", "comunidade", "canal", "sentimento", "topico", "rota"]
 
 
 def vazio() -> pd.DataFrame:
@@ -9,13 +11,11 @@ def vazio() -> pd.DataFrame:
 
 
 def df_exemplo() -> pd.DataFrame:
-    """2 lotes em dias distintos, canais #a e #b, 6 linhas, 1 alerta e nenhum case de sucesso."""
-    t1 = pd.Timestamp("2026-10-20 15:00", tz="UTC")
-    t2 = pd.Timestamp("2026-10-21 15:00", tz="UTC")
+    """Mensagens de 3 dias (fora de ordem), canais #a e #b, 6 linhas, 1 alerta e nenhum case de sucesso."""
+    d1, d2, d3 = date(2026, 10, 3), date(2026, 10, 10), date(2026, 10, 11)
     return pd.DataFrame({
         "lote_id": ["l2", "l2", "l1", "l1", "l1", "l2"],
-        "processado_em": [t2, t2, t1, t1, t1, t2],
-        "periodo_referencia": ["semana 2", "semana 2", "semana 1", "semana 1", "semana 1", "semana 2"],
+        "data": [d3, d2, d1, d1, d2, d3],
         "comunidade": ["c"] * 6,
         "canal": ["#a", "#b", "#a", "#b", "#a", "#b"],
         "sentimento": ["Altamente Positivo", "Positivo", "Neutro", "Negativo", "Altamente Negativo", "Positivo"],

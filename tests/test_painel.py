@@ -497,11 +497,11 @@ def test_insights_com_canal_filtrado_avisa_sobre_newsletter(monkeypatch):
     assert any(aviso in c.value for c in at.caption)
 
 
-def test_insights_sem_lotes_no_periodo(monkeypatch):
+def test_insights_sem_mensagens_no_periodo(monkeypatch):
     from tests.dados_insights import vazio
     _banco_com(monkeypatch, vazio)
     at = _insights()
-    assert any("Nenhum lote processado" in i.value for i in at.info)
+    assert any("Nenhuma mensagem nesse período" in i.value for i in at.info)
     assert not at.metric
 
 

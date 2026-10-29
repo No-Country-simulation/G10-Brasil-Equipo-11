@@ -67,6 +67,21 @@ def test_hash_muda_quando_um_texto_muda(lote_exemplo):
     assert repositorio.hash_conteudo(lote_exemplo.model_copy(update={"interacoes": interacoes})) != repositorio.hash_conteudo(lote_exemplo)
 
 
+def test_hash_muda_quando_uma_data_muda(lote_exemplo):
+    interacoes = list(lote_exemplo.interacoes)
+    interacoes[0] = interacoes[0].model_copy(update={"data": date(2026, 10, 30)})
+    assert repositorio.hash_conteudo(lote_exemplo.model_copy(update={"interacoes": interacoes})) != repositorio.hash_conteudo(lote_exemplo)
+
+
+def test_linhas_levam_a_data_da_mensagem_ou_o_dia_da_importacao(lote_exemplo, resposta, monkeypatch):
+    monkeypatch.setattr(repositorio, "hoje", lambda: date(2026, 11, 3))
+    interacoes = list(lote_exemplo.interacoes)
+    interacoes[1] = interacoes[1].model_copy(update={"data": None})
+    linhas = repositorio.linhas_do_lote(lote_exemplo.model_copy(update={"interacoes": interacoes}), resposta)
+    assert linhas["interacoes"][0]["data"] == date(2026, 10, 2)
+    assert linhas["interacoes"][1]["data"] == date(2026, 11, 3)
+
+
 def test_linhas_do_lote(lote_exemplo, resposta):
     linhas = repositorio.linhas_do_lote(lote_exemplo, resposta)
     assert [l["ordem"] for l in linhas["interacoes"]] == list(range(12))
@@ -198,14 +213,17 @@ def test_processar_grava_com_o_modo_atual(lote_exemplo, monkeypatch):
 def test_consultar_interacoes_filtra_modo_canal_e_periodo(banco_real, lote_real, resposta_real):
     comunidade = banco_real
     repositorio.gravar_lote(lote_real, resposta_real, "mock")
-    hoje = date.today()
-    df = repositorio.consultar_interacoes(hoje, hoje, "mock", comunidades=[comunidade])
+    inicio, fim = date(2026, 10, 1), date(2026, 10, 31)
+    df = repositorio.consultar_interacoes(inicio, fim, "mock", comunidades=[comunidade])
     assert len(df) == 12 and set(df["comunidade"]) == {comunidade}
-    assert repositorio.consultar_interacoes(hoje, hoje, "gemini", comunidades=[comunidade]).empty
-    so_geral = repositorio.consultar_interacoes(hoje, hoje, "mock", [comunidade], ["#geral"])
+    assert df["data"].is_monotonic_increasing and df["data"].iloc[0] == date(2026, 10, 2)
+    assert repositorio.consultar_interacoes(inicio, fim, "gemini", comunidades=[comunidade]).empty
+    so_geral = repositorio.consultar_interacoes(inicio, fim, "mock", [comunidade], ["#geral"])
     assert set(so_geral["canal"]) == {"#geral"} and len(so_geral) == 2
+    um_dia = repositorio.consultar_interacoes(date(2026, 10, 5), date(2026, 10, 5), "mock", [comunidade])
+    assert len(um_dia) == 2  # o período segue a data da mensagem, não o dia em que o lote foi gravado
     assert repositorio.consultar_interacoes(
-        hoje - timedelta(days=30), hoje - timedelta(days=1), "mock", [comunidade]).empty
+        inicio - timedelta(days=30), inicio - timedelta(days=1), "mock", [comunidade]).empty
 
 
 @pytest.mark.real
@@ -213,10 +231,13 @@ def test_consultar_ativos_com_canal_tira_a_newsletter(banco_real, lote_real, res
     comunidade = banco_real
     lote_id = repositorio.gravar_lote(lote_real, resposta_real, "mock")
     repositorio.salvar_decisao(lote_id, "newsletter", "a", {}, autorizacao=False)
-    hoje = date.today()
-    todos = repositorio.consultar_ativos(hoje, hoje, "mock", [comunidade])
+    inicio, fim = date(2026, 10, 1), date(2026, 10, 31)
+    todos = repositorio.consultar_ativos(inicio, fim, "mock", [comunidade])
     assert len(todos) == 7 and todos.set_index("chave").loc["newsletter", "status"] == "aprovado"
-    duvidas = repositorio.consultar_ativos(hoje, hoje, "mock", [comunidade], ["#duvidas-oci"])
+    # a newsletter não tem mensagem de origem: conta no dia da mensagem mais recente do lote (27/10)
+    assert "newsletter" in set(repositorio.consultar_ativos(date(2026, 10, 27), fim, "mock", [comunidade])["chave"])
+    assert "newsletter" not in set(repositorio.consultar_ativos(inicio, date(2026, 10, 26), "mock", [comunidade])["chave"])
+    duvidas = repositorio.consultar_ativos(inicio, fim, "mock", [comunidade], ["#duvidas-oci"])
     assert "newsletter" not in set(duvidas["chave"]) and set(duvidas["canal"]) == {"#duvidas-oci"}
 
 

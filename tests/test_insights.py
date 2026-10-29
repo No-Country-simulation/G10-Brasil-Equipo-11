@@ -32,13 +32,16 @@ def test_numeros_periodo_vazio():
     assert ins.numeros_periodo(vazio()) == {"total": 0, "pct_positivas": 0.0, "pct_negativas": 0.0, "alertas": 0}
 
 
-def test_sentimento_por_lote_ordenado_e_soma_o_total(df):
-    s = ins.sentimento_por_lote(df)
-    assert s["processado_em"].is_monotonic_increasing and s["quantidade"].sum() == 6
+def test_sentimento_por_dia_ordenado_e_soma_o_total(df):
+    s = ins.sentimento_por_dia(df)
+    assert s["data"].is_monotonic_increasing and s["quantidade"].sum() == 6
+    assert list(s["data"].drop_duplicates().dt.day) == [3, 10, 11]
 
 
-def test_rotulo_usa_fuso_local(df):
-    assert ins.sentimento_por_lote(df)["rotulo"].iloc[0] == "20/10 12:00 · semana 1 · c"
+def test_sentimento_por_dia_junta_lotes_do_mesmo_dia(df):
+    s = ins.sentimento_por_dia(df)
+    dia_10 = s[s["data"] == pd.Timestamp("2026-10-10")]
+    assert dia_10["quantidade"].sum() == 2  # uma mensagem de cada lote
 
 
 def test_sentimento_por_canal_soma_100_por_canal(df):
@@ -52,13 +55,33 @@ def test_topicos_limita_e_ordena(df_com_12_topicos):
 
 
 def test_volume_por_canal(df):
-    assert ins.volume_por_canal(df)["quantidade"].sum() == 6
+    v = ins.volume_por_canal(df)
+    assert v["quantidade"].sum() == 6 and v["data"].is_monotonic_increasing
+    assert v[(v["data"] == pd.Timestamp("2026-10-03"))].set_index("canal")["quantidade"].to_dict() == {"#a": 1, "#b": 1}
 
 
-def test_rotas_geradas_inclui_zero(df):
+def test_rotas_geradas_inclui_zero_e_sem_acao(df):
     r = ins.rotas_geradas(df)
-    assert list(r["rota"]) == ["case_sucesso", "faq", "alerta"]
-    assert r.set_index("rota").loc["case_sucesso", "quantidade"] == 0
+    assert list(r["rota"]) == ["case_sucesso", "faq", "alerta", "nenhuma"]
+    assert r.set_index("rota")["quantidade"].to_dict() == {"case_sucesso": 0, "faq": 3, "alerta": 1, "nenhuma": 2}
+
+
+def test_sentimento_divergente_centra_o_neutro():
+    df = pd.DataFrame({"canal": ["#n", "#n", "#m", "#m", "#m", "#m"],
+                       "sentimento": ["Neutro", "Neutro", "Negativo", "Neutro", "Positivo", "Altamente Positivo"]})
+    t = ins.sentimento_divergente(df).set_index(["canal", "sentimento"])
+    assert (t.loc[("#n", "Neutro"), "inicio"], t.loc[("#n", "Neutro"), "fim"]) == (-50, 50)
+    # #m: 25% negativo à esquerda, metade do neutro de cada lado, positivos à direita
+    assert t.loc[("#m", "Negativo"), "inicio"] == pytest.approx(-37.5)
+    assert t.loc[("#m", "Neutro"), "inicio"] == pytest.approx(-12.5)
+    assert t.loc[("#m", "Altamente Positivo"), "fim"] == pytest.approx(62.5)
+
+
+def test_resumo_por_canal_ordena_do_mais_positivo():
+    df = pd.DataFrame({"canal": ["#ruim", "#bom", "#bom"], "sentimento": ["Negativo", "Positivo", "Neutro"]})
+    r = ins.resumo_por_canal(df)
+    assert list(r["canal"]) == ["#bom", "#ruim"]
+    assert r.set_index("canal").loc["#bom", "pct_positivas"] == 50 and r.set_index("canal").loc["#ruim", "pct_negativas"] == 100
 
 
 def test_aproveitamento_ativos():
@@ -71,7 +94,7 @@ def test_aproveitamento_ativos_vazio():
         "gerados": 0, "aprovados": 0, "descartados": 0, "pendentes": 0}
 
 
-@pytest.mark.parametrize("funcao", [ins.sentimento_por_lote, ins.sentimento_por_canal, ins.topicos_mais_falados,
-                                    ins.volume_por_canal])
+@pytest.mark.parametrize("funcao", [ins.sentimento_por_dia, ins.sentimento_por_canal, ins.topicos_mais_falados,
+                                    ins.volume_por_canal, ins.sentimento_divergente, ins.resumo_por_canal])
 def test_tabelas_vazias_nao_quebram(funcao):
     assert funcao(vazio()).empty

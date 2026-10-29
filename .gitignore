@@ -43,3 +43,7 @@ saida_local/
 requirements.txt.backup
 
 *.egg-info/
+
+# Artefatos locais do Superpowers (brainstorm, specs e planos)
+.superpowers/
+docs/superpowers/

@@ -9,3 +9,4 @@ streamlit>=1.50
 pandas>=2.0
 pytest>=8.0
 httpx>=0.27
+psycopg[binary]>=3.2

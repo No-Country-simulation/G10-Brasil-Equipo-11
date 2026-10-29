@@ -127,7 +127,11 @@ def processar_lote(lote, substituir: bool = False):
 
 def abrir_lote(lote_id: int):
     """Reabre um lote do histórico do jeito que ficou (decisões, textos editados e alertas), sem chamar a IA."""
-    salvo = repositorio.carregar_lote(lote_id)
+    try:
+        salvo = repositorio.carregar_lote(lote_id)
+    except Exception as e:
+        st.warning(f"Não foi possível abrir o resultado salvo: {e}")
+        return
     limpar_chaves_do_lote()
     ss.update({
         "resultado": salvo["resposta"], "processado_em": salvo["processado_em"].astimezone(),
@@ -165,6 +169,10 @@ def mostrar_leitura(leitura):
                 st.code(leitura.evidencia, language=None)
 
 
+def descartar_duplicado():  # origem e período mudam o lote, então o aviso de duplicado deixa de valer
+    ss["duplicado"] = None
+
+
 def tela_importar():
     st.title("Importar interações")
     st.markdown('<p class="cl-sub">Envie as mensagens da semana. O pipeline classifica cada uma e gera os ativos para você revisar.</p>',
@@ -189,8 +197,10 @@ def tela_importar():
         leitura = ss["leitura"]
         with st.container(border=True):
             st.subheader("Dados do lote")
-            st.text_input("Comunidade de origem", key="origem", placeholder="Ex.: Discord_Grupo_ONE_G10")
-            st.text_input("Período de referência", key="periodo", placeholder="Ex.: Semana_04")
+            st.text_input("Comunidade de origem", key="origem", placeholder="Ex.: Discord_Grupo_ONE_G10",
+                          on_change=descartar_duplicado)
+            st.text_input("Período de referência", key="periodo", placeholder="Ex.: Semana_04",
+                          on_change=descartar_duplicado)
             if ss["periodo"].strip():
                 st.caption(f"O pacote será salvo em `ativos/{datetime.now().year}-{ss['periodo'].strip().lower().replace('_', '-')}/`")
             pronto = bool(leitura and leitura.ok)

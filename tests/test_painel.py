@@ -264,6 +264,35 @@ def test_falha_do_banco_mostra_aviso_e_segue(monkeypatch):
     assert any("não foi salvo no histórico" in w.value for w in at.warning)
 
 
+def _com_duplicado():
+    from datetime import datetime, timezone
+    at = _app().run()
+    _botao(at, "Usar lote de exemplo").click().run()
+    at.session_state["duplicado"] = {"id": 999, "processado_em": datetime.now(timezone.utc), "total_interacoes": 12}
+    return at.run()
+
+
+def test_falha_ao_abrir_resultado_existente_avisa_e_fica_em_importar(monkeypatch):
+    from app import repositorio
+
+    def falha(lote_id):
+        raise RuntimeError("conexão caiu")
+    monkeypatch.setattr(repositorio, "carregar_lote", falha)
+    at = _com_duplicado()
+    assert any("já foi processado" in w.value for w in at.warning)
+    _botao(at, "Abrir resultado existente").click().run()
+    assert not at.exception
+    assert at.radio(key="pagina").value == "Importar"
+    assert any("Não foi possível abrir o resultado salvo" in w.value for w in at.warning)
+
+
+def test_mudar_origem_descarta_aviso_de_duplicado():
+    at = _com_duplicado()
+    at.text_input(key="origem").input("Outra_Comunidade").run()
+    assert not any("já foi processado" in w.value for w in at.warning)
+    assert at.session_state["duplicado"] is None
+
+
 @pytest.mark.real
 def test_duplicado_oferece_abrir_ou_substituir(banco_real_painel):
     at = _app().run()

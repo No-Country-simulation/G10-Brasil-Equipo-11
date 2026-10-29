@@ -65,3 +65,11 @@ def banco_real(monkeypatch):
     url, comunidade = banco_de_teste(monkeypatch, "Teste_Repositorio_")
     yield comunidade
     limpar_comunidade(url, comunidade)
+
+
+@pytest.fixture
+def banco_real_painel(monkeypatch):
+    """Banco real para os testes do painel; devolve o nome da comunidade e a apaga no fim."""
+    url, comunidade = banco_de_teste(monkeypatch, "Teste_Painel_")
+    yield comunidade
+    limpar_comunidade(url, comunidade)

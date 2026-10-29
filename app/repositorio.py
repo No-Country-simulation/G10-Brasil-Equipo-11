@@ -86,7 +86,8 @@ _STATUS_PARA_DECISAO = {v: k for k, v in _DECISAO_PARA_STATUS.items()}
 
 
 def conectar() -> psycopg.Connection:
-    return psycopg.connect(os.environ["DATABASE_URL"])
+    # Sem limite, uma conexão recusada no Windows espera 130 s e trava o painel.
+    return psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=5)
 
 
 def gravar_lote(lote: LoteEntrada, resposta: dict, modo: str) -> int:

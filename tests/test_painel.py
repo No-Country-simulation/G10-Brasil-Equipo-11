@@ -237,3 +237,41 @@ def test_mensagem_com_html_nao_vira_codigo(tmp_path):
     html = " ".join(m.value for m in at.markdown)
     assert "<script>" not in html
     assert "&lt;script&gt;" in html
+
+
+def test_origem_digitada_continua_ao_voltar_para_importar():
+    at = _app().run()
+    _botao(at, "Usar lote de exemplo").click().run()
+    at.text_input(key="origem").input("Forum_Teste").run()
+    _botao(at, "Processar 12 interações").click().run()
+    at.radio(key="pagina").set_value("Importar").run()
+    assert at.text_input(key="origem").value == "Forum_Teste"
+
+
+# ---------------------------------------------------------------------------
+# Histórico no banco (duplicado, abrir resultado existente)
+# ---------------------------------------------------------------------------
+def test_sem_banco_processa_sem_aviso_de_duplicado():
+    at = _processar_exemplo()
+    assert not any(b.label == "Abrir resultado existente" for b in at.button)
+    assert at.session_state["lote_id"] is None
+
+
+def test_falha_do_banco_mostra_aviso_e_segue(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://usuario:errada@127.0.0.1:1/postgres")
+    at = _processar_exemplo()
+    assert at.radio(key="pagina").value == "Visão geral"
+    assert any("não foi salvo no histórico" in w.value for w in at.warning)
+
+
+@pytest.mark.real
+def test_duplicado_oferece_abrir_ou_substituir(banco_real_painel):
+    at = _app().run()
+    _botao(at, "Usar lote de exemplo").click().run()
+    at.text_input(key="origem").input(banco_real_painel).run()
+    _botao(at, "Processar 12 interações").click().run()
+    at.radio(key="pagina").set_value("Importar").run()
+    _botao(at, "Processar 12 interações").click().run()
+    assert any("já foi processado" in w.value for w in at.warning)
+    _botao(at, "Abrir resultado existente").click().run()
+    assert at.radio(key="pagina").value == "Visão geral" and not at.exception

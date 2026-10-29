@@ -9,7 +9,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from app import repositorio
+from app import llm, repositorio
 from ui import insights as ins
 from ui.estilo import AZUL, AZUL_ESCURO, CINZA, LARANJA, LARANJA_ESCURO, ROTAS, SENTIMENTOS
 
@@ -41,7 +41,8 @@ def _filtros():
     hoje = pd.Timestamp.now(tz=ins.FUSO).date()
     padrao = (hoje - timedelta(weeks=SEMANAS_PADRAO), hoje)
     c_com, c_per, c_can, c_modo = st.columns([3, 2, 3, 2], vertical_alignment="bottom")
-    modo = MODOS[c_modo.radio("Modo", list(MODOS), key="ins_modo", horizontal=True)]
+    no_simulado = list(MODOS).index("Simulado") if llm.modo_mock() else 0  # começa no modo em que o app roda
+    modo = MODOS[c_modo.radio("Modo", list(MODOS), index=no_simulado, key="ins_modo", horizontal=True)]
     opcoes = repositorio.opcoes_filtros(modo)
     comunidades = c_com.multiselect("Comunidade", opcoes["comunidades"], key="ins_comunidades", placeholder="Todas")
     inicio, fim = _periodo(c_per.date_input("Período", value=padrao, key="ins_periodo", format="DD/MM/YYYY"), padrao)

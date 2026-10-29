@@ -461,18 +461,29 @@ def test_insights_com_dados_mostra_numeros(monkeypatch):
     assert not at.warning
 
 
-def test_insights_comeca_no_gemini_sem_filtros_e_muda_para_simulado(monkeypatch):
+def test_insights_comeca_no_modo_do_app_sem_filtros_e_muda_de_modo(monkeypatch):
     from tests.dados_insights import df_exemplo
     chamadas = []
     _banco_com(monkeypatch, df_exemplo, chamadas)
     at = _insights()
     (inicio, fim, modo), filtros = chamadas[-1]
-    assert modo == "gemini" and (fim - inicio).days == 56
+    assert modo == "mock" and (fim - inicio).days == 56
     assert not filtros.get("comunidades") and not filtros.get("canais")
-    at.radio(key="ins_modo").set_value("Simulado").run()
+    at.radio(key="ins_modo").set_value("Gemini").run()
     at.multiselect(key="ins_canais").select("#a").run()
     (_, _, modo), filtros = chamadas[-1]
-    assert modo == "mock" and filtros["canais"] == ["#a"]
+    assert modo == "gemini" and filtros["canais"] == ["#a"]
+
+
+def test_insights_comeca_no_gemini_quando_o_app_usa_gemini(monkeypatch):
+    from tests.dados_insights import df_exemplo
+    chamadas = []
+    monkeypatch.setenv("LLM_MODO", "")  # vazio, e não apagado, para o load_dotenv não trazer o do .env
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-de-teste")
+    _banco_com(monkeypatch, df_exemplo, chamadas)
+    _insights()
+    (_, _, modo), _ = chamadas[-1]
+    assert modo == "gemini"
 
 
 def test_insights_com_canal_filtrado_avisa_sobre_newsletter(monkeypatch):

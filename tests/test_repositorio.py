@@ -3,6 +3,7 @@ import os
 import unicodedata
 from pathlib import Path
 
+import psycopg
 import pytest
 
 import ui.curadoria as cur
@@ -85,3 +86,79 @@ def test_linhas_sem_case_nao_tem_post(lote_exemplo):
     linhas = repositorio.linhas_do_lote(so_duvida, processar(so_duvida))
     assert [a["chave"] for a in linhas["ativos"]] == ["newsletter", "faq_0"]
     assert linhas["alertas"] == []
+
+
+@pytest.fixture
+def lote_real(lote_exemplo, banco_real):
+    return lote_exemplo.model_copy(update={"origem_comunidade": banco_real})
+
+
+@pytest.fixture
+def resposta_real(lote_real):
+    return processar(lote_real)
+
+
+def _linhas_na_view(comunidade):
+    with repositorio.conectar() as conn:
+        return conn.execute("select count(*) from vw_interacoes_analisadas where comunidade = %s",
+                            (comunidade,)).fetchone()[0]
+
+
+@pytest.mark.real
+def test_gravar_e_carregar_lote(banco_real, lote_real, resposta_real):
+    lote_id = repositorio.gravar_lote(lote_real, resposta_real, "mock")
+    achado = repositorio.buscar_lote(repositorio.hash_conteudo(lote_real), "mock")
+    assert achado["id"] == lote_id and achado["total_interacoes"] == 12
+    carregado = repositorio.carregar_lote(lote_id)
+    assert carregado["resposta"] == resposta_real
+    assert carregado["decisoes"] == {c: "p" for c in cur.ids_dos_ativos(resposta_real)}
+    assert carregado["alertas"] == {} and carregado["autorizado"] is False
+    assert carregado["origem"] == banco_real and carregado["periodo"] == lote_real.periodo_referencia
+
+
+@pytest.mark.real
+def test_reprocessar_no_mesmo_modo_substitui(banco_real, lote_real, resposta_real):
+    primeiro = repositorio.gravar_lote(lote_real, resposta_real, "mock")
+    segundo = repositorio.gravar_lote(lote_real, resposta_real, "mock")
+    assert segundo != primeiro
+    assert repositorio.buscar_lote(repositorio.hash_conteudo(lote_real), "mock")["id"] == segundo
+    assert _linhas_na_view(banco_real) == 12
+
+
+@pytest.mark.real
+def test_mock_e_gemini_nao_se_substituem(banco_real, lote_real, resposta_real):
+    h = repositorio.hash_conteudo(lote_real)
+    a = repositorio.gravar_lote(lote_real, resposta_real, "mock")
+    b = repositorio.gravar_lote(lote_real, resposta_real, "gemini")
+    assert repositorio.buscar_lote(h, "mock")["id"] == a
+    assert repositorio.buscar_lote(h, "gemini")["id"] == b
+
+
+@pytest.mark.real
+def test_decisoes_e_alertas_sao_restaurados(banco_real, lote_real, resposta_real):
+    lote_id = repositorio.gravar_lote(lote_real, resposta_real, "mock")
+    repositorio.salvar_decisao(lote_id, "post", "a", {"post_copy": "Revisado"}, autorizacao=True)
+    repositorio.salvar_decisao(lote_id, "faq_0", "d", {}, autorizacao=True)
+    repositorio.atualizar_alerta(lote_id, 6, "resolvido")
+    c = repositorio.carregar_lote(lote_id)
+    assert c["decisoes"]["post"] == "a" and c["decisoes"]["faq_0"] == "d"
+    assert c["textos"]["post_copy"] == "Revisado" and c["autorizado"] is True
+    assert c["alertas"] == {6: "resolvido"}
+
+
+@pytest.mark.real
+def test_voltar_para_pendente_limpa_revisao(banco_real, lote_real, resposta_real):
+    lote_id = repositorio.gravar_lote(lote_real, resposta_real, "mock")
+    repositorio.salvar_decisao(lote_id, "faq_0", "a", {}, autorizacao=False)
+    repositorio.salvar_decisao(lote_id, "faq_0", "p", {}, autorizacao=False)
+    with repositorio.conectar() as conn:
+        rev = conn.execute("select revisado_em from ativos where lote_id = %s and chave = 'faq_0'",
+                           (lote_id,)).fetchone()[0]
+    assert rev is None
+
+
+@pytest.mark.real
+def test_post_aprovado_sem_autorizacao_e_recusado_pelo_banco(banco_real, lote_real, resposta_real):
+    lote_id = repositorio.gravar_lote(lote_real, resposta_real, "mock")
+    with pytest.raises(psycopg.errors.CheckViolation):
+        repositorio.salvar_decisao(lote_id, "post", "a", {}, autorizacao=False)

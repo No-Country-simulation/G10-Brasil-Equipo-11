@@ -56,6 +56,9 @@ def iniciar_estado():
         ss["pagina"] = ss.pop("_ir_para")
     if ss["pagina"] != "Importar":  # fora da tela, o Streamlit apagaria o que foi digitado nos campos do lote
         ss["origem"], ss["periodo"] = ss["origem"], ss["periodo"]
+    if ss["pagina"] != "Curadoria":  # idem para os textos editados e a autorização da Curadoria
+        for chave in [k for k in ss.keys() if str(k).startswith("txt_") or k == "autorizado"]:
+            ss[chave] = ss[chave]
 
 
 def ir_para(tela: str):
@@ -230,6 +233,16 @@ def tela_importar():
 ACOES_ALERTA = {"reclamacao": "Encaminhar ao time de conteúdo"}
 
 
+def tratar_alerta(ordem: int, status: str):
+    ss["alertas"][ordem] = status
+    if ss["lote_id"]:
+        try:
+            repositorio.atualizar_alerta(ss["lote_id"], ordem, status)
+        except Exception as e:
+            ss["aviso_banco"] = f"O status do alerta não foi salvo no histórico: {e}"
+    st.rerun()
+
+
 def tela_visao_geral():
     if ss["aviso_banco"]:
         st.warning(ss["aviso_banco"])
@@ -249,8 +262,8 @@ def tela_visao_geral():
     if pendentes() and botao.button(f"Revisar {pendentes()} ativos", type="primary", width="stretch"):
         ir_para("Curadoria")
 
-    alertas = [a for a in analises if a["rota"] == "alerta"]
-    abertos = [a for a in alertas if a["autor"] not in ss["alertas"]]
+    alertas = [(ordem, a) for ordem, a in enumerate(analises) if a["rota"] == "alerta"]
+    abertos = [a for ordem, a in alertas if ordem not in ss["alertas"]]
     n_faq = len(ativos.get("sugestao_conteudo_faq") or [])
     partes = (["1 post"] if ativos.get("post_linkedin") else []) + \
              (["1 newsletter"] if ativos.get("destaque_newsletter_semanal") else []) + ([f"{n_faq} FAQ"] if n_faq else [])
@@ -289,23 +302,21 @@ def tela_visao_geral():
             st.subheader("Membros que precisam de apoio")
             st.caption("Não viram conteúdo. Vão para o time de comunidade decidir o contato.")
             colunas = st.columns(min(len(alertas), 2))
-            for i, a in enumerate(alertas):
+            for i, (ordem, a) in enumerate(alertas):
                 with colunas[i % len(colunas)].container(border=True):
                     st.markdown(f'**{esc(a["autor"])}** <span class="cl-mono" style="font-size:13px;color:#555D6B">{esc(a["canal"])}</span>',
                                 unsafe_allow_html=True)
                     st.markdown(f'<div class="cl-alerta">“{esc(a["texto"])}”</div>', unsafe_allow_html=True)
-                    feito = ss["alertas"].get(a["autor"])
+                    feito = ss["alertas"].get(ordem)
                     if feito:
-                        st.markdown(selo(feito, "#E8EEFB", AZUL_ESCURO), unsafe_allow_html=True)
+                        st.markdown(selo(cur.STATUS_ALERTA.get(feito, feito), "#E8EEFB", AZUL_ESCURO), unsafe_allow_html=True)
                     else:
                         b1, b2 = st.columns(2)
                         acao = ACOES_ALERTA.get(a["tipo"], "Oferecer mentoria")
                         if b1.button(acao, key=f"al_{i}_acao", width="stretch"):
-                            ss["alertas"][a["autor"]] = "Encaminhado" if a["tipo"] == "reclamacao" else "Mentoria oferecida"
-                            st.rerun()
+                            tratar_alerta(ordem, "encaminhado" if a["tipo"] == "reclamacao" else "mentoria_oferecida")
                         if b2.button("Marcar como resolvido", key=f"al_{i}_ok", width="stretch"):
-                            ss["alertas"][a["autor"]] = "Resolvido"
-                            st.rerun()
+                            tratar_alerta(ordem, "resolvido")
 
     with st.container(border=True):
         cab, filtro_col = st.columns([2, 3], vertical_alignment="bottom")
@@ -331,16 +342,27 @@ def tela_visao_geral():
 # ---------------------------------------------------------------------------
 # Tela 3 — Curadoria
 # ---------------------------------------------------------------------------
+def decidir(id_ativo: str, decisao: str):
+    """Guarda a decisão no estado e, se o lote está no histórico, no banco (com os textos editados do ativo)."""
+    ss["decisoes"][id_ativo] = decisao
+    if ss["lote_id"]:
+        try:
+            repositorio.salvar_decisao(ss["lote_id"], id_ativo, decisao, cur.textos_do_ativo(id_ativo, textos_editados()),
+                                       autorizacao=bool(ss.get("autorizado")))
+        except Exception as e:
+            ss["aviso_banco"] = f"A decisão não foi salva no histórico: {e}"
+
+
 def botoes_decisao(id_ativo: str, rotulo_aprovar: str, bloqueado: bool = False):
     decisao = ss["decisoes"].get(id_ativo, cur.PENDENTE)
     _, area = st.columns([2, 3])
     if decisao == cur.PENDENTE:
         d, a = area.columns(2)
         if d.button("Descartar", key=f"dec_{id_ativo}_d", width="stretch"):
-            ss["decisoes"][id_ativo] = cur.DESCARTADO
+            decidir(id_ativo, cur.DESCARTADO)
             st.rerun()
         if a.button(rotulo_aprovar, key=f"dec_{id_ativo}_a", type="primary", disabled=bloqueado, width="stretch"):
-            ss["decisoes"][id_ativo] = cur.APROVADO
+            decidir(id_ativo, cur.APROVADO)
             st.rerun()
     else:
         s, u = area.columns(2, vertical_alignment="center")
@@ -348,7 +370,7 @@ def botoes_decisao(id_ativo: str, rotulo_aprovar: str, bloqueado: bool = False):
         cores = ("#E8EEFB", AZUL_ESCURO) if decisao == cur.APROVADO else ("#EEF1F6", "#555D6B")
         s.markdown(f'<div style="text-align:right">{selo(texto, *cores)}</div>', unsafe_allow_html=True)
         if u.button("Desfazer", key=f"dec_{id_ativo}_u", width="stretch"):
-            ss["decisoes"][id_ativo] = cur.PENDENTE
+            decidir(id_ativo, cur.PENDENTE)
             st.rerun()
 
 
@@ -362,6 +384,8 @@ def textos_editados() -> dict:
 
 
 def tela_curadoria():
+    if ss["aviso_banco"]:
+        st.warning(ss["aviso_banco"])
     r = ss["resultado"]
     if not r:
         st.title("Curadoria")
@@ -395,7 +419,7 @@ def tela_curadoria():
                 nome = membro["autor"].split()[0] if membro else "O membro"
                 autorizado = st.checkbox(f"{nome} autorizou o uso do nome e do depoimento", key="autorizado")
                 if not autorizado and ss["decisoes"].get("post") == cur.APROVADO:
-                    ss["decisoes"]["post"] = cur.PENDENTE  # sem autorização, o post volta para pendente
+                    decidir("post", cur.PENDENTE)  # sem autorização, o post volta para pendente
                 botoes_decisao("post", "Aprovar post", bloqueado=not autorizado)
                 if not autorizado and ss["decisoes"].get("post") == cur.PENDENTE:
                     st.caption("Marque a autorização para liberar a aprovação.")

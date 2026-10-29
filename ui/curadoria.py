@@ -11,6 +11,7 @@ from pathlib import Path
 from app.storage import caminho_objeto
 
 PENDENTE, APROVADO, DESCARTADO = "p", "a", "d"
+STATUS_ALERTA = {"encaminhado": "Encaminhado", "mentoria_oferecida": "Mentoria oferecida", "resolvido": "Resolvido"}
 
 
 def membro_do_post(resultado: dict) -> dict | None:
@@ -38,6 +39,12 @@ def ids_dos_ativos(resultado: dict) -> list[str]:
         ids.append("newsletter")
     ids += [f"faq_{i}" for i in range(len(ativos.get("sugestao_conteudo_faq") or []))]
     return ids
+
+
+def textos_do_ativo(id_ativo: str, textos: dict[str, str]) -> dict[str, str]:
+    """Os textos editados (sem o "txt_") que pertencem a um ativo, para gravar junto com a decisão."""
+    prefixo = {"post": "post_", "newsletter": "news_"}.get(id_ativo, f"{id_ativo}_")
+    return {k: v for k, v in textos.items() if k.startswith(prefixo)}
 
 
 def resumo(decisoes: dict[str, str]) -> dict[str, int]:

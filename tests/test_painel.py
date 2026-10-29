@@ -221,6 +221,110 @@ def test_desmarcar_autorizacao_devolve_post_para_pendente():
     assert at.button(key="dec_post_a").disabled
 
 
+def test_textos_do_ativo():
+    textos = {"post_copy": "P", "news_chamada": "C", "news_resumo": "R", "faq_0_conteudo": "F0", "faq_1_conteudo": "F1"}
+    assert cur.textos_do_ativo("post", textos) == {"post_copy": "P"}
+    assert cur.textos_do_ativo("newsletter", textos) == {"news_chamada": "C", "news_resumo": "R"}
+    assert cur.textos_do_ativo("faq_1", textos) == {"faq_1_conteudo": "F1"}
+
+
+def test_dois_alertas_da_mesma_pessoa_sao_independentes():
+    lote = json.loads(EXEMPLO.read_text(encoding="utf-8"))
+    lote["interacoes"][10]["autor"] = "Juliana Prado"
+    from app.grafo import processar
+    from app.schemas import LoteEntrada
+    at = _app()
+    at.session_state["resultado"] = processar(LoteEntrada(**lote))
+    at.session_state["decisoes"] = {}
+    at.session_state["pagina"] = "Visão geral"
+    at.run()
+    at.button(key="al_0_ok").click().run()
+    assert {m.label: m.value for m in at.metric}["Membros que precisam de apoio"] == "1"
+
+
+def test_decisao_e_gravada_quando_ha_lote(monkeypatch):
+    chamadas = []
+    monkeypatch.setattr("app.repositorio.salvar_decisao", lambda *a, **k: chamadas.append((a, k)))
+    at = _processar_exemplo()
+    at.session_state["lote_id"] = 7
+    _botao(at, "Revisar 7 ativos").click().run()
+    at.text_input(key="txt_news_chamada").input("Chamada revisada").run()
+    at.button(key="dec_newsletter_a").click().run()
+    (args, kwargs), = chamadas
+    assert args[:3] == (7, "newsletter", "a") and args[3]["news_chamada"] == "Chamada revisada"
+
+
+def test_decisao_sem_lote_nao_chama_o_banco(monkeypatch):
+    chamadas = []
+    monkeypatch.setattr("app.repositorio.salvar_decisao", lambda *a, **k: chamadas.append((a, k)))
+    at = _processar_exemplo()
+    _botao(at, "Revisar 7 ativos").click().run()
+    at.button(key="dec_newsletter_a").click().run()
+    assert chamadas == [] and at.session_state["decisoes"]["newsletter"] == cur.APROVADO
+
+
+def test_falha_ao_gravar_decisao_vira_aviso(monkeypatch):
+    def falha(*a, **k):
+        raise RuntimeError("conexão caiu")
+    monkeypatch.setattr("app.repositorio.salvar_decisao", falha)
+    at = _processar_exemplo()
+    at.session_state["lote_id"] = 7
+    _botao(at, "Revisar 7 ativos").click().run()
+    at.button(key="dec_newsletter_a").click().run()
+    assert not at.exception
+    assert at.session_state["decisoes"]["newsletter"] == cur.APROVADO
+    assert any("conexão caiu" in w.value for w in at.warning)
+
+
+def test_alertas_gravam_status_no_banco(monkeypatch):
+    chamadas = []
+    monkeypatch.setattr("app.repositorio.atualizar_alerta", lambda *a, **k: chamadas.append(a))
+    at = _processar_exemplo()
+    at.session_state["lote_id"] = 7
+    at.run()
+    analises = at.session_state["resultado"]["analises"]
+    ordens = [n for n, a in enumerate(analises) if a["rota"] == "alerta"]
+    at.button(key="al_0_acao").click().run()
+    at.button(key="al_1_ok").click().run()
+    status_acao = "encaminhado" if analises[ordens[0]]["tipo"] == "reclamacao" else "mentoria_oferecida"
+    assert chamadas == [(7, ordens[0], status_acao), (7, ordens[1], "resolvido")]
+    assert at.session_state["alertas"] == {ordens[0]: status_acao, ordens[1]: "resolvido"}
+    assert {m.label: m.value for m in at.metric}["Membros que precisam de apoio"] == "0"
+
+
+def test_falha_ao_gravar_alerta_vira_aviso(monkeypatch):
+    def falha(*a, **k):
+        raise RuntimeError("conexão caiu")
+    monkeypatch.setattr("app.repositorio.atualizar_alerta", falha)
+    at = _processar_exemplo()
+    at.session_state["lote_id"] = 7
+    at.run()
+    at.button(key="al_0_ok").click().run()
+    assert not at.exception
+    assert any("conexão caiu" in w.value for w in at.warning)
+
+
+def test_texto_editado_continua_ao_voltar_para_curadoria():
+    at = _processar_exemplo()
+    _botao(at, "Revisar 7 ativos").click().run()
+    at.text_input(key="txt_news_chamada").input("Chamada revisada").run()
+    at.radio(key="pagina").set_value("Visão geral").run()
+    at.radio(key="pagina").set_value("Curadoria").run()
+    assert not at.exception
+    assert at.text_input(key="txt_news_chamada").value == "Chamada revisada"
+
+
+def test_post_aprovado_continua_ao_voltar_para_curadoria():
+    at = _processar_exemplo()
+    _botao(at, "Revisar 7 ativos").click().run()
+    at.checkbox(key="autorizado").check().run()
+    at.button(key="dec_post_a").click().run()
+    at.radio(key="pagina").set_value("Visão geral").run()
+    at.radio(key="pagina").set_value("Curadoria").run()
+    assert at.checkbox(key="autorizado").value
+    assert at.session_state["decisoes"]["post"] == cur.APROVADO
+
+
 def test_mensagem_com_html_nao_vira_codigo(tmp_path):
     lote = json.loads(EXEMPLO.read_text(encoding="utf-8"))
     lote["interacoes"][6]["texto"] = "<script>alert(1)</script> estou pensando em desistir"

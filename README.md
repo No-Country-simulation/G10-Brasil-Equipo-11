@@ -36,10 +36,13 @@ communityLab/
 │   ├── llm.py
 │   ├── main.py
 │   ├── prompts.py
+│   ├── repositorio.py
 │   ├── schemas.py
 │   └── storage.py
 ├── data/
 │   └── interacoes_exemplo.json
+├── supabase/
+│   └── migrations/
 ├── src/
 │   └── communitylab/
 │       ├── adapter.py
@@ -49,7 +52,9 @@ communityLab/
 │   ├── test_ingestion.py
 │   └── test_pipeline.py
 ├── ui/
-│   └── painel.py
+│   ├── insights.py
+│   ├── painel.py
+│   └── tela_insights.py
 ├── .env.example
 ├── .gitignore
 ├── pyproject.toml
@@ -157,6 +162,29 @@ O uso do modelo real depende da configuração de `GEMINI_API_KEY` e das demais 
 ### Armazenamento
 
 O sistema pode salvar os resultados localmente ou utilizar o OCI Object Storage quando configurado. A integração real com a nuvem deve ser validada separadamente.
+
+### Supabase
+
+Opcional. Com um banco Postgres do Supabase, os lotes processados ficam guardados e o painel ganha histórico e a aba **Insights**.
+
+1. Crie um projeto no Supabase.
+2. Abra o **SQL Editor**, cole o conteúdo de `supabase/migrations/20261027000000_inicial.sql` e execute (ou use `supabase db push`).
+3. Copie a string do **Session pooler** (a conexão direta só funciona por IPv6) para `DATABASE_URL` no `.env`.
+
+O que muda no painel:
+
+* Os lotes processados ficam no histórico.
+* Se o mesmo conteúdo (comunidade e interações) for processado de novo no mesmo modo (simulado ou Gemini), o painel avisa e oferece **Abrir resultado existente** ou **Processar de novo e substituir**. A API `/processar` substitui o lote em silêncio.
+* As decisões da curadoria e o status dos alertas são lembrados.
+* A aba **Insights** agrega os lotes salvos. Lotes simulados e Gemini nunca se misturam, e a aba começa no Gemini.
+
+Sem `DATABASE_URL`, nada muda. Se o banco falhar, o processamento continua: o painel mostra um aviso e o log registra `[Supabase]`. O tempo limite de conexão é de 5 segundos.
+
+**Segurança:** o RLS fica ligado e sem policies, então a chave pública (anon) do Supabase não lê nenhum dado. O acesso é só pela `DATABASE_URL`. Use apenas dados fictícios.
+
+**Desenvolvimento local:** um Supabase local (Supabase CLI / Docker) também serve. Aponte `DATABASE_URL` para o Postgres dele (padrão `postgresql://postgres:postgres@127.0.0.1:54322/postgres`, ou um banco separado) e aplique a migração com `psql` ou pelo SQL Editor do Studio local.
+
+**Testes:** `python -m pytest -m real -v` agora também testa o banco e cria/apaga dados de teste com nomes `Teste_Repositorio_*` e `Teste_Painel_*`.
 
 ## Responsabilidade e revisão humana
 

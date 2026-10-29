@@ -31,8 +31,9 @@ from ui.estilo import (  # noqa: E402
     barras_rotas, esc, selo,
 )
 from ui.importacao import ler_arquivo  # noqa: E402
+from ui.tela_insights import tela_insights  # noqa: E402
 
-TELAS = ["Importar", "Visão geral", "Curadoria"]
+TELAS = ["Importar", "Visão geral", "Curadoria", "Insights"]
 EXEMPLO = RAIZ / "data" / "interacoes_exemplo.json"
 
 st.set_page_config(page_title="CommunityLab", page_icon="📣", layout="wide")
@@ -476,4 +477,5 @@ def tela_curadoria():
 # ---------------------------------------------------------------------------
 iniciar_estado()
 cabecalho()
-{"Importar": tela_importar, "Visão geral": tela_visao_geral, "Curadoria": tela_curadoria}[ss["pagina"]]()
+{"Importar": tela_importar, "Visão geral": tela_visao_geral, "Curadoria": tela_curadoria,
+ "Insights": tela_insights}[ss["pagina"]]()

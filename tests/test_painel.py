@@ -408,3 +408,96 @@ def test_duplicado_oferece_abrir_ou_substituir(banco_real_painel):
     assert any("já foi processado" in w.value for w in at.warning)
     _botao(at, "Abrir resultado existente").click().run()
     assert at.radio(key="pagina").value == "Visão geral" and not at.exception
+
+
+# ---------------------------------------------------------------------------
+# Insights (histórico)
+# ---------------------------------------------------------------------------
+def _ativos_exemplo():
+    import pandas as pd
+    return pd.DataFrame({"lote_id": [1], "chave": ["post"], "tipo": ["post_linkedin"], "status": ["aprovado"], "canal": ["#a"]})
+
+
+def _banco_com(monkeypatch, interacoes, chamadas=None):
+    """Liga o "banco" com as consultas trocadas por dados fixos; `chamadas` recebe os argumentos usados."""
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+
+    def consultar(*a, **k):
+        if chamadas is not None:
+            chamadas.append((a, k))
+        return interacoes()
+    monkeypatch.setattr("app.repositorio.opcoes_filtros", lambda modo: {"comunidades": ["C"], "canais": ["#a", "#b"]})
+    monkeypatch.setattr("app.repositorio.consultar_interacoes", consultar)
+    monkeypatch.setattr("app.repositorio.consultar_ativos", lambda *a, **k: _ativos_exemplo())
+
+
+def _insights():
+    at = _app().run()
+    at.radio(key="pagina").set_value("Insights").run()
+    assert not at.exception
+    return at
+
+
+def test_insights_sem_banco_explica_como_configurar(monkeypatch):
+    def nao_chamar(*a, **k):
+        raise AssertionError("sem banco a tela não consulta nada")
+    monkeypatch.setattr("app.repositorio.consultar_interacoes", nao_chamar)
+    monkeypatch.setattr("app.repositorio.opcoes_filtros", nao_chamar)
+    at = _insights()
+    assert any("DATABASE_URL" in i.value for i in at.info)
+
+
+def test_insights_com_dados_mostra_numeros(monkeypatch):
+    from tests.dados_insights import df_exemplo
+    _banco_com(monkeypatch, df_exemplo)
+    at = _insights()
+    numeros = {m.label: m.value for m in at.metric}
+    assert numeros["Interações"] == "6"
+    assert numeros["Positivas"] == "50,0%"
+    assert numeros["Negativas"] == "33,3%"
+    assert numeros["Alertas"] == "1"
+    assert len(at.get("vega_lite_chart")) == 6
+    assert any("mensagens, não pessoas" in c.value for c in at.caption)
+    assert not at.warning
+
+
+def test_insights_comeca_no_gemini_sem_filtros_e_muda_para_simulado(monkeypatch):
+    from tests.dados_insights import df_exemplo
+    chamadas = []
+    _banco_com(monkeypatch, df_exemplo, chamadas)
+    at = _insights()
+    (inicio, fim, modo), filtros = chamadas[-1]
+    assert modo == "gemini" and (fim - inicio).days == 56
+    assert not filtros.get("comunidades") and not filtros.get("canais")
+    at.radio(key="ins_modo").set_value("Simulado").run()
+    at.multiselect(key="ins_canais").select("#a").run()
+    (_, _, modo), filtros = chamadas[-1]
+    assert modo == "mock" and filtros["canais"] == ["#a"]
+
+
+def test_insights_com_canal_filtrado_avisa_sobre_newsletter(monkeypatch):
+    from tests.dados_insights import df_exemplo
+    _banco_com(monkeypatch, df_exemplo)
+    at = _insights()
+    aviso = "A newsletter não tem canal de origem"
+    assert not any(aviso in c.value for c in at.caption)
+    at.multiselect(key="ins_canais").select("#a").run()
+    assert not at.exception
+    assert any(aviso in c.value for c in at.caption)
+
+
+def test_insights_sem_lotes_no_periodo(monkeypatch):
+    from tests.dados_insights import vazio
+    _banco_com(monkeypatch, vazio)
+    at = _insights()
+    assert any("Nenhum lote processado" in i.value for i in at.info)
+    assert not at.metric
+
+
+def test_insights_falha_de_conexao_vira_aviso(monkeypatch):
+    def falha(*a, **k):
+        raise RuntimeError("conexão recusada")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+    monkeypatch.setattr("app.repositorio.opcoes_filtros", falha)
+    at = _insights()
+    assert any("conexão recusada" in w.value for w in at.warning)

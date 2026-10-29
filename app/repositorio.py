@@ -7,7 +7,9 @@ import hashlib
 import json
 import os
 import unicodedata
+from datetime import date
 
+import pandas as pd
 import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
@@ -183,3 +185,58 @@ def atualizar_alerta(lote_id: int, ordem: int, status: str) -> None:
             "where lote_id = %s and interacao_id = "
             "(select id from interacoes where lote_id = %s and ordem = %s)",
             (status, lote_id, lote_id, ordem))
+
+
+FUSO = "America/Sao_Paulo"
+
+_COLUNAS_INTERACOES = ["lote_id", "processado_em", "periodo_referencia", "comunidade", "canal",
+                       "sentimento", "topico", "rota"]
+_COLUNAS_ATIVOS = ["lote_id", "chave", "tipo", "status", "canal"]
+
+
+def _filtros(inicio: date, fim: date, modo: str, comunidades, canais, col_lote: str, col_modo: str,
+             col_comunidade: str, col_canal: str) -> tuple[str, list]:
+    """Monta o where (período inclusivo no fuso de São Paulo, modo e filtros opcionais) e seus parâmetros."""
+    condicoes = [f"({col_lote} at time zone '{FUSO}')::date between %s and %s", f"{col_modo} = %s"]
+    params: list = [inicio, fim, modo]
+    if comunidades:
+        condicoes.append(f"{col_comunidade} = any(%s)")
+        params.append(list(comunidades))
+    if canais:
+        condicoes.append(f"{col_canal} = any(%s)")
+        params.append(list(canais))
+    return " and ".join(condicoes), params
+
+
+def consultar_interacoes(inicio: date, fim: date, modo: str, comunidades: list[str] | None = None,
+                         canais: list[str] | None = None) -> pd.DataFrame:
+    where, params = _filtros(inicio, fim, modo, comunidades, canais, "processado_em", "modo_llm", "comunidade", "canal")
+    with conectar() as conn, conn.cursor() as cur:
+        cur.execute("select lote_id, processado_em, periodo_referencia, comunidade, canal, sentimento, topico, rota "
+                    f"from vw_interacoes_analisadas where {where} "
+                    "order by processado_em, lote_id, ordem", params)
+        return pd.DataFrame(cur.fetchall(), columns=_COLUNAS_INTERACOES)
+
+
+def consultar_ativos(inicio: date, fim: date, modo: str, comunidades: list[str] | None = None,
+                     canais: list[str] | None = None) -> pd.DataFrame:
+    where, params = _filtros(inicio, fim, modo, comunidades, canais, "l.processado_em", "l.modo_llm", "c.nome", "i.canal")
+    with conectar() as conn, conn.cursor() as cur:
+        cur.execute("select a.lote_id, a.chave, a.tipo, a.status, i.canal "
+                    "from ativos a join lotes l on l.id = a.lote_id "
+                    "join comunidades c on c.id = l.comunidade_id "
+                    "left join interacoes i on i.id = a.interacao_origem_id "
+                    f"where {where} "
+                    "order by a.lote_id, a.id", params)
+        return pd.DataFrame(cur.fetchall(), columns=_COLUNAS_ATIVOS)
+
+
+def opcoes_filtros(modo: str) -> dict:
+    with conectar() as conn:
+        comunidades = conn.execute(
+            "select distinct c.nome from comunidades c join lotes l on l.comunidade_id = c.id "
+            "where l.modo_llm = %s order by 1", (modo,)).fetchall()
+        canais = conn.execute(
+            "select distinct i.canal from interacoes i join lotes l on l.id = i.lote_id "
+            "where l.modo_llm = %s order by 1", (modo,)).fetchall()
+    return {"comunidades": [r[0] for r in comunidades], "canais": [r[0] for r in canais]}

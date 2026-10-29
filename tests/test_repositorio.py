@@ -1,6 +1,7 @@
 import json
 import os
 import unicodedata
+from datetime import date, timedelta
 from pathlib import Path
 
 import psycopg
@@ -191,3 +192,36 @@ def test_processar_grava_com_o_modo_atual(lote_exemplo, monkeypatch):
     assert grafo.processar_com_registro(lote_exemplo)[1] == {"lote_id": 42, "erro": None}
     assert grafo.processar(lote_exemplo)["status"] == "sucesso"
     assert chamadas == ["mock", "mock"]
+
+
+@pytest.mark.real
+def test_consultar_interacoes_filtra_modo_canal_e_periodo(banco_real, lote_real, resposta_real):
+    comunidade = banco_real
+    repositorio.gravar_lote(lote_real, resposta_real, "mock")
+    hoje = date.today()
+    df = repositorio.consultar_interacoes(hoje, hoje, "mock", comunidades=[comunidade])
+    assert len(df) == 12 and set(df["comunidade"]) == {comunidade}
+    assert repositorio.consultar_interacoes(hoje, hoje, "gemini", comunidades=[comunidade]).empty
+    so_geral = repositorio.consultar_interacoes(hoje, hoje, "mock", [comunidade], ["#geral"])
+    assert set(so_geral["canal"]) == {"#geral"} and len(so_geral) == 2
+    assert repositorio.consultar_interacoes(
+        hoje - timedelta(days=30), hoje - timedelta(days=1), "mock", [comunidade]).empty
+
+
+@pytest.mark.real
+def test_consultar_ativos_com_canal_tira_a_newsletter(banco_real, lote_real, resposta_real):
+    comunidade = banco_real
+    lote_id = repositorio.gravar_lote(lote_real, resposta_real, "mock")
+    repositorio.salvar_decisao(lote_id, "newsletter", "a", {}, autorizacao=False)
+    hoje = date.today()
+    todos = repositorio.consultar_ativos(hoje, hoje, "mock", [comunidade])
+    assert len(todos) == 7 and todos.set_index("chave").loc["newsletter", "status"] == "aprovado"
+    duvidas = repositorio.consultar_ativos(hoje, hoje, "mock", [comunidade], ["#duvidas-oci"])
+    assert "newsletter" not in set(duvidas["chave"]) and set(duvidas["canal"]) == {"#duvidas-oci"}
+
+
+@pytest.mark.real
+def test_opcoes_filtros(banco_real, lote_real, resposta_real):
+    repositorio.gravar_lote(lote_real, resposta_real, "mock")
+    opcoes = repositorio.opcoes_filtros("mock")
+    assert banco_real in opcoes["comunidades"] and "#geral" in opcoes["canais"]

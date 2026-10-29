@@ -501,3 +501,33 @@ def test_insights_falha_de_conexao_vira_aviso(monkeypatch):
     monkeypatch.setattr("app.repositorio.opcoes_filtros", falha)
     at = _insights()
     assert any("conexão recusada" in w.value for w in at.warning)
+
+
+def test_lote_substituido_vira_aviso_e_para_de_tentar(monkeypatch):
+    def substituido(*a, **k):
+        raise LookupError("Este lote foi substituído no histórico; reabra-o pelo Importar.")
+    monkeypatch.setattr("app.repositorio.salvar_decisao", substituido)
+    at = _processar_exemplo()
+    at.session_state["lote_id"] = 7
+    _botao(at, "Revisar 7 ativos").click().run()
+    at.button(key="dec_newsletter_a").click().run()
+    assert not at.exception
+    assert at.session_state["lote_id"] is None
+    assert any("substituído" in w.value for w in at.warning)
+
+
+def test_aviso_some_quando_a_gravacao_volta(monkeypatch):
+    chamadas = iter([RuntimeError("conexão caiu"), None])
+
+    def salvar(*a, **k):
+        r = next(chamadas)
+        if r:
+            raise r
+    monkeypatch.setattr("app.repositorio.salvar_decisao", salvar)
+    at = _processar_exemplo()
+    at.session_state["lote_id"] = 7
+    _botao(at, "Revisar 7 ativos").click().run()
+    at.button(key="dec_newsletter_a").click().run()
+    assert at.session_state["aviso_banco"]
+    at.button(key="dec_newsletter_u").click().run()
+    assert at.session_state["aviso_banco"] is None

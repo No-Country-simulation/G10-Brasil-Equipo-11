@@ -6,20 +6,20 @@ com as colunas, nunca divisão por zero.
 """
 import pandas as pd
 
+from app.repositorio import FUSO
 from ui.estilo import ROTAS
 
-FUSO = "America/Sao_Paulo"
 POSITIVOS = ("Positivo", "Altamente Positivo")
 NEGATIVOS = ("Negativo", "Altamente Negativo")
 ROTAS_GERADAS = ("case_sucesso", "faq", "alerta")
 
 
 def _com_rotulo(df: pd.DataFrame) -> pd.DataFrame:
-    """Cópia com `processado_em` em UTC e `rotulo` ("dd/mm HH:MM · período") no fuso local."""
+    """Cópia com `processado_em` em UTC e `rotulo` ("dd/mm HH:MM · período · comunidade") no fuso local."""
     d = df.copy()
     d["processado_em"] = pd.to_datetime(d["processado_em"], utc=True)
     local = d["processado_em"].dt.tz_convert(FUSO).dt.strftime("%d/%m %H:%M")
-    d["rotulo"] = local + " · " + d["periodo_referencia"].astype(str)
+    d["rotulo"] = local + " · " + d["periodo_referencia"].astype(str) + " · " + d["comunidade"].astype(str)
     return d
 
 

@@ -39,10 +39,10 @@ def banco_desligado(request, monkeypatch):
 def banco_de_teste(monkeypatch, prefixo: str):
     """Aponta o app para o banco real e devolve (url, nome da comunidade de teste).
 
-    Lê DATABASE_URL do `.env` da raiz ou do terminal; sem ela, pula o teste. Força o modo mock e
+    Lê DATABASE_URL do terminal (tem prioridade) ou do `.env` da raiz; sem ela, pula o teste. Força o modo mock e
     sem OCI. Reutilizável com outro prefixo (ex.: "Teste_Painel_").
     """
-    url = dotenv_values(RAIZ / ".env").get("DATABASE_URL") or os.environ.get("DATABASE_URL")
+    url = os.environ.get("DATABASE_URL") or dotenv_values(RAIZ / ".env").get("DATABASE_URL")
     if not url or not url.strip():
         pytest.skip("DATABASE_URL não configurada no .env")
     monkeypatch.setenv("DATABASE_URL", url)

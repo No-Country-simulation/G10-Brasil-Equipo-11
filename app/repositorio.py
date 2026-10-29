@@ -99,7 +99,7 @@ def gravar_lote(lote: LoteEntrada, resposta: dict, modo: str) -> int:
         comunidade_id = conn.execute(
             "insert into comunidades (nome) values (%s) "
             "on conflict (nome) do update set nome = excluded.nome returning id",
-            (lote.origem_comunidade,)).fetchone()[0]
+            (_norm(lote.origem_comunidade),)).fetchone()[0]
         conn.execute("delete from lotes where hash_conteudo = %s and modo_llm = %s",
                      (hash_conteudo(lote), modo))
         lote_id = conn.execute(
@@ -147,6 +147,8 @@ def carregar_lote(lote_id: int) -> dict:
         cur.execute("select l.resposta, l.processado_em, l.periodo_referencia, c.nome "
                     "from lotes l join comunidades c on c.id = l.comunidade_id where l.id = %s", (lote_id,))
         lote = cur.fetchone()
+        if lote is None:
+            raise LookupError("Lote não encontrado no histórico.")
         cur.execute("select chave, tipo, status, conteudo_editado, autorizacao_membro "
                     "from ativos where lote_id = %s order by id", (lote_id,))
         ativos = cur.fetchall()
@@ -168,24 +170,31 @@ def carregar_lote(lote_id: int) -> dict:
     }
 
 
+_LOTE_SUBSTITUIDO = "Este lote foi substituído no histórico; reabra-o pelo Importar."
+
+
 def salvar_decisao(lote_id: int, chave: str, decisao: str, conteudo_editado: dict, autorizacao: bool) -> None:
     status = _DECISAO_PARA_STATUS[decisao]
     with conectar() as conn:
-        conn.execute(
+        cur = conn.execute(
             "update ativos set status = %s, conteudo_editado = %s, autorizacao_membro = %s, "
             "revisado_em = case when %s = 'pendente' then null else now() end "
             "where lote_id = %s and chave = %s",
             (status, Jsonb(conteudo_editado) if conteudo_editado else None, autorizacao,
              status, lote_id, chave))
+        if cur.rowcount == 0:
+            raise LookupError(_LOTE_SUBSTITUIDO)
 
 
 def atualizar_alerta(lote_id: int, ordem: int, status: str) -> None:
     with conectar() as conn:
-        conn.execute(
+        cur = conn.execute(
             "update alertas set status = %s, atualizado_em = now() "
             "where lote_id = %s and interacao_id = "
             "(select id from interacoes where lote_id = %s and ordem = %s)",
             (status, lote_id, lote_id, ordem))
+        if cur.rowcount == 0:
+            raise LookupError(_LOTE_SUBSTITUIDO)
 
 
 FUSO = "America/Sao_Paulo"

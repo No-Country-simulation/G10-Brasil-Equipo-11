@@ -147,7 +147,7 @@ Na raiz do projeto:
 python -m pytest -v
 ```
 
-Na última execução documentada, os 13 testes automatizados passaram. Execute-os novamente no seu ambiente para confirmar o estado atual.
+Execute os testes no seu ambiente para confirmar o estado atual (os marcados como `real` são pulados sem credenciais).
 
 ## Modos de operação
 

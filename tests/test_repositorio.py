@@ -225,3 +225,31 @@ def test_opcoes_filtros(banco_real, lote_real, resposta_real):
     repositorio.gravar_lote(lote_real, resposta_real, "mock")
     opcoes = repositorio.opcoes_filtros("mock")
     assert banco_real in opcoes["comunidades"] and "#geral" in opcoes["canais"]
+
+
+@pytest.mark.real
+def test_atualizar_lote_substituido_avisa(banco_real, lote_real, resposta_real):
+    antigo = repositorio.gravar_lote(lote_real, resposta_real, "mock")
+    repositorio.gravar_lote(lote_real, resposta_real, "mock")  # substitui: o id antigo some
+    with pytest.raises(LookupError, match="substituído"):
+        repositorio.salvar_decisao(antigo, "faq_0", "a", {}, autorizacao=False)
+    with pytest.raises(LookupError, match="substituído"):
+        repositorio.atualizar_alerta(antigo, 6, "resolvido")
+
+
+@pytest.mark.real
+def test_carregar_lote_inexistente_avisa(banco_real, lote_real, resposta_real):
+    lote_id = repositorio.gravar_lote(lote_real, resposta_real, "mock")
+    repositorio.gravar_lote(lote_real, resposta_real, "mock")
+    with pytest.raises(LookupError, match="não encontrado"):
+        repositorio.carregar_lote(lote_id)
+
+
+def test_erro_sem_mensagem_ainda_avisa(lote_exemplo, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+
+    def explode(*a):
+        raise TimeoutError()
+
+    monkeypatch.setattr(repositorio, "gravar_lote", explode)
+    assert grafo.processar_com_registro(lote_exemplo)[1]["erro"] == "TimeoutError"

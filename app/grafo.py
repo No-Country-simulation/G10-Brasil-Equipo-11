@@ -113,8 +113,8 @@ def processar_com_registro(lote: LoteEntrada) -> tuple[dict, dict]:
         try:
             registro["lote_id"] = repositorio.gravar_lote(lote, resposta, repositorio.modo_atual())
         except Exception as e:
-            print(f"[Supabase] falha ao gravar: {e}")
-            registro["erro"] = str(e)
+            registro["erro"] = str(e) or type(e).__name__
+            print(f"[Supabase] falha ao gravar: {registro['erro']}")
     return resposta, registro
 
 

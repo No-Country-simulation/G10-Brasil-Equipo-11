@@ -1,6 +1,6 @@
 """Painel de curadoria do CommunityLab, seguindo a prévia aprovada pela equipe.
 
-Três telas: Importar → Visão geral → Curadoria.
+Quatro telas: Importar → Visão geral → Curadoria, mais Insights (histórico).
 
 Rode da raiz do projeto com:  python -m streamlit run ui/painel.py
 """
@@ -239,8 +239,11 @@ def tratar_alerta(ordem: int, status: str):
     if ss["lote_id"]:
         try:
             repositorio.atualizar_alerta(ss["lote_id"], ordem, status)
+            ss["aviso_banco"] = None
         except Exception as e:
             ss["aviso_banco"] = f"O status do alerta não foi salvo no histórico: {e}"
+            if isinstance(e, LookupError):
+                ss["lote_id"] = None
     st.rerun()
 
 
@@ -350,8 +353,11 @@ def decidir(id_ativo: str, decisao: str):
         try:
             repositorio.salvar_decisao(ss["lote_id"], id_ativo, decisao, cur.textos_do_ativo(id_ativo, textos_editados()),
                                        autorizacao=bool(ss.get("autorizado")))
+            ss["aviso_banco"] = None
         except Exception as e:
             ss["aviso_banco"] = f"A decisão não foi salva no histórico: {e}"
+            if isinstance(e, LookupError):
+                ss["lote_id"] = None
 
 
 def botoes_decisao(id_ativo: str, rotulo_aprovar: str, bloqueado: bool = False):

@@ -38,7 +38,7 @@ def test_sentimento_por_lote_ordenado_e_soma_o_total(df):
 
 
 def test_rotulo_usa_fuso_local(df):
-    assert ins.sentimento_por_lote(df)["rotulo"].iloc[0] == "20/10 12:00 · semana 1"
+    assert ins.sentimento_por_lote(df)["rotulo"].iloc[0] == "20/10 12:00 · semana 1 · c"
 
 
 def test_sentimento_por_canal_soma_100_por_canal(df):

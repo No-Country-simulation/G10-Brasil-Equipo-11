@@ -29,7 +29,9 @@ O projeto está em desenvolvimento e possui uma implementação funcional em mod
 ## Estrutura do projeto
 
 ```text
-communityLab/
+CommunityLab/
+├── .github/workflows/tests.yml
+├── .streamlit/config.toml
 ├── app/
 │   ├── grafo.py
 │   ├── ia.py
@@ -39,21 +41,44 @@ communityLab/
 │   ├── schemas.py
 │   └── storage.py
 ├── data/
+│   ├── avaliacao_classificacoes.json
 │   └── interacoes_exemplo.json
+├── docs/
+│   ├── EXECUCAO.md
+│   ├── analise_resultados.md
+│   ├── avaliacao_classificacoes.md
+│   ├── criterios_qualidade.md
+│   └── indicadores_comunidade.md
+├── scripts/
+│   ├── analisar_comunidade.py
+│   └── avaliar_classificacoes.py
 ├── src/
 │   └── communitylab/
 │       ├── adapter.py
-│       └── ingestion.py
+│       ├── avaliacao.py
+│       ├── ingestion.py
+│       ├── radar.py
+│       └── relatorio_avaliacao.py
 ├── tests/
 │   ├── test_adapter.py
+│   ├── test_avaliacao.py
 │   ├── test_ingestion.py
-│   └── test_pipeline.py
+│   ├── test_integracao.py
+│   ├── test_painel.py
+│   ├── test_pipeline.py
+│   └── test_radar.py
 ├── ui/
+│   ├── curadoria.py
+│   ├── estilo.py
+│   ├── importacao.py
 │   └── painel.py
 ├── .env.example
 ├── .gitignore
 ├── pyproject.toml
-└── requirements.txt
+├── requirements.txt
+├── verificar.py
+├── verificar.ps1
+└── verificar.sh
 ```
 
 ## Requisitos
@@ -139,10 +164,35 @@ Código do painel: `ui/painel.py` (telas), `ui/importacao.py` (leitura de arquiv
 Na raiz do projeto:
 
 ```powershell
-python -m pytest -v
+python -m pytest -v -m "not real"
 ```
 
-Na última execução documentada, os 13 testes automatizados passaram. Execute-os novamente no seu ambiente para confirmar o estado atual.
+A suíte cobre ingestão, adaptadores, pipeline, painel e avaliação de classificações. A seleção `-m "not real"` exclui os testes de serviços externos, que exigem configuração e validação próprias. Execute a suíte no seu ambiente para confirmar o estado atual. O workflow foi preparado para executar essa seleção e gerar os relatórios em modo simulado; sua configuração não comprova uma execução remota.
+
+## Avaliação das classificações
+
+A frente de Análise de Dados acrescenta uma base de 60 mensagens sintéticas com referências justificadas, critérios de qualidade e avaliação reproduzível, preservando os contratos do pipeline.
+
+```powershell
+python scripts/avaliar_classificacoes.py
+python scripts/avaliar_classificacoes.py --cenario tipo_informado
+```
+
+Abra `data/output/avaliacao/mock_tipo_oculto/relatorio.html` no navegador. O relatório apresenta precisão, recall e F1 por categoria, matrizes de confusão, relevância por faixa, distribuição da amostra e casos para inspeção. JSON e CSVs ficam na mesma pasta.
+
+O cenário principal oculta o tipo anotado para evitar vazamento da referência. O segundo cenário mede o fluxo com tipo informado. Everson concluiu a revisão individual das propostas em 24/10/2026: os 60 casos, suas classificações, justificativas e os critérios foram aceitos sem alterações. A base 1.1.0 registra essa revisão; as metas da avaliação também foram aprovadas pelo responsável pela frente analítica. Essa conferência não equivale a dupla anotação independente nem a aprovação de toda a equipe. Resultados mock não medem o desempenho do Gemini nem impacto em uma comunidade real.
+
+Consulte a [documentação da avaliação](docs/avaliacao_classificacoes.md), os [critérios de qualidade](docs/criterios_qualidade.md) e a [análise dos resultados](docs/analise_resultados.md).
+
+## Radar analítico da comunidade
+
+```powershell
+python scripts/analisar_comunidade.py --demonstracao
+```
+
+Abra `data/output/radar/radar.html` para conferir distribuições, perguntas por tópico e comparação entre dois lotes sintéticos. A análise de lotes existentes aceita `--atual` e, opcionalmente, `--anterior`. Os indicadores representam mensagens, não pessoas únicas ou impacto real. O agrupamento de tópicos é textual e depende de revisão para confirmar dúvidas recorrentes.
+
+Consulte o [dicionário de indicadores e contrato de entrada](docs/indicadores_comunidade.md), incluindo os limites e a relação com as prioridades de evolução.
 
 ## Modos de operação
 
@@ -172,7 +222,7 @@ Classificações de sentimento e relevância representam dimensões diferentes e
 
 MVP em desenvolvimento.
 
-A ingestão, os adaptadores, o pipeline e os testes automatizados possuem implementação. A integração com serviços externos e a validação de qualidade das classificações ainda exigem verificações específicas.
+A ingestão, os adaptadores, o pipeline, o painel, os testes e a avaliação das classificações possuem implementação. A base sintética de avaliação tem revisão individual de Everson registrada para todos os 60 casos. As métricas disponíveis caracterizam o classificador simulado; a avaliação real do Gemini, a validação ativa da OCI e as integrações operacionais ainda exigem verificações específicas.
 
 ## Contribuição
 

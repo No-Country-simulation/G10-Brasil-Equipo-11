@@ -106,7 +106,14 @@ def _classificar_mock(i: Interacao) -> dict:
     return {"tipo": tipo, "sentimento": sentimento, "topico": topico, "relevancia": relevancia}
 
 
-def classificar(i: Interacao) -> Analise:
+def classificar(i: Interacao, permitir_simulado: bool = True) -> Analise:
+    """Classifica uma interação.
+
+    permitir_simulado=True (pipeline e painel): se o Gemini falhar de vez, usa o modo simulado
+    para aquela mensagem e registra a falha, para o lote não travar.
+    permitir_simulado=False (avaliação): a falha sobe como ErroLLM, para não contar uma
+    resposta simulada como se fosse do Gemini.
+    """
     if modo_mock():
         r = _classificar_mock(i)
     else:
@@ -114,10 +121,17 @@ def classificar(i: Interacao) -> Analise:
             r = chamar_llm_json(prompts.CLASSIFICADOR_SISTEMA, f"Canal: {i.canal}\n{_mensagem(i.texto)}",
                                 validar=validar_classificacao)
         except ErroLLM as erro:
+            if not permitir_simulado:
+                raise
             _registrar_falha("classificação", i.autor, erro)
             r = _classificar_mock(i)
     rota = decidir_rota(r["tipo"], r["sentimento"], int(r["relevancia"]))
     return Analise(autor=i.autor, canal=i.canal, texto=i.texto, rota=rota, **r)
+
+
+def classificar_estrito(i: Interacao) -> Analise:
+    """Para avaliações: nunca troca o Gemini pelo modo simulado; falha vira erro registrado."""
+    return classificar(i, permitir_simulado=False)
 
 
 # ---------- Geração ----------

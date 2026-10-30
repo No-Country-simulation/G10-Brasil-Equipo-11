@@ -15,7 +15,7 @@ No `.env`:
 
 1. Preencha `GEMINI_API_KEY=` com a sua chave.
 2. **Apague a linha `LLM_MODO=mock`.** Enquanto ela existir, o sistema fica no modo simulado.
-3. Confira o modelo e o ritmo. O padrão é `GEMINI_MODELO=gemini-3.5-flash-lite` com `GEMINI_RPM=15` (chamadas por minuto). Se o seu plano tiver outro limite, ajuste o `GEMINI_RPM` (veja a seção 3).
+3. Confira o modelo e o ritmo. O padrão é `GEMINI_MODELO=gemini-3.5-flash-lite` com `GEMINI_RPM=12` (chamadas por minuto, um pouco abaixo do limite de 15 do plano gratuito). Se o seu plano tiver outro limite, ajuste o `GEMINI_RPM` para um valor um pouco abaixo dele (veja a seção 3).
 4. Salve e feche.
 
 > O `gemini-2.5-flash` ainda aparece na lista de modelos, mas responde **HTTP 404** para chaves novas. Para ver os modelos que a sua chave pode usar:
@@ -82,7 +82,8 @@ Pontos para avaliar com quem cuida da classificação:
 | --- | --- |
 | Resposta que não é JSON, ou com rótulo desconhecido | Pede de novo uma vez. Persistindo, **só aquela mensagem** usa o modo simulado, e a falha é registrada. O lote continua |
 | Variações de rótulo ("Positiva", "Pergunta Técnica", relevância "7") | Normalizadas para o contrato |
-| Muitas chamadas seguidas | As chamadas são espaçadas para não passar de `GEMINI_RPM` por minuto (padrão 15, ou seja, uma a cada 4 s). Use `GEMINI_RPM=0` para desligar |
+| Muitas chamadas seguidas | As chamadas são espaçadas para não passar de `GEMINI_RPM` por minuto (padrão 12, ou seja, uma a cada 5 s, com margem abaixo do limite de 15). Use `GEMINI_RPM=0` para desligar |
+| Falha definitiva numa mensagem durante a **avaliação** (`scripts/avaliar_classificacoes.py --modo gemini`) | A mensagem é registrada como falha no relatório. Ela **nunca** é trocada pelo modo simulado, para não misturar respostas simuladas com as do Gemini |
 | Limite de requisições (HTTP 429) mesmo assim | Espera 10, 20 e 40 s antes de tentar de novo |
 | Falha temporária do servidor (5xx) ou de rede | Espera 4, 10 e 20 s antes de tentar de novo |
 | Chave inválida ou modelo inexistente (4xx) | Falha na hora com mensagem clara, sem gastar tentativas |

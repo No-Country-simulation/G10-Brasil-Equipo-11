@@ -223,6 +223,36 @@ def test_modelo_e_ritmo_padrao(monkeypatch):
     monkeypatch.delenv("GEMINI_MODELO", raising=False)
     monkeypatch.delenv("GEMINI_RPM", raising=False)
     assert llm.modelo() == "gemini-3.5-flash-lite"
-    assert llm.chamadas_por_minuto() == 15
+    assert llm.chamadas_por_minuto() == 12
     monkeypatch.setenv("GEMINI_RPM", "abc")
-    assert llm.chamadas_por_minuto() == 15
+    assert llm.chamadas_por_minuto() == 12
+
+
+# ---------------------------------------------------------------------------
+# Avaliação: o Gemini nunca é trocado pelo simulado sem aviso
+# ---------------------------------------------------------------------------
+def test_classificacao_estrita_nao_usa_o_simulado(monkeypatch):
+    respostas(monkeypatch, "resposta sem sentido")
+    with pytest.raises(llm.ErroLLM):
+        ia.classificar_estrito(MSG)
+    assert ia.FALHAS == []
+
+
+def test_classificacao_estrita_igual_a_normal_quando_o_gemini_responde(monkeypatch):
+    resposta = json.dumps({"tipo": "depoimento", "sentimento": "Positivo", "topico": "Vagas", "relevancia": 8})
+    respostas(monkeypatch, resposta)
+    assert ia.classificar_estrito(MSG) == ia.classificar(MSG)
+
+
+def test_avaliacao_registra_falha_do_gemini_em_vez_de_contar_o_simulado(monkeypatch):
+    """Antes da correção, um HTTP 429 virava resposta simulada e entrava nas métricas como se fosse do Gemini."""
+    from pathlib import Path
+    from communitylab.avaliacao import avaliar, carregar_base
+    base = carregar_base(Path(__file__).resolve().parent.parent / "data" / "avaliacao_classificacoes.json")
+    respostas(monkeypatch, "resposta sem sentido")
+
+    resultado = avaliar(base, ia.classificar_estrito, cenario="tipo_oculto", metadados={})
+
+    assert resultado["cobertura"]["validos"] == 0
+    assert all(c["erro"] and c["previsto"] is None for c in resultado["casos"])
+    assert ia.FALHAS == []

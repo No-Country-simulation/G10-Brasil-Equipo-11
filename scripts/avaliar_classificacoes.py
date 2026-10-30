@@ -77,7 +77,9 @@ def main(argv=None):
             resultado = avaliar(base, classificador, cenario=args.cenario, metadados=metadados)
         else:
             with configurar_modo(args.modo):
-                resultado = avaliar(base, ia.classificar, cenario=args.cenario, metadados=metadados)
+                # No modo gemini, uma falha (ex.: HTTP 429) é registrada como falha, nunca trocada pelo simulado.
+                classificador = ia.classificar_estrito if args.modo == "gemini" else ia.classificar
+                resultado = avaliar(base, classificador, cenario=args.cenario, metadados=metadados)
         destino = args.saida / f"{args.modo}_{args.cenario}"
         # Não permitir que uma pasta de saída substitua a própria base/previsões.
         entradas = {args.base.resolve(), *( [args.previsoes.resolve()] if args.previsoes else [])}

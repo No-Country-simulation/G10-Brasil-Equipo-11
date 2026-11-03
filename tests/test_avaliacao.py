@@ -709,3 +709,52 @@ def test_exportacao_csv_neutraliza_formulas(tmp_path, dados_base, texto):
     assert linha["texto"] == "'" + texto
     assert linha["evidencia"] == "'" + texto
     assert linha["justificativa"] == "'=FORMULA(1)"
+
+def test_cli_gemini_com_fallback_mock_retorna_codigo_um(tmp_path, arquivo_base, cli, monkeypatch, capsys):
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-inerte-para-teste")
+    monkeypatch.setenv("LLM_MODO", "mock")
+
+    def classificar_com_falha(entrada):
+        cli.ia._registrar_falha(
+            "classificação",
+            entrada.autor,
+            RuntimeError("falha controlada no Gemini"),
+        )
+        dados = cli.ia._classificar_mock(entrada)
+        return Analise(
+            autor=entrada.autor,
+            canal=entrada.canal,
+            texto=entrada.texto,
+            rota=cli.ia.decidir_rota(
+                dados["tipo"],
+                dados["sentimento"],
+                dados["relevancia"],
+            ),
+            **dados,
+        )
+
+    monkeypatch.setattr(cli.ia, "classificar", classificar_com_falha)
+
+    saida = tmp_path / "resultados"
+    codigo = cli.main([
+        "--base", str(arquivo_base),
+        "--modo", "gemini",
+        "--saida", str(saida),
+    ])
+
+    resultado = json.loads(
+        (saida / "gemini_tipo_oculto" / "resultado.json").read_text(encoding="utf-8")
+    )
+
+    fallback = resultado["metadados"]["fallback_gemini"]
+
+    assert codigo == 1
+    assert fallback["quantidade"] == resultado["cobertura"]["validos"]
+    assert fallback["quantidade"] > 0
+    assert fallback["avaliacao_exclusivamente_gemini"] is False
+    assert all(
+        falha["etapa"] == "classificação"
+        and falha["erro"] == "falha controlada no Gemini"
+        for falha in fallback["detalhes"]
+    )
+    assert "não é válida como avaliação exclusivamente Gemini" in capsys.readouterr().out

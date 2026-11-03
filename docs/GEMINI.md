@@ -83,7 +83,7 @@ Pontos para avaliar com quem cuida da classificação:
 | Resposta que não é JSON, ou com rótulo desconhecido | Pede de novo uma vez. Persistindo, **só aquela mensagem** usa o modo simulado, e a falha é registrada. O lote continua |
 | Variações de rótulo ("Positiva", "Pergunta Técnica", relevância "7") | Normalizadas para o contrato |
 | Muitas chamadas seguidas | As chamadas são espaçadas para não passar de `GEMINI_RPM` por minuto (padrão 12, ou seja, uma a cada 5 s, com margem abaixo do limite de 15). Use `GEMINI_RPM=0` para desligar |
-| Falha definitiva numa mensagem durante a **avaliação** (`scripts/avaliar_classificacoes.py --modo gemini`) | A mensagem é registrada como falha no relatório. Ela **nunca** é trocada pelo modo simulado, para não misturar respostas simuladas com as do Gemini |
+| Mensagem que cai no modo simulado durante a **avaliação** (`scripts/avaliar_classificacoes.py --modo gemini`) | A execução é marcada como **inválida**: o script avisa, termina com código 1 e registra os casos em `fallback_gemini` no `resultado.json`. Rode de novo depois de 1 ou 2 minutos |
 | Limite de requisições (HTTP 429) mesmo assim | Espera 10, 20 e 40 s antes de tentar de novo |
 | Falha temporária do servidor (5xx) ou de rede | Espera 4, 10 e 20 s antes de tentar de novo |
 | Chave inválida ou modelo inexistente (4xx) | Falha na hora com mensagem clara, sem gastar tentativas |

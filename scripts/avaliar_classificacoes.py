@@ -63,23 +63,37 @@ def main(argv=None):
                      )}}
         if args.modo == "gemini":
             metadados["inicio_execucao_utc"] = datetime.now(timezone.utc).isoformat()
-        elif args.modo == "arquivo":
-            metadados["importado_em_utc"] = datetime.now(timezone.utc).isoformat()
+
         if args.modo == "arquivo":
+            metadados["importado_em_utc"] = datetime.now(timezone.utc).isoformat()
             previsoes = validar_previsoes(args.previsoes, base, args.cenario)
             metadados["modelo"] = ler_json(args.previsoes)["modelo"]
             metadados["origem_modelo"] = "declarado_no_arquivo_nao_verificado"
             metadados["previsoes_sha256"] = hashlib.sha256(args.previsoes.read_bytes()).hexdigest()
-            # A identidade vem do ID da base, nunca da posição da previsão no JSON.
-            por_entrada = {(c["entrada"]["autor"], c["entrada"]["canal"], c["entrada"]["texto"]): c["id"] for c in base["casos"]}
+
+            por_entrada = {
+                (c["entrada"]["autor"], c["entrada"]["canal"], c["entrada"]["texto"]): c["id"]
+                for c in base["casos"]
+            }
+
             def classificador(entrada):
                 return previsoes[por_entrada[(entrada.autor, entrada.canal, entrada.texto)]]
+
             resultado = avaliar(base, classificador, cenario=args.cenario, metadados=metadados)
         else:
+            if args.modo == "gemini":
+                ia.FALHAS.clear()
+
             with configurar_modo(args.modo):
-                # No modo gemini, uma falha (ex.: HTTP 429) é registrada como falha, nunca trocada pelo simulado.
-                classificador = ia.classificar_estrito if args.modo == "gemini" else ia.classificar
-                resultado = avaliar(base, classificador, cenario=args.cenario, metadados=metadados)
+                resultado = avaliar(base, ia.classificar, cenario=args.cenario, metadados=metadados)
+
+            if args.modo == "gemini":
+                falhas_gemini = list(ia.FALHAS)
+                resultado["metadados"]["fallback_gemini"] = {
+                    "quantidade": len(falhas_gemini),
+                    "detalhes": falhas_gemini,
+                    "avaliacao_exclusivamente_gemini": len(falhas_gemini) == 0,
+                }
         destino = args.saida / f"{args.modo}_{args.cenario}"
         # Não permitir que uma pasta de saída substitua a própria base/previsões.
         entradas = {args.base.resolve(), *( [args.previsoes.resolve()] if args.previsoes else [])}
@@ -98,6 +112,14 @@ def main(argv=None):
             print("Base sintética. Referências e metas pendentes de revisão humana.")
         if cobertura["falhas"]:
             return 1
+
+        if args.modo == "gemini" and ia.FALHAS:
+            print(
+                f"ATENÇÃO: {len(ia.FALHAS)} fallback(s) para mock. "
+                "Esta execução não é válida como avaliação exclusivamente Gemini."
+            )
+            return 1
+
         return int(args.exigir_metas and not all(c["atendido"] is True for c in resultado["criterios"]))
     except (ValueError, OSError) as exc:
         print(f"Não foi possível avaliar: {exc}", file=sys.stderr)

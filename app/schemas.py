@@ -1,62 +1,127 @@
-"""Contrato JSON de entrada e saída do CommunityLab.
+"""Contratos JSON da API CommunityLab."""
+from __future__ import annotations
 
-Este arquivo é a referência para toda a equipe: IA, backend, interface e cloud
-trabalham em cima destes modelos. Mudou o contrato? Combine com todos antes.
-"""
-import warnings
-from typing import Literal, Optional
+from typing import Literal
 
-# O enunciado usa o campo "copy", que coincide com um método antigo do Pydantic. É inofensivo.
-warnings.filterwarnings("ignore", message='Field name "copy"')
-
-from pydantic import BaseModel, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+)
 
 TipoInteracao = Literal[
-    "depoimento", "pergunta_tecnica", "feedback", "reclamacao", "projeto", "outro"
+    "depoimento",
+    "pergunta_tecnica",
+    "feedback",
+    "reclamacao",
+    "projeto",
+    "outro",
 ]
+
 Sentimento = Literal[
-    "Altamente Positivo", "Positivo", "Neutro", "Negativo", "Altamente Negativo"
+    "Altamente Positivo",
+    "Positivo",
+    "Neutro",
+    "Negativo",
+    "Altamente Negativo",
 ]
 
 
-# ---------- Entrada ----------
-class Interacao(BaseModel):
-    autor: str
-    canal: str
+class ContratoEntrada(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        str_strip_whitespace=True,
+    )
+
+
+class Interacao(ContratoEntrada):
+    autor: str = Field(min_length=1, max_length=300)
+    canal: str = Field(min_length=1, max_length=300)
     tipo: TipoInteracao = "outro"
-    texto: str
+    texto: str = Field(min_length=1, max_length=20000)
+
+    @field_validator("autor", "canal", "texto")
+    @classmethod
+    def nao_vazio(cls, value: str) -> str:
+        value = value.strip()
+
+        if not value:
+            raise ValueError(
+                "O campo não pode conter apenas espaços."
+            )
+
+        return value
 
 
-class LoteEntrada(BaseModel):
-    origem_comunidade: str
-    periodo_referencia: str
-    interacoes: list[Interacao]
+class LoteEntrada(ContratoEntrada):
+    origem_comunidade: str = Field(
+        min_length=1,
+        max_length=200,
+    )
+    periodo_referencia: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+    interacoes: list[Interacao] = Field(max_length=1000)
+
+    @field_validator(
+        "origem_comunidade",
+        "periodo_referencia",
+    )
+    @classmethod
+    def identificadores_nao_vazios(
+        cls,
+        value: str,
+    ) -> str:
+        value = value.strip()
+
+        if not value:
+            raise ValueError(
+                "O identificador não pode ser vazio."
+            )
+
+        return value
 
 
-# ---------- Análise intermediária (saída do classificador) ----------
 class Analise(BaseModel):
+    interacao_id: str | None = None
     autor: str
     canal: str
     texto: str
     tipo: TipoInteracao
     sentimento: Sentimento
-    topico: str
-    relevancia: int = Field(ge=0, le=10, description="0 = ruído, 10 = imperdível")
-    rota: Literal["case_sucesso", "faq", "alerta", "nenhuma"]
+    topico: str = Field(min_length=1, max_length=300)
+    relevancia: int = Field(
+        ge=0,
+        le=10,
+        description="0 = ruído, 10 = imperdível",
+    )
+    rota: Literal[
+        "case_sucesso",
+        "faq",
+        "alerta",
+        "nenhuma",
+    ]
 
 
-# ---------- Saída ----------
 class ResumoComunidade(BaseModel):
     total_interacoes_processadas: int
     sentimento_predominante: Sentimento
-    topicos_principais: list[str]
+    topicos_principais: list[str] = Field(
+        default_factory=list
+    )
 
 
 class PostLinkedin(BaseModel):
     titulo: str
     copy: str
     canal_recomendado: str = "LinkedIn Oficial"
-    potencial_engajamento: Literal["Alto", "Médio", "Baixo"]
+    potencial_engajamento: Literal[
+        "Alto",
+        "Médio",
+        "Baixo",
+    ]
 
 
 class DestaqueNewsletter(BaseModel):
@@ -78,16 +143,28 @@ class Alerta(BaseModel):
 
 
 class AtivosDistribuicao(BaseModel):
-    post_linkedin: Optional[PostLinkedin] = None
-    destaque_newsletter_semanal: Optional[DestaqueNewsletter] = None
-    sugestao_conteudo_faq: list[SugestaoFaq] = []
-    alertas_comunidade: list[Alerta] = []
+    post_linkedin: PostLinkedin | None = None
+    destaque_newsletter_semanal: DestaqueNewsletter | None = None
+    sugestao_conteudo_faq: list[SugestaoFaq] = Field(
+        default_factory=list
+    )
+    alertas_comunidade: list[Alerta] = Field(
+        default_factory=list
+    )
 
 
 class ArmazenamentoOci(BaseModel):
-    bucket: str
-    caminho_objeto: str
-    status: Literal["salvo_com_sucesso", "salvo_localmente", "erro"]
+    bucket: str = ""
+    caminho_objeto: str = ""
+    status: Literal[
+        "salvo_com_sucesso",
+        "salvo_localmente",
+        "erro",
+        "pendente",
+    ]
+    sha256: str | None = None
+    etag: str | None = None
+    detalhe: str | None = None
 
 
 class RespostaProcessamento(BaseModel):
@@ -96,3 +173,9 @@ class RespostaProcessamento(BaseModel):
     analises: list[Analise]
     ativos_distribuicao_gerados: AtivosDistribuicao
     armazenamento_oci: ArmazenamentoOci
+    processamento_id: str | None = None
+    ids_ativos: dict[str, str] = Field(default_factory=dict)
+    fontes_ativos: dict[str, list[str]] = Field(
+        default_factory=dict
+    )
+    persistencia: Literal["oracle", "desativada"] | None = None

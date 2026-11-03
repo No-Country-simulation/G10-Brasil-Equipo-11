@@ -3,7 +3,7 @@
 .venv/
 venv/
 env/
-
+wallet/
 # VariÃ¡veis de ambiente e credenciais
 .env
 .env.*

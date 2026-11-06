@@ -29,7 +29,7 @@ class ErroLLM(RuntimeError):
 # Gemini 3.5 Flash Lite: no plano gratuito, 15 chamadas/min e 500/dia (o 3.6 Flash permite 5/min e 20/dia).
 # No teste controlado de 26/10/2026 acertou 7 de 7 rotas, em 11 s.
 MODELO_PADRAO = "gemini-3.5-flash-lite"
-RPM_PADRAO = 15
+RPM_PADRAO = 12  # 20% abaixo do limite de 15/min do plano gratuito: margem para retries e outros testes
 
 
 def modelo() -> str:

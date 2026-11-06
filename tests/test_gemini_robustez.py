@@ -223,6 +223,6 @@ def test_modelo_e_ritmo_padrao(monkeypatch):
     monkeypatch.delenv("GEMINI_MODELO", raising=False)
     monkeypatch.delenv("GEMINI_RPM", raising=False)
     assert llm.modelo() == "gemini-3.5-flash-lite"
-    assert llm.chamadas_por_minuto() == 15
+    assert llm.chamadas_por_minuto() == 12
     monkeypatch.setenv("GEMINI_RPM", "abc")
-    assert llm.chamadas_por_minuto() == 15
+    assert llm.chamadas_por_minuto() == 12

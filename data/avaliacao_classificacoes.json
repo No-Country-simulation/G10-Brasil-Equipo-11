@@ -1,0 +1,1041 @@
+{
+  "versao": "1.1.0",
+  "natureza": "sintetica",
+  "status_anotacao": "revisada_individualmente",
+  "descricao": "Conjunto de avaliação com 60 mensagens fictícias inéditas: 48 casos de referência e 12 desafios, distribuídos igualmente entre os seis tipos oficiais. Rótulos, intervalos, justificativas e critérios conferidos individualmente por Everson em 24/10/2026 e aprovados sem alterações. Não representa dupla anotação independente nem evidência de desempenho em uma comunidade real. revisao_humana preserva a sinalização de prioridade de revisão; o registro efetivo está em revisao_anotacao.",
+  "revisao_anotacao": {
+    "revisor": "Everson",
+    "data": "2026-10-24",
+    "metodo": "conferencia_individual_de_propostas",
+    "decisao": "aprovado_sem_alteracoes",
+    "escopo": "rotulos_justificativas_e_criterios",
+    "versao_criterios": "1.0.0",
+    "versao_origem": "1.0.0",
+    "dataset_origem_sha256": "dbebc85a8322b4d864fcd42a4ad90074aeb635598733e93dcb23c5d8fd491a6a",
+    "casos_sha256": "f09d68ae4928e01c0d8110663a2a773d9a2052defba3127afe1e611c83915389",
+    "casos_revisados": [
+      "AV001",
+      "AV002",
+      "AV003",
+      "AV004",
+      "AV005",
+      "AV006",
+      "AV007",
+      "AV008",
+      "AV009",
+      "AV010",
+      "AV011",
+      "AV012",
+      "AV013",
+      "AV014",
+      "AV015",
+      "AV016",
+      "AV017",
+      "AV018",
+      "AV019",
+      "AV020",
+      "AV021",
+      "AV022",
+      "AV023",
+      "AV024",
+      "AV025",
+      "AV026",
+      "AV027",
+      "AV028",
+      "AV029",
+      "AV030",
+      "AV031",
+      "AV032",
+      "AV033",
+      "AV034",
+      "AV035",
+      "AV036",
+      "AV037",
+      "AV038",
+      "AV039",
+      "AV040",
+      "AV041",
+      "AV042",
+      "AV043",
+      "AV044",
+      "AV045",
+      "AV046",
+      "AV047",
+      "AV048",
+      "AV049",
+      "AV050",
+      "AV051",
+      "AV052",
+      "AV053",
+      "AV054",
+      "AV055",
+      "AV056",
+      "AV057",
+      "AV058",
+      "AV059",
+      "AV060"
+    ]
+  },
+  "casos": [
+    {
+      "id": "AV001",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_001",
+        "canal": "#trajetorias",
+        "tipo": "depoimento",
+        "texto": "Há seis meses eu evitava falar nas reuniões. Hoje apresentei minha primeira análise para a turma inteira e respondi às perguntas com segurança. Estou radiante com essa mudança; as sessões de prática em grupo transformaram minha confiança!"
+      },
+      "referencia": {"tipo": "depoimento", "sentimento": "Altamente Positivo", "relevancia_min": 8, "relevancia_max": 10, "rota": "case_sucesso"},
+      "justificativa": "Relato de transformação pessoal com conquista concreta e entusiasmo intenso; oferece uma história de aprendizagem aproveitável editorialmente.",
+      "evidencia": "Estou radiante com essa mudança",
+      "marcadores": ["trajetoria", "conquista", "entusiasmo"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV002",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_002",
+        "canal": "#conquistas",
+        "tipo": "depoimento",
+        "texto": "Minha primeira palestra sobre acessibilidade aconteceu ontem! Passei de ouvinte a palestrante depois de ensaiar com o grupo por quatro semanas. Foi emocionante demais receber perguntas de pessoas que querem tornar seus sistemas mais acessíveis."
+      },
+      "referencia": {"tipo": "depoimento", "sentimento": "Altamente Positivo", "relevancia_min": 8, "relevancia_max": 10, "rota": "case_sucesso"},
+      "justificativa": "A mensagem narra uma conquista pessoal e expressa emoção forte, com contexto suficiente para uma história da comunidade.",
+      "evidencia": "Foi emocionante demais",
+      "marcadores": ["conquista", "acessibilidade", "experiencia_pessoal"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV003",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_003",
+        "canal": "#aprendizagem",
+        "tipo": "depoimento",
+        "texto": "Durante um mês registrei meus erros de SQL em um caderno e revisei cada consulta com colegas. Nesta semana resolvi sozinho a análise de vendas do exercício. Fiquei satisfeito por perceber a evolução e pretendo manter esse hábito."
+      },
+      "referencia": {"tipo": "depoimento", "sentimento": "Positivo", "relevancia_min": 7, "relevancia_max": 9, "rota": "case_sucesso"},
+      "justificativa": "Experiência pessoal de aprendizagem com método e resultado concretos; satisfação moderada, sem intensidade excepcional.",
+      "evidencia": "Fiquei satisfeito por perceber a evolução",
+      "marcadores": ["aprendizagem", "sql", "resultado_concreto", "relevancia_limite"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV004",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_004",
+        "canal": "#rotina-de-estudos",
+        "tipo": "depoimento",
+        "texto": "Hoje reservei vinte minutos para revisar minhas anotações antes da aula. Foi uma manhã tranquila e gostei de começar assim. Ainda não tenho um resultado diferente para compartilhar."
+      },
+      "referencia": {"tipo": "depoimento", "sentimento": "Positivo", "relevancia_min": 3, "relevancia_max": 5, "rota": "nenhuma"},
+      "justificativa": "Pequeno relato pessoal positivo, mas sem conquista desenvolvida ou aprendizado suficientemente específico para destaque editorial.",
+      "evidencia": "gostei de começar assim",
+      "marcadores": ["rotina", "baixo_potencial_editorial", "positivo_sem_case"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV005",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_005",
+        "canal": "#trajetorias",
+        "tipo": "depoimento",
+        "texto": "No último ciclo estudei à noite, participei de duas revisões de código e refiz o exercício de listas. Neste ciclo vou manter os mesmos horários. Esse foi meu percurso até aqui."
+      },
+      "referencia": {"tipo": "depoimento", "sentimento": "Neutro", "relevancia_min": 3, "relevancia_max": 5, "rota": "nenhuma"},
+      "justificativa": "Narrativa autobiográfica factual, sem avaliação afetiva explícita e sem resultado marcante para divulgação.",
+      "evidencia": "Esse foi meu percurso até aqui",
+      "marcadores": ["experiencia_pessoal", "relato_factual"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV006",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_006",
+        "canal": "#rotina-de-estudos",
+        "tipo": "depoimento",
+        "texto": "Tentei estudar depois do expediente durante duas semanas, mas o cansaço me fez abandonar a rotina que tinha planejado. Estou decepcionado comigo e ainda procurando um ritmo possível. Só queria contar como tem sido minha experiência."
+      },
+      "referencia": {"tipo": "depoimento", "sentimento": "Negativo", "relevancia_min": 4, "relevancia_max": 6, "rota": "alerta"},
+      "justificativa": "Experiência pessoal com decepção explícita; não há pedido técnico nem demanda de reparação do serviço. O sentimento negativo determina alerta.",
+      "evidencia": "Estou decepcionado comigo",
+      "marcadores": ["experiencia_pessoal", "desmotivacao", "negativo_sem_reclamacao"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV007",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_007",
+        "canal": "#trajetorias",
+        "tipo": "depoimento",
+        "texto": "Eu me preparei por meses para a seleção do grupo de pesquisa e fui eliminado na última etapa. Estou arrasado, muito frustrado mesmo, e não quero falar de inscrições por um tempo. Compartilho apenas meu relato, sem solicitar mudanças no processo."
+      },
+      "referencia": {"tipo": "depoimento", "sentimento": "Altamente Negativo", "relevancia_min": 4, "relevancia_max": 6, "rota": "alerta"},
+      "justificativa": "Relato pessoal com sofrimento e frustração intensificados, sem reclamação dirigida ao serviço ou pedido de correção.",
+      "evidencia": "Estou arrasado, muito frustrado mesmo",
+      "marcadores": ["experiencia_pessoal", "intensidade_negativa", "relato_pessoal"],
+      "revisao_humana": true,
+      "motivo_revisao": "Revisar a intensidade emocional e o tratamento do relato antes de qualquer reutilização editorial."
+    },
+    {
+      "id": "AV008",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_008",
+        "canal": "#aprendizagem",
+        "tipo": "depoimento",
+        "texto": "Comecei pelo curso de planilhas, fiz a trilha de estatística e agora estou no módulo de visualização. Usei três cadernos ao longo desse período. Estou registrando a sequência das minhas etapas de estudo."
+      },
+      "referencia": {"tipo": "depoimento", "sentimento": "Neutro", "relevancia_min": 3, "relevancia_max": 5, "rota": "nenhuma"},
+      "justificativa": "Sequência factual da trajetória de estudo; estar em primeira pessoa não implica sentimento positivo nem conquista.",
+      "evidencia": "Estou registrando a sequência das minhas etapas de estudo",
+      "marcadores": ["trajetoria", "relato_factual", "acentos"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV009",
+      "grupo": "desafio",
+      "entrada": {
+        "autor": "participante_009",
+        "canal": "#trajetorias",
+        "tipo": "depoimento",
+        "texto": "Não foi uma experiência ruim: as revisões semanais me ajudaram a sair das respostas decoradas e explicar meu raciocínio. Ontem conduzi minha primeira revisão de código e fiquei contente com a clareza da conversa."
+      },
+      "referencia": {"tipo": "depoimento", "sentimento": "Positivo", "relevancia_min": 7, "relevancia_max": 9, "rota": "case_sucesso"},
+      "justificativa": "A negação elimina a avaliação negativa; predomina uma narrativa de evolução e satisfação moderada, com conquista concreta.",
+      "evidencia": "fiquei contente com a clareza da conversa",
+      "marcadores": ["negacao", "polaridade_contextual", "conquista"],
+      "revisao_humana": true,
+      "motivo_revisao": "Confirmar que a negação de 'ruim' foi interpretada no contexto e calibrar o limite editorial do relato."
+    },
+    {
+      "id": "AV010",
+      "grupo": "desafio",
+      "entrada": {
+        "autor": "participante_010",
+        "canal": "#rotina-de-estudos",
+        "tipo": "depoimento",
+        "texto": "Que maravilha a minha organização: deixei toda a revisão para a véspera e esqueci metade do conteúdo na apresentação. Estou decepcionado com o resultado. Foi uma experiência que me mostrou o custo de não praticar aos poucos."
+      },
+      "referencia": {"tipo": "depoimento", "sentimento": "Negativo", "relevancia_min": 5, "relevancia_max": 7, "rota": "alerta"},
+      "justificativa": "A abertura é irônica e o restante explicita decepção com uma experiência pessoal; não se trata de elogio nem de reclamação do curso.",
+      "evidencia": "Estou decepcionado com o resultado",
+      "marcadores": ["ironia", "polaridade_contextual", "experiencia_pessoal"],
+      "revisao_humana": true,
+      "motivo_revisao": "Confirmar a leitura irônica da abertura e a separação entre relato de frustração e reclamação."
+    },
+    {
+      "id": "AV011",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_011",
+        "canal": "#duvidas-sql",
+        "tipo": "pergunta_tecnica",
+        "texto": "Ao fazer LEFT JOIN entre clientes e pedidos, o total de clientes aumenta porque uma pessoa tem vários pedidos. Como mantenho uma linha por cliente sem perder a soma das compras?"
+      },
+      "referencia": {"tipo": "pergunta_tecnica", "sentimento": "Neutro", "relevancia_min": 7, "relevancia_max": 9, "rota": "faq"},
+      "justificativa": "Dúvida técnica objetiva com contexto reproduzível sobre cardinalidade e agregação em SQL; bom potencial de explicação reutilizável.",
+      "evidencia": "Como mantenho uma linha por cliente sem perder a soma das compras?",
+      "marcadores": ["sql", "joins", "faq_reutilizavel"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV012",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_012",
+        "canal": "#duvidas-sql",
+        "tipo": "pergunta_tecnica",
+        "texto": "Minha consulta combina alunos e matrículas e repete o nome de quem está em mais de uma turma. Qual é a diferença entre aplicar DISTINCT e agrupar as matrículas antes do JOIN?"
+      },
+      "referencia": {"tipo": "pergunta_tecnica", "sentimento": "Neutro", "relevancia_min": 7, "relevancia_max": 9, "rota": "faq"},
+      "justificativa": "Pedido de esclarecimento técnico sobre duplicação em joins, próximo tematicamente de outro caso sem repetir sua mensagem.",
+      "evidencia": "Qual é a diferença entre aplicar DISTINCT e agrupar as matrículas antes do JOIN?",
+      "marcadores": ["sql", "joins", "duvida_relacionada"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV013",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_013",
+        "canal": "#duvidas-backend",
+        "tipo": "pergunta_tecnica",
+        "texto": "Gostei de aprender a consumir APIs e a primeira consulta já está funcionando. Como percorro uma resposta paginada quando o servidor devolve um cursor em vez de um número de página?"
+      },
+      "referencia": {"tipo": "pergunta_tecnica", "sentimento": "Positivo", "relevancia_min": 6, "relevancia_max": 8, "rota": "faq"},
+      "justificativa": "A intenção central é obter orientação técnica; a satisfação moderada não muda o tipo nem transforma a mensagem em case.",
+      "evidencia": "Como percorro uma resposta paginada",
+      "marcadores": ["api", "paginacao", "contexto_misto"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV014",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_014",
+        "canal": "#duvidas-testes",
+        "tipo": "pergunta_tecnica",
+        "texto": "Estou eufórico com meus primeiros testes automatizados, foi sensacional ver a suíte toda passar! Como substituo o serviço de e-mail por um objeto falso para testar o cadastro sem enviar mensagens?"
+      },
+      "referencia": {"tipo": "pergunta_tecnica", "sentimento": "Altamente Positivo", "relevancia_min": 6, "relevancia_max": 8, "rota": "faq"},
+      "justificativa": "Entusiasmo explícito e intenso acompanha um pedido técnico específico; a ação solicitada é explicar isolamento de dependências nos testes.",
+      "evidencia": "Estou eufórico com meus primeiros testes automatizados",
+      "marcadores": ["testes", "entusiasmo", "intencao_principal"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV015",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_015",
+        "canal": "#duvidas-python",
+        "tipo": "pergunta_tecnica",
+        "texto": "Estou frustrado porque o arquivo CSV abre com 'aÃ§Ã£o' no lugar de 'ação'. Como identifico a codificação de origem e leio esse arquivo no pandas sem corromper os acentos?"
+      },
+      "referencia": {"tipo": "pergunta_tecnica", "sentimento": "Negativo", "relevancia_min": 7, "relevancia_max": 9, "rota": "alerta"},
+      "justificativa": "Dúvida técnica com frustração explícita; apesar do potencial de FAQ, a regra vigente prioriza alerta por sentimento negativo.",
+      "evidencia": "Estou frustrado",
+      "marcadores": ["codificacao", "acentos", "alerta_precede_faq"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV016",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_016",
+        "canal": "#duvidas-testes",
+        "tipo": "pergunta_tecnica",
+        "texto": "Estou furioso, perdi a tarde inteira e nada faz esses testes enxergarem o pacote instalado! Por que o pytest retorna ModuleNotFoundError quando a execução pelo terminal importa o mesmo módulo normalmente?"
+      },
+      "referencia": {"tipo": "pergunta_tecnica", "sentimento": "Altamente Negativo", "relevancia_min": 6, "relevancia_max": 8, "rota": "alerta"},
+      "justificativa": "Pedido de diagnóstico técnico acompanhado de raiva intensa. O erro em código próprio não é, por si só, reclamação de serviço.",
+      "evidencia": "Estou furioso, perdi a tarde inteira",
+      "marcadores": ["python", "ambiente", "intensidade_negativa", "alerta_precede_faq"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV017",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_017",
+        "canal": "#duvidas-python",
+        "tipo": "pergunta_tecnica",
+        "texto": "Preciso entender como selecionar no editor o ambiente virtual usado pelo terminal. O interpretador do editor lista uma versão diferente do Python e não encontra as bibliotecas do projeto."
+      },
+      "referencia": {"tipo": "pergunta_tecnica", "sentimento": "Neutro", "relevancia_min": 6, "relevancia_max": 8, "rota": "faq"},
+      "justificativa": "Pedido técnico formulado sem interrogação e sem avaliação emocional; a ausência de '?' não altera a intenção de obter orientação.",
+      "evidencia": "Preciso entender como selecionar no editor o ambiente virtual",
+      "marcadores": ["sem_interrogacao", "python", "ambiente"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV018",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_018",
+        "canal": "#duvidas-dados",
+        "tipo": "pergunta_tecnica",
+        "texto": "No DataFrame, a coluna idade tem números e valores ausentes. Devo usar o tipo Int64 do pandas ou preencher os ausentes antes de converter para inteiro? Quero preservar a diferença entre zero e informação não preenchida."
+      },
+      "referencia": {"tipo": "pergunta_tecnica", "sentimento": "Neutro", "relevancia_min": 6, "relevancia_max": 8, "rota": "faq"},
+      "justificativa": "Dúvida sobre tratamento de ausentes com restrição semântica clara, adequada à elaboração de orientação técnica reutilizável.",
+      "evidencia": "Quero preservar a diferença entre zero e informação não preenchida",
+      "marcadores": ["pandas", "qualidade_de_dados", "valores_ausentes"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV019",
+      "grupo": "desafio",
+      "entrada": {
+        "autor": "participante_019",
+        "canal": "#geral",
+        "tipo": "pergunta_tecnica",
+        "texto": "Não estou reclamando do curso. Preciso de uma explicação sobre por que uma função assíncrona devolve uma coroutine quando a chamo sem await, mesmo com o código sem erros de sintaxe."
+      },
+      "referencia": {"tipo": "pergunta_tecnica", "sentimento": "Neutro", "relevancia_min": 6, "relevancia_max": 8, "rota": "faq"},
+      "justificativa": "A intenção é entender um comportamento técnico; 'reclamando' está negado e a mensagem não expressa insatisfação. Não há interrogação.",
+      "evidencia": "Preciso de uma explicação sobre por que uma função assíncrona devolve uma coroutine",
+      "marcadores": ["negacao", "sem_interrogacao", "canal_nao_determina_tipo", "python"],
+      "revisao_humana": true,
+      "motivo_revisao": "Verificar se o pedido sem '?' e a palavra 'reclamando' negada foram interpretados pela intenção."
+    },
+    {
+      "id": "AV020",
+      "grupo": "desafio",
+      "entrada": {
+        "autor": "participante_020",
+        "canal": "#duvidas-git",
+        "tipo": "pergunta_tecnica",
+        "texto": "Maravilhoso, meu merge criou conflitos nos três arquivos que eu precisava entregar. Estou irritado com isso. Como separo as alterações locais das remotas sem apagar o trabalho de nenhuma das partes?"
+      },
+      "referencia": {"tipo": "pergunta_tecnica", "sentimento": "Negativo", "relevancia_min": 7, "relevancia_max": 9, "rota": "alerta"},
+      "justificativa": "A avaliação positiva inicial é irônica; há irritação explícita e pedido técnico central. O alerta prevalece sobre a rota FAQ.",
+      "evidencia": "Estou irritado com isso",
+      "marcadores": ["ironia", "git", "alerta_precede_faq"],
+      "revisao_humana": true,
+      "motivo_revisao": "Validar a interpretação da ironia e a precedência da rota em uma dúvida técnica negativa."
+    },
+    {
+      "id": "AV021",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_021",
+        "canal": "#feedback-trilha",
+        "tipo": "feedback",
+        "texto": "Gostei do ritmo das oficinas de estatística. Como sugestão para a próxima turma, acrescentaria um exercício curto de interpretação de gráficos ao final de cada encontro."
+      },
+      "referencia": {"tipo": "feedback", "sentimento": "Positivo", "relevancia_min": 4, "relevancia_max": 6, "rota": "nenhuma"},
+      "justificativa": "Avaliação positiva com sugestão de melhoria futura, sem falha que exija reparação nem pergunta técnica.",
+      "evidencia": "Como sugestão para a próxima turma",
+      "marcadores": ["sugestao", "avaliacao_de_experiencia"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV022",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_022",
+        "canal": "#feedback-trilha",
+        "tipo": "feedback",
+        "texto": "A dinâmica de revisar consultas em dupla foi espetacular! Foi a melhor atividade do ciclo, muito acima das minhas expectativas. Minha sugestão é repetir esse formato em outros módulos."
+      },
+      "referencia": {"tipo": "feedback", "sentimento": "Altamente Positivo", "relevancia_min": 4, "relevancia_max": 6, "rota": "nenhuma"},
+      "justificativa": "Elogio intenso a um formato pedagógico com recomendação de continuidade; o foco é avaliar a atividade, sem trajetória pessoal ou entrega de projeto.",
+      "evidencia": "muito acima das minhas expectativas",
+      "marcadores": ["elogio", "entusiasmo", "sugestao"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV023",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_023",
+        "canal": "#sugestoes",
+        "tipo": "feedback",
+        "texto": "Sugiro incluir uma estimativa de duração ao lado de cada exercício. A informação permitiria que cada participante escolhesse as atividades de acordo com o tempo disponível."
+      },
+      "referencia": {"tipo": "feedback", "sentimento": "Neutro", "relevancia_min": 4, "relevancia_max": 6, "rota": "nenhuma"},
+      "justificativa": "Proposta funcional formulada de modo objetivo, sem elogio, insatisfação explícita ou cobrança de correção de falha.",
+      "evidencia": "Sugiro incluir uma estimativa de duração",
+      "marcadores": ["sugestao", "tom_objetivo"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV024",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_024",
+        "canal": "#feedback-trilha",
+        "tipo": "feedback",
+        "texto": "Achei a aula de visualização cansativa, com muitos slides e pouco tempo de prática. Para a próxima edição, sugiro alternar a explicação com exercícios menores."
+      },
+      "referencia": {"tipo": "feedback", "sentimento": "Negativo", "relevancia_min": 4, "relevancia_max": 6, "rota": "alerta"},
+      "justificativa": "Avaliação crítica com proposta de evolução pedagógica; não solicita reparação individual. A negatividade já é suficiente para alerta.",
+      "evidencia": "Achei a aula de visualização cansativa",
+      "marcadores": ["critica", "sugestao", "negativo_sem_reclamacao"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV025",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_025",
+        "canal": "#feedback-trilha",
+        "tipo": "feedback",
+        "texto": "Detestei completamente o formato da maratona de exercícios; para mim foi exaustivo e desanimador do começo ao fim. Para futuras edições, proponho dividir a atividade em encontros curtos."
+      },
+      "referencia": {"tipo": "feedback", "sentimento": "Altamente Negativo", "relevancia_min": 4, "relevancia_max": 6, "rota": "alerta"},
+      "justificativa": "Rejeição fortemente intensificada de um formato e sugestão para futuras edições; não há cobrança de reparação por falha contratada.",
+      "evidencia": "Detestei completamente o formato",
+      "marcadores": ["intensidade_negativa", "sugestao", "feedback_nao_reclamacao"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV026",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_026",
+        "canal": "#sugestoes",
+        "tipo": "feedback",
+        "texto": "O material de análise exploratória está claro e bem organizado. Seria útil acrescentar uma comparação entre médias e medianas em conjuntos com valores extremos para ampliar os exemplos."
+      },
+      "referencia": {"tipo": "feedback", "sentimento": "Positivo", "relevancia_min": 5, "relevancia_max": 7, "rota": "nenhuma"},
+      "justificativa": "Avaliação positiva do material acompanhada de sugestão concreta de conteúdo, sem solicitação de resposta técnica imediata.",
+      "evidencia": "está claro e bem organizado",
+      "marcadores": ["sugestao_de_conteudo", "estatistica", "feedback_nao_pergunta"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV027",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_027",
+        "canal": "#feedback-encontros",
+        "tipo": "feedback",
+        "texto": "Uma opção para os próximos encontros é abrir a votação de temas com três dias de antecedência e limitar cada participante a duas escolhas. Deixo a proposta para avaliação da organização."
+      },
+      "referencia": {"tipo": "feedback", "sentimento": "Neutro", "relevancia_min": 3, "relevancia_max": 5, "rota": "nenhuma"},
+      "justificativa": "Sugestão operacional objetiva para encontros futuros, sem avaliação emocional e com potencial editorial limitado.",
+      "evidencia": "Deixo a proposta para avaliação da organização",
+      "marcadores": ["sugestao", "organizacao", "acentos"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV028",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_028",
+        "canal": "#feedback-trilha",
+        "tipo": "feedback",
+        "texto": "Não gostei de apresentar resultados apenas com uma nota final; achei esse formato pouco útil para aprender com os erros. Sugiro acrescentar comentários por critério nas próximas avaliações."
+      },
+      "referencia": {"tipo": "feedback", "sentimento": "Negativo", "relevancia_min": 4, "relevancia_max": 6, "rota": "alerta"},
+      "justificativa": "A negação de 'gostei' expressa insatisfação e a ação proposta é uma melhoria futura, não contestação de uma nota individual.",
+      "evidencia": "Não gostei de apresentar resultados apenas com uma nota final",
+      "marcadores": ["negacao", "sugestao", "avaliacao"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV029",
+      "grupo": "desafio",
+      "entrada": {
+        "autor": "participante_029",
+        "canal": "#sugestoes",
+        "tipo": "feedback",
+        "texto": "Não considero o laboratório difícil demais; o desafio foi agradável e adequado ao que estudamos. Poderíamos incluir uma atividade opcional para quem quiser explorar mais casos? É uma sugestão para a próxima turma."
+      },
+      "referencia": {"tipo": "feedback", "sentimento": "Positivo", "relevancia_min": 4, "relevancia_max": 6, "rota": "nenhuma"},
+      "justificativa": "A dificuldade excessiva é negada e a avaliação é positiva. A pergunta propõe uma melhoria pedagógica, sem pedir solução técnica.",
+      "evidencia": "o desafio foi agradável e adequado",
+      "marcadores": ["negacao", "interrogacao_sem_duvida_tecnica", "sugestao"],
+      "revisao_humana": true,
+      "motivo_revisao": "Confirmar que o ponto de interrogação não transforma uma sugestão pedagógica em pergunta técnica."
+    },
+    {
+      "id": "AV030",
+      "grupo": "desafio",
+      "entrada": {
+        "autor": "participante_030",
+        "canal": "#feedback-trilha",
+        "tipo": "feedback",
+        "texto": "Excelente ideia ler cinquenta slides sem uma pausa... Saí entediado e achei o formato pesado. Minha sugestão para os próximos encontros é alternar explicação, discussão e prática."
+      },
+      "referencia": {"tipo": "feedback", "sentimento": "Negativo", "relevancia_min": 4, "relevancia_max": 6, "rota": "alerta"},
+      "justificativa": "O elogio inicial é irônico; a crítica explícita ao formato e a sugestão futura caracterizam feedback negativo.",
+      "evidencia": "Saí entediado e achei o formato pesado",
+      "marcadores": ["ironia", "sugestao", "feedback_nao_reclamacao"],
+      "revisao_humana": true,
+      "motivo_revisao": "Revisar a polaridade irônica e a fronteira entre avaliação crítica e demanda de reparação."
+    },
+    {
+      "id": "AV031",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_031",
+        "canal": "#suporte",
+        "tipo": "reclamacao",
+        "texto": "Meu acesso ao laboratório continua bloqueado desde segunda, apesar da inscrição confirmada. Estou insatisfeito por perder as atividades e solicito que restabeleçam minha permissão."
+      },
+      "referencia": {"tipo": "reclamacao", "sentimento": "Negativo", "relevancia_min": 3, "relevancia_max": 5, "rota": "alerta"},
+      "justificativa": "Falha concreta de acesso acompanhada de insatisfação e solicitação de reparação; urgência operacional não eleva automaticamente o potencial editorial.",
+      "evidencia": "solicito que restabeleçam minha permissão",
+      "marcadores": ["falha_de_servico", "pedido_de_reparacao", "acesso"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV032",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_032",
+        "canal": "#suporte",
+        "tipo": "reclamacao",
+        "texto": "É inaceitável! A organização apagou novamente a inscrição da minha equipe e ficamos de fora da oficina pela segunda vez. Estou indignado e exijo a correção do cadastro e uma resposta sobre o ocorrido."
+      },
+      "referencia": {"tipo": "reclamacao", "sentimento": "Altamente Negativo", "relevancia_min": 4, "relevancia_max": 6, "rota": "alerta"},
+      "justificativa": "Cobrança de correção de falha recorrente com indignação e rejeição intensas; a mensagem relata uma acusação ainda não verificada.",
+      "evidencia": "Estou indignado e exijo a correção do cadastro",
+      "marcadores": ["recorrencia_relatada", "intensidade_negativa", "pedido_de_reparacao"],
+      "revisao_humana": true,
+      "motivo_revisao": "Verificar o contexto e os fatos relatados antes de qualquer encaminhamento externo ou reprodução da acusação."
+    },
+    {
+      "id": "AV033",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_033",
+        "canal": "#suporte-eventos",
+        "tipo": "reclamacao",
+        "texto": "A sessão de mentoria foi cancelada sem aviso e esperei na sala por quarenta minutos. Fiquei chateado com a falta de comunicação. Peço que remarquem meu atendimento e informem o novo horário."
+      },
+      "referencia": {"tipo": "reclamacao", "sentimento": "Negativo", "relevancia_min": 2, "relevancia_max": 4, "rota": "alerta"},
+      "justificativa": "Falha de atendimento com impacto pessoal e pedido de remarcação; conteúdo útil ao suporte, mas pouco reaproveitável como marketing ou FAQ técnica.",
+      "evidencia": "Peço que remarquem meu atendimento",
+      "marcadores": ["pedido_de_reparacao", "atendimento", "relevancia_nao_urgencia"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV034",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_034",
+        "canal": "#suporte",
+        "tipo": "reclamacao",
+        "texto": "Registro uma divergência: o certificado indica carga horária de dez horas, mas a atividade concluída corresponde a vinte. Solicito a retificação do documento conforme o registro da turma."
+      },
+      "referencia": {"tipo": "reclamacao", "sentimento": "Neutro", "relevancia_min": 2, "relevancia_max": 4, "rota": "alerta"},
+      "justificativa": "Pedido formal e objetivo de correção de uma falha, sem emoção explícita. O tipo reclamação determina alerta mesmo com sentimento neutro.",
+      "evidencia": "Solicito a retificação do documento",
+      "marcadores": ["tom_objetivo", "pedido_de_reparacao", "reclamacao_neutra"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV035",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_035",
+        "canal": "#suporte-materiais",
+        "tipo": "reclamacao",
+        "texto": "Os links dos exercícios obrigatórios levam a páginas removidas e não consigo concluir a entrega. Isso está prejudicando meu estudo. Peço a substituição dos links e a revisão do prazo afetado."
+      },
+      "referencia": {"tipo": "reclamacao", "sentimento": "Negativo", "relevancia_min": 4, "relevancia_max": 6, "rota": "alerta"},
+      "justificativa": "Relata falha no material disponibilizado e cobra correção com revisão de prazo, em vez de pedir explicação de um conceito técnico.",
+      "evidencia": "Peço a substituição dos links e a revisão do prazo afetado",
+      "marcadores": ["falha_de_servico", "pedido_de_reparacao", "reclamacao_nao_pergunta"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV036",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_036",
+        "canal": "#suporte",
+        "tipo": "reclamacao",
+        "texto": "Pela terceira vez meu chamado foi encerrado sem resolver o bloqueio de acesso. Estou revoltado com esse atendimento, é um descaso completo! Exijo que reabram o chamado e tratem o problema."
+      },
+      "referencia": {"tipo": "reclamacao", "sentimento": "Altamente Negativo", "relevancia_min": 3, "relevancia_max": 5, "rota": "alerta"},
+      "justificativa": "Falha recorrente relatada, cobrança de reparação e intensidade emocional elevada; a prioridade de atenção deve ser avaliada separadamente da relevância editorial.",
+      "evidencia": "Estou revoltado com esse atendimento",
+      "marcadores": ["recorrencia_relatada", "intensidade_negativa", "pedido_de_reparacao"],
+      "revisao_humana": true,
+      "motivo_revisao": "Confirmar o histórico do atendimento e o contexto da recorrência antes de decidir qualquer ação."
+    },
+    {
+      "id": "AV037",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_037",
+        "canal": "#suporte-eventos",
+        "tipo": "reclamacao",
+        "texto": "A agenda mostra minha apresentação às 14h, enquanto a confirmação recebida registra 16h. Solicito que corrijam a agenda para refletir o horário confirmado."
+      },
+      "referencia": {"tipo": "reclamacao", "sentimento": "Neutro", "relevancia_min": 1, "relevancia_max": 3, "rota": "alerta"},
+      "justificativa": "Divergência operacional com solicitação explícita de correção e tom factual; a rota alerta decorre do tipo.",
+      "evidencia": "Solicito que corrijam a agenda",
+      "marcadores": ["reclamacao_neutra", "pedido_de_reparacao", "agenda"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV038",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_038",
+        "canal": "#suporte",
+        "tipo": "reclamacao",
+        "texto": "O sistema registrou minha atividade como ausente, embora eu tenha enviado o arquivo dentro do prazo. Estou preocupado com esse erro. Quero que confiram o comprovante de envio e corrijam meu registro."
+      },
+      "referencia": {"tipo": "reclamacao", "sentimento": "Negativo", "relevancia_min": 3, "relevancia_max": 5, "rota": "alerta"},
+      "justificativa": "Preocupação por falha de registro com pedido de verificação e correção, sem solicitação de orientação técnica.",
+      "evidencia": "corrijam meu registro",
+      "marcadores": ["pedido_de_reparacao", "registro_de_entrega", "preocupacao"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV039",
+      "grupo": "desafio",
+      "entrada": {
+        "autor": "participante_039",
+        "canal": "#suporte",
+        "tipo": "reclamacao",
+        "texto": "O atendimento foi atencioso e fiquei satisfeito com a conversa. Registro, porém, que meu nome ainda aparece duplicado na lista de participantes. Solicito a remoção da duplicidade conforme combinamos."
+      },
+      "referencia": {"tipo": "reclamacao", "sentimento": "Positivo", "relevancia_min": 2, "relevancia_max": 4, "rota": "alerta"},
+      "justificativa": "A avaliação emocional explícita é positiva, mas a ação principal exige reparar uma falha pendente. O tipo reclamação força alerta independentemente do elogio.",
+      "evidencia": "Solicito a remoção da duplicidade",
+      "marcadores": ["contexto_misto", "reclamacao_positiva", "precedencia_rota"],
+      "revisao_humana": true,
+      "motivo_revisao": "Calibrar a polaridade global diante de elogio explícito e falha pendente; confirmar a primazia do pedido de reparação."
+    },
+    {
+      "id": "AV040",
+      "grupo": "desafio",
+      "entrada": {
+        "autor": "participante_040",
+        "canal": "#sugestoes",
+        "tipo": "reclamacao",
+        "texto": "Não estou propondo uma função nova: o botão de baixar o certificado, que já existia, desapareceu da minha conta. Solicito que restaurem essa função para eu obter o documento."
+      },
+      "referencia": {"tipo": "reclamacao", "sentimento": "Neutro", "relevancia_min": 3, "relevancia_max": 5, "rota": "alerta"},
+      "justificativa": "Apesar do canal de sugestões, a mensagem pede restaurar um recurso defeituoso e nega ser melhoria nova; o tom permanece factual.",
+      "evidencia": "Solicito que restaurem essa função",
+      "marcadores": ["negacao", "canal_nao_determina_tipo", "reclamacao_neutra", "pedido_de_reparacao"],
+      "revisao_humana": true,
+      "motivo_revisao": "Revisar a distinção entre restauração de serviço e sugestão de evolução, sem usar o nome do canal como rótulo."
+    },
+    {
+      "id": "AV041",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_041",
+        "canal": "#projetos",
+        "tipo": "projeto",
+        "texto": "Finalizamos o Atlas de Bibliotecas, um painel que permite explorar empréstimos por bairro com dados inteiramente fictícios. Incluímos filtros acessíveis, documentação e exemplos reproduzíveis. Estou radiante com a entrega; ficou muito além do que imaginávamos!"
+      },
+      "referencia": {"tipo": "projeto", "sentimento": "Altamente Positivo", "relevancia_min": 8, "relevancia_max": 10, "rota": "case_sucesso"},
+      "justificativa": "Apresentação de artefato concluído com funcionalidades específicas, contexto e entusiasmo intenso; a entrega técnica é o centro da mensagem.",
+      "evidencia": "Finalizamos o Atlas de Bibliotecas",
+      "marcadores": ["entrega", "dashboard", "dados_ficticios", "entusiasmo"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV042",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_042",
+        "canal": "#projetos",
+        "tipo": "projeto",
+        "texto": "Publiquei a primeira versão do Agenda Verde, um organizador de tarefas de jardinagem com lembretes configuráveis. O repositório inclui testes de datas e um conjunto de plantas fictícias para demonstração. Fiquei satisfeito com a entrega."
+      },
+      "referencia": {"tipo": "projeto", "sentimento": "Positivo", "relevancia_min": 7, "relevancia_max": 9, "rota": "case_sucesso"},
+      "justificativa": "Divulgação de projeto com finalidade, funcionalidades e evidências de entrega; satisfação moderada sustenta uma candidatura a case.",
+      "evidencia": "Fiquei satisfeito com a entrega",
+      "marcadores": ["entrega", "testes", "resultado_concreto"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV043",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_043",
+        "canal": "#mostra-de-projetos",
+        "tipo": "projeto",
+        "texto": "Entregamos o protótipo Rota do Livro: ele cadastra trocas de livros e mostra uma fila de reservas. A demonstração usa perfis fictícios e inclui um guia para executar o banco local. Gostei de como o fluxo ficou simples de acompanhar."
+      },
+      "referencia": {"tipo": "projeto", "sentimento": "Positivo", "relevancia_min": 7, "relevancia_max": 9, "rota": "case_sucesso"},
+      "justificativa": "Entrega técnica demonstrável com objetivo e documentação, acompanhada de avaliação positiva moderada.",
+      "evidencia": "Entregamos o protótipo Rota do Livro",
+      "marcadores": ["entrega", "prototipo", "documentacao"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV044",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_044",
+        "canal": "#projetos",
+        "tipo": "projeto",
+        "texto": "Disponibilizei a versão 0.2 do Catálogo de Trilhas. Esta entrega adiciona busca por dificuldade, exportação em JSON e três testes de validação. O protótipo utiliza apenas registros de demonstração."
+      },
+      "referencia": {"tipo": "projeto", "sentimento": "Neutro", "relevancia_min": 6, "relevancia_max": 8, "rota": "nenhuma"},
+      "justificativa": "Anúncio factual de versão e funcionalidades, sem avaliação afetiva; relevância alta não basta para case quando o sentimento é neutro.",
+      "evidencia": "Esta entrega adiciona busca por dificuldade",
+      "marcadores": ["entrega", "relato_factual", "relevancia_sem_sentimento_positivo"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV045",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_045",
+        "canal": "#projetos",
+        "tipo": "projeto",
+        "texto": "Estou compartilhando o protótipo Mapa de Oficinas com cadastro de eventos e busca por tema. A versão entregue ainda falha ao ordenar as datas, e fiquei decepcionado com esse resultado. Registrei a limitação na documentação da demonstração."
+      },
+      "referencia": {"tipo": "projeto", "sentimento": "Negativo", "relevancia_min": 6, "relevancia_max": 8, "rota": "alerta"},
+      "justificativa": "Apresentação de um artefato com limitação conhecida e decepção explícita; não há demanda de reparação dirigida à organização.",
+      "evidencia": "fiquei decepcionado com esse resultado",
+      "marcadores": ["entrega", "limitacao_de_projeto", "negativo_sem_reclamacao"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV046",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_046",
+        "canal": "#projetos",
+        "tipo": "projeto",
+        "texto": "Segue a versão de demonstração do Organiza Feira, com cadastro de barracas e exportação de pedidos fictícios. Estou profundamente frustrado com a entrega: a tela de resumo falha repetidamente e considero o resultado péssimo. A lista de falhas acompanha o protótipo."
+      },
+      "referencia": {"tipo": "projeto", "sentimento": "Altamente Negativo", "relevancia_min": 5, "relevancia_max": 7, "rota": "alerta"},
+      "justificativa": "A ação principal é apresentar uma versão de projeto; a avaliação da entrega é fortemente negativa, sem pedido técnico nem cobrança de serviço.",
+      "evidencia": "Estou profundamente frustrado com a entrega",
+      "marcadores": ["entrega", "intensidade_negativa", "limitacao_de_projeto"],
+      "revisao_humana": true,
+      "motivo_revisao": "Calibrar a intensidade da autocrítica e confirmar que o foco na entrega mantém o tipo projeto."
+    },
+    {
+      "id": "AV047",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_047",
+        "canal": "#projetos-iniciantes",
+        "tipo": "projeto",
+        "texto": "Compartilho meu conversor de medidas com opções para metros, centímetros e milímetros. A página mostra exemplos de entrada e mensagens de validação. Gostei de terminar esse pequeno exercício, ainda sem demonstração de uso ou explicação das decisões."
+      },
+      "referencia": {"tipo": "projeto", "sentimento": "Positivo", "relevancia_min": 4, "relevancia_max": 6, "rota": "nenhuma"},
+      "justificativa": "Projeto de exercício com satisfação, exemplos e validação de entrada, mas sem demonstração de uso nem decisões explicadas; a faixa proposta termina abaixo do limiar editorial de case.",
+      "evidencia": "Gostei de terminar esse pequeno exercício",
+      "marcadores": ["entrega", "baixo_potencial_editorial", "positivo_sem_case", "relevancia_limite"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV048",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_048",
+        "canal": "#projetos",
+        "tipo": "projeto",
+        "texto": "A entrega do Leitor de Hábitos está disponível para demonstração. O programa recebe um CSV fictício, valida datas ausentes e produz um gráfico semanal; o pacote inclui instruções de execução e a relação das validações realizadas."
+      },
+      "referencia": {"tipo": "projeto", "sentimento": "Neutro", "relevancia_min": 7, "relevancia_max": 9, "rota": "nenhuma"},
+      "justificativa": "Projeto com conteúdo específico e material de execução, descrito sem emoção explícita. O mérito técnico não permite inferir sentimento positivo.",
+      "evidencia": "O programa recebe um CSV fictício, valida datas ausentes e produz um gráfico semanal",
+      "marcadores": ["entrega", "qualidade_de_dados", "relato_factual"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV049",
+      "grupo": "desafio",
+      "entrada": {
+        "autor": "participante_049",
+        "canal": "#geral",
+        "tipo": "projeto",
+        "texto": "O protótipo não ficou ruim: o Painel de Hortas já compara colheitas de amostra, exporta tabelas e vem com instruções para reproduzir os gráficos. Fiquei contente com esta versão e estou disponibilizando o pacote para a mostra."
+      },
+      "referencia": {"tipo": "projeto", "sentimento": "Positivo", "relevancia_min": 7, "relevancia_max": 9, "rota": "case_sucesso"},
+      "justificativa": "A avaliação negativa é negada e há satisfação explícita com uma entrega demonstrável; o conteúdo prevalece sobre o canal genérico.",
+      "evidencia": "Fiquei contente com esta versão",
+      "marcadores": ["negacao", "entrega", "canal_nao_determina_tipo"],
+      "revisao_humana": true,
+      "motivo_revisao": "Conferir a polaridade contextual e a distinção entre apresentação de artefato e relato pessoal."
+    },
+    {
+      "id": "AV050",
+      "grupo": "desafio",
+      "entrada": {
+        "autor": "participante_050",
+        "canal": "#feedback-projetos",
+        "tipo": "projeto",
+        "texto": "Para a rodada de feedback, entrego a versão do Caderno de Receitas com busca por ingredientes e testes de quantidades. O pacote contém dados fictícios e instruções de instalação. As sugestões serão coletadas na próxima reunião."
+      },
+      "referencia": {"tipo": "projeto", "sentimento": "Neutro", "relevancia_min": 6, "relevancia_max": 8, "rota": "nenhuma"},
+      "justificativa": "A palavra 'feedback' descreve o destino da entrega, não uma avaliação dada pelo autor. A mensagem anuncia um artefato com tom factual.",
+      "evidencia": "entrego a versão do Caderno de Receitas",
+      "marcadores": ["palavra_isolada", "canal_nao_determina_tipo", "entrega", "relato_factual"],
+      "revisao_humana": true,
+      "motivo_revisao": "Validar que a presença da palavra 'feedback' não supera a intenção principal de apresentar uma entrega."
+    },
+    {
+      "id": "AV051",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_051",
+        "canal": "#cafe",
+        "tipo": "outro",
+        "texto": "Quem vai participar do café virtual de sábado? Estou organizando apenas a lista de presença."
+      },
+      "referencia": {"tipo": "outro", "sentimento": "Neutro", "relevancia_min": 0, "relevancia_max": 2, "rota": "nenhuma"},
+      "justificativa": "Pergunta social de organização do grupo, sem assunto técnico nem avaliação de experiência; a interrogação não implica FAQ.",
+      "evidencia": "Quem vai participar do café virtual de sábado?",
+      "marcadores": ["pergunta_social", "interrogacao_sem_duvida_tecnica"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV052",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_052",
+        "canal": "#avisos",
+        "tipo": "outro",
+        "texto": "A reunião de alinhamento começa às 19h na sala habitual. A pauta está fixada no canal e a conversa terá duração de meia hora."
+      },
+      "referencia": {"tipo": "outro", "sentimento": "Neutro", "relevancia_min": 1, "relevancia_max": 3, "rota": "nenhuma"},
+      "justificativa": "Aviso logístico factual, útil para organização imediata, com baixo potencial de virar conteúdo de marketing ou FAQ técnica.",
+      "evidencia": "A reunião de alinhamento começa às 19h",
+      "marcadores": ["aviso", "logistica"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV053",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_053",
+        "canal": "#cafe",
+        "tipo": "outro",
+        "texto": "Boa tarde, turma! Que bom encontrar vocês por aqui. Desejo uma semana tranquila para todos."
+      },
+      "referencia": {"tipo": "outro", "sentimento": "Positivo", "relevancia_min": 0, "relevancia_max": 2, "rota": "nenhuma"},
+      "justificativa": "Saudação cordial e positiva, sem narrativa de experiência, avaliação de serviço ou conteúdo técnico.",
+      "evidencia": "Que bom encontrar vocês por aqui",
+      "marcadores": ["saudacao", "baixo_potencial_editorial"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV054",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_054",
+        "canal": "#fora-do-assunto",
+        "tipo": "outro",
+        "texto": "Que final de campeonato espetacular! Estou eufórico, meu time marcou no último minuto! Hoje o assunto no café vai ser esse jogo."
+      },
+      "referencia": {"tipo": "outro", "sentimento": "Altamente Positivo", "relevancia_min": 0, "relevancia_max": 2, "rota": "nenhuma"},
+      "justificativa": "Comentário social sobre esporte com entusiasmo intenso, sem relação com aprendizagem ou entrega da comunidade; intensidade não aumenta relevância editorial técnica.",
+      "evidencia": "Estou eufórico",
+      "marcadores": ["conversa_social", "entusiasmo", "sentimento_nao_relevancia"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV055",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_055",
+        "canal": "#cafe",
+        "tipo": "outro",
+        "texto": "Que pena que o piquenique entre amigos coincidiu com meu plantão. Estou chateado por não encontrar vocês, mas desejo um bom passeio."
+      },
+      "referencia": {"tipo": "outro", "sentimento": "Negativo", "relevancia_min": 0, "relevancia_max": 2, "rota": "alerta"},
+      "justificativa": "Comentário social com tristeza moderada, sem problema de serviço ou trajetória de aprendizagem. A regra de alerta é ampla e inclui essa negatividade social.",
+      "evidencia": "Estou chateado por não encontrar vocês",
+      "marcadores": ["conversa_social", "contexto_misto", "alerta_amplo"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV056",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_056",
+        "canal": "#fora-do-assunto",
+        "tipo": "outro",
+        "texto": "Estou indignado, que partida horrível! Nunca fiquei tão revoltado com um resultado de futebol. Preciso parar de comentar esse jogo por hoje."
+      },
+      "referencia": {"tipo": "outro", "sentimento": "Altamente Negativo", "relevancia_min": 0, "relevancia_max": 2, "rota": "alerta"},
+      "justificativa": "Reação social intensamente negativa a esporte, sem reclamação dirigida à comunidade. Expõe que a rota alerta vigente não distingue urgência ou domínio do assunto.",
+      "evidencia": "Nunca fiquei tão revoltado",
+      "marcadores": ["conversa_social", "intensidade_negativa", "alerta_amplo", "relevancia_nao_urgencia"],
+      "revisao_humana": true,
+      "motivo_revisao": "Avaliar a utilidade operacional do alerta social sem alterar o resultado exigido pela regra atual."
+    },
+    {
+      "id": "AV057",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_057",
+        "canal": "#avisos",
+        "tipo": "outro",
+        "texto": "Vou ficar ausente do chat durante a manhã. Deixei minha disponibilidade para as reuniões da próxima semana no calendário do grupo."
+      },
+      "referencia": {"tipo": "outro", "sentimento": "Neutro", "relevancia_min": 0, "relevancia_max": 2, "rota": "nenhuma"},
+      "justificativa": "Aviso cotidiano de disponibilidade, sem relato desenvolvido de experiência, avaliação ou solicitação técnica.",
+      "evidencia": "Vou ficar ausente do chat durante a manhã",
+      "marcadores": ["aviso", "disponibilidade"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV058",
+      "grupo": "referencia",
+      "entrada": {
+        "autor": "participante_058",
+        "canal": "#cafe",
+        "tipo": "outro",
+        "texto": "Boa noite! Que alegria ver o pessoal reunido por aqui. Um abraço para quem está chegando agora."
+      },
+      "referencia": {"tipo": "outro", "sentimento": "Positivo", "relevancia_min": 0, "relevancia_max": 2, "rota": "nenhuma"},
+      "justificativa": "Saudação calorosa, sem intensidade excepcional ou conteúdo substantivo para as demais categorias.",
+      "evidencia": "Que alegria ver o pessoal reunido",
+      "marcadores": ["saudacao", "conversa_social"],
+      "revisao_humana": false,
+      "motivo_revisao": null
+    },
+    {
+      "id": "AV059",
+      "grupo": "desafio",
+      "entrada": {
+        "autor": "participante_059",
+        "canal": "#duvidas-python",
+        "tipo": "outro",
+        "texto": "Fora do tema do canal: alguém tem uma receita de bolo sem açúcar para levar ao nosso café? A dúvida é sobre o lanche, não sobre programação."
+      },
+      "referencia": {"tipo": "outro", "sentimento": "Neutro", "relevancia_min": 0, "relevancia_max": 2, "rota": "nenhuma"},
+      "justificativa": "Pergunta social sobre alimentação; nem a interrogação, nem a palavra 'dúvida', nem o canal técnico tornam o conteúdo uma dúvida de tecnologia.",
+      "evidencia": "A dúvida é sobre o lanche, não sobre programação",
+      "marcadores": ["pergunta_social", "canal_nao_determina_tipo", "interrogacao_sem_duvida_tecnica", "acentos"],
+      "revisao_humana": true,
+      "motivo_revisao": "Conferir se o conteúdo social prevalece sobre o canal técnico e as palavras que sugerem uma pergunta."
+    },
+    {
+      "id": "AV060",
+      "grupo": "desafio",
+      "entrada": {
+        "autor": "participante_060",
+        "canal": "#avisos",
+        "tipo": "outro",
+        "texto": "A conversa intitulada 'Como testar uma API?' será na sexta, às 18h. Estou apenas repassando o horário; não preciso de uma explicação técnica nesta mensagem."
+      },
+      "referencia": {"tipo": "outro", "sentimento": "Neutro", "relevancia_min": 1, "relevancia_max": 3, "rota": "nenhuma"},
+      "justificativa": "Aviso logístico que cita uma pergunta técnica como título; não solicita resposta a essa pergunta e explicita essa distinção.",
+      "evidencia": "Estou apenas repassando o horário",
+      "marcadores": ["citacao", "negacao", "interrogacao_sem_duvida_tecnica", "aviso"],
+      "revisao_humana": true,
+      "motivo_revisao": "Validar que a pergunta citada como título não é confundida com a intenção real do autor."
+    }
+  ]
+}

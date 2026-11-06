@@ -2,7 +2,7 @@
 
 Este roteiro leva qualquer pessoa do zero até o CommunityLab rodando, com um resultado esperado em cada etapa. Se o seu resultado for diferente do esperado, vá para [Problemas comuns](#7-problemas-comuns).
 
-Responsável: Renato. Testado em modo simulado com Python 3.13 no Linux. A validação no Windows está em andamento.
+Responsável: Renato. Testado em modo simulado com Python 3.13 no Linux e Windows.
 
 ## 1. Pré-requisitos
 
@@ -44,7 +44,7 @@ Na primeira vez ele cria o ambiente virtual e instala as dependências, o que le
 [ OK ] Dependências instaladas
 [ OK ] Arquivo .env — criado a partir do .env.example
 [ OK ] Modo desta verificação — simulado (use --real para Gemini e OCI)
-[ OK ] Testes automatizados — 33 passed, 2 deselected, 3 xfailed
+[ OK ] Testes automatizados — 55 passed
 [ OK ] API sobe e responde /saude — porta ..., modo_llm=mock
 [ OK ] Processar lote de exemplo — 12 interações em 0.0 s; rotas: alerta=2, case_sucesso=3, faq=5, nenhuma=2
 [ OK ] Pacote salvo — local: saida_local/ativos/2026-semana-04/pacote-distribuicao.json
@@ -66,7 +66,7 @@ Use esta seção para entender cada etapa ou para rodar a API e o painel e usá-
 | 3 | `python -m pip install -r requirements.txt` | Termina com `Successfully installed ...`. |
 | 4 | `python -m pip install -e .` | Termina com `Successfully installed communitylab-0.1.0`. |
 | 5 | `Copy-Item .env.example .env` | Aparece o arquivo `.env`. Não imprime nada. |
-| 6 | `python -m pytest` | Última linha sem nenhum `failed`, por exemplo `33 passed, 2 skipped, 3 xfailed`. O total cresce conforme a equipe adiciona testes. |
+| 6 | `python -m pytest` | Última linha sem nenhum `failed`, por exemplo `55 passed, 9 skipped`. O total cresce conforme a equipe adiciona testes. |
 
 > Use sempre `python -m pytest`, e não só `pytest`. A forma com `python -m` garante que os testes encontram a pasta `app`.
 
@@ -155,16 +155,14 @@ O modo `-Real` processa o lote de exemplo inteiro pelo Gemini. São cerca de 20 
 
 Para ver o nome de cada teste: `python -m pytest -v`. Para ver o motivo dos pulados e dos xfail: `python -m pytest -rxXs`.
 
-## 6. Limitações conhecidas
+## 6. Limitações conhecidas e Resoluções
 
-| Limitação | Efeito para quem usa | Teste que acompanha | Responsável |
+| Item | Status / Efeito | Teste que garante | Responsável |
 | --- | --- | --- | --- |
-| A API só aceita JSON. O painel já aceita CSV (branch `frontend/painel-curadoria`) | Integrações que chamam a API direto precisam enviar JSON | `test_api_aceita_upload_de_csv` (xfail) | Marcelo |
-| CSV com `;` não é aceito | O Excel em português salva assim por padrão em "CSV (separado por vírgulas)" | `test_csv_com_ponto_e_virgula_do_excel_ptbr` (xfail) | Marcelo |
-| CSV em Windows-1252 não é aceito | Arquivos salvos por Excel antigo dão erro de codificação | `test_csv_em_windows_1252` (xfail) | Marcelo |
+| Upload de CSV direto na API (`POST /processar`) | **Resolvido:** A API agora aceita tanto JSON quanto upload multipart (`arquivo`) | `test_api_aceita_upload_de_csv` (`passed`) | Marcelo |
+| CSV com `;` (Excel em português) | **Resolvido:** O adaptador detecta automaticamente `;`, `,` ou `\t` | `test_csv_com_ponto_e_virgula_do_excel_ptbr` (`passed`) | Marcelo |
+| CSV em Windows-1252 (`cp1252`) | **Resolvido:** O adaptador decodifica UTF-8, UTF-8-BOM e Windows-1252 | `test_csv_em_windows_1252` (`passed`) | Marcelo |
 | O `.env.example` já vem com `LLM_MODO=mock` | Quem só colar a chave continua em modo simulado | `test_gemini_real_respeita_contrato` avisa no motivo do pulo | Todos |
-
-**Para quem for gerar CSV no Excel hoje:** use *Arquivo → Salvar como → **CSV UTF-8 (delimitado por vírgulas)***. Esse formato já funciona.
 
 ## 7. Problemas comuns
 
@@ -179,11 +177,11 @@ Para ver o nome de cada teste: `python -m pytest -v`. Para ver o motivo dos pula
 | Erro `429` ou `RESOURCE_EXHAUSTED` | Limite do plano gratuito do Gemini | Espere um minuto. Durante o desenvolvimento, prefira o modo simulado |
 | `armazenamento_oci.status` = `erro` | Namespace, bucket ou `~/.oci/config` incorretos | Veja `saida_local/log_api.txt`. O namespace aparece nos detalhes do bucket, e não é o nome da tenancy |
 | Acentos aparecem como `Ã§` ou `?` no terminal | O terminal do Windows não está em UTF-8 | Rode `chcp 65001` antes. Os arquivos salvos ficam corretos mesmo assim |
-| `UnicodeDecodeError` ao importar um CSV | CSV salvo em Windows-1252 | Salve de novo como "CSV UTF-8" (seção 6) |
+| `UnicodeDecodeError` ao importar um CSV | CSV salvo em Windows-1252 | O adaptador (`communitylab.adapter`) já converte automaticamente; no painel, prefira "CSV UTF-8" |
 
 ## 8. O que os testes de integração cobrem
 
-Arquivo: `tests/test_integracao.py`.
+Arquivo: `tests/test_integracao.py` e `tests/test_grafo_comunidade.py`.
 
 | Grupo | Verifica |
 | --- | --- |
@@ -191,6 +189,7 @@ Arquivo: `tests/test_integracao.py`.
 | Roteamento | Depoimento → case, dúvida → FAQ, negativo → alerta, reclamação → alerta, neutro → nenhuma |
 | Entradas inválidas | Lote vazio → 400; texto ausente, tipo inválido, autor ausente ou corpo que não é JSON → 422 |
 | Codificação | Acentos, emojis e aspas curvas chegam iguais na resposta e no arquivo salvo |
-| CSV | CSV UTF-8, CSV com BOM do Excel, colunas em inglês e coluna obrigatória faltando |
+| CSV | CSV UTF-8, CSV com BOM do Excel, CSV com `;` (Excel pt-BR), CSV em Windows-1252 (`cp1252`), upload multipart na API, colunas em inglês e coluna obrigatória faltando |
+| Grafo & Anti-Slop | Mapeamento de nós e arestas (`EXTRACTED` e `INFERRED`) da comunidade e higienização editorial contra clichês de IA (`tests/test_grafo_comunidade.py`) |
 | Painel | Fica em `tests/test_painel.py`: importação, filtro, autorização do post e exportação, com cliques simulados |
 | Serviços reais | Gemini e OCI, pulados sem credenciais |

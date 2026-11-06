@@ -124,6 +124,21 @@ python -m streamlit run ui/painel.py
 
 Siga a seção de OCI do `README.md` para criar o bucket e o arquivo `~/.oci/config`. Depois, preencha `OCI_NAMESPACE` no `.env`.
 
+### Supabase
+
+Opcional. Guarda os lotes processados e liga a aba **Insights** do painel.
+
+1. Crie um projeto no Supabase.
+2. Abra o **SQL Editor**, cole `supabase/migrations/20261027000000_inicial.sql` e execute (ou use `supabase db push`).
+3. Copie a string do **Session pooler** (a conexão direta só funciona por IPv6) para `DATABASE_URL` no `.env`.
+4. Reinicie o painel.
+
+**O que muda no painel:** os lotes ficam no histórico; conteúdo repetido no mesmo modo gera um aviso com **Abrir resultado existente** ou **Processar de novo e substituir**; as decisões da curadoria e o status dos alertas são lembrados; surge a aba **Insights** (simulado e Gemini nunca se misturam, e ela começa no Gemini). Sem `DATABASE_URL`, nada muda. Se o banco falhar, o processamento continua com um aviso no painel e `[Supabase]` no log.
+
+**Segurança:** RLS ligado e sem policies; a chave pública (anon) do Supabase não lê nenhum dado. Use apenas dados fictícios.
+
+**Local:** um Supabase local (Supabase CLI / Docker) também serve. Use `postgresql://postgres:postgres@127.0.0.1:54322/postgres` (ou um banco separado) em `DATABASE_URL` e aplique a migração com `psql` ou pelo SQL Editor do Studio local.
+
 ### Verificar com os serviços reais
 
 ```powershell
@@ -140,6 +155,7 @@ python -m pytest -m real -v
 | --- | --- | --- |
 | `test_gemini_real_respeita_contrato` | O Gemini devolve JSON no formato combinado e decide as rotas de FAQ e alerta corretamente | Cerca de 6 chamadas à API |
 | `test_oci_real_salva_no_bucket` | O upload chega ao bucket | Cria `ativos/<ano>-semana-teste-integracao/` no bucket |
+| Testes do Supabase (`DATABASE_URL` configurada) | Gravação, leitura, substituição de lotes e o painel com banco | Cria e apaga dados com nomes `Teste_Repositorio_*` e `Teste_Painel_*` |
 
 O modo `-Real` processa o lote de exemplo inteiro pelo Gemini. São cerca de 20 chamadas, o que pode esbarrar no limite do plano gratuito. Se aparecer erro `429`, espere um minuto e rode de novo.
 

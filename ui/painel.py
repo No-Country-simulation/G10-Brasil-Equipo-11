@@ -1,6 +1,6 @@
 """Painel de curadoria do CommunityLab, seguindo a prévia aprovada pela equipe.
 
-Três telas: Importar → Visão geral → Curadoria.
+Quatro telas: Importar → Visão geral → Curadoria, mais Insights (histórico).
 
 Rode da raiz do projeto com:  python -m streamlit run ui/painel.py
 """
@@ -22,7 +22,8 @@ load_dotenv(RAIZ / ".env")
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
-from app.grafo import processar  # noqa: E402
+from app import repositorio  # noqa: E402
+from app.grafo import processar_com_registro  # noqa: E402
 from app.llm import modo_mock  # noqa: E402
 from ui import curadoria as cur  # noqa: E402
 from ui.estilo import (  # noqa: E402
@@ -30,8 +31,9 @@ from ui.estilo import (  # noqa: E402
     barras_rotas, esc, selo,
 )
 from ui.importacao import ler_arquivo  # noqa: E402
+from ui.tela_insights import tela_insights  # noqa: E402
 
-TELAS = ["Importar", "Visão geral", "Curadoria"]
+TELAS = ["Importar", "Visão geral", "Curadoria", "Insights"]
 EXEMPLO = RAIZ / "data" / "interacoes_exemplo.json"
 
 st.set_page_config(page_title="CommunityLab", page_icon="📣", layout="wide")
@@ -47,11 +49,17 @@ def iniciar_estado():
         "pagina": "Importar", "leitura": None, "arquivo_id": None, "resultado": None,
         "processado_em": None, "decisoes": {}, "alertas": {}, "exportado": None,
         "origem": "", "periodo": "", "lote_origem": "", "lote_periodo": "",
+        "lote_id": None, "aviso_banco": None, "duplicado": None,
     }
     for chave, valor in padrao.items():
         ss.setdefault(chave, valor)
     if "_ir_para" in ss:  # trocar de tela por código precisa acontecer antes do seletor existir
         ss["pagina"] = ss.pop("_ir_para")
+    if ss["pagina"] != "Importar":  # fora da tela, o Streamlit apagaria o que foi digitado nos campos do lote
+        ss["origem"], ss["periodo"] = ss["origem"], ss["periodo"]
+    if ss["pagina"] != "Curadoria":  # idem para os textos editados e a autorização da Curadoria
+        for chave in [k for k in ss.keys() if str(k).startswith("txt_") or k == "autorizado"]:
+            ss[chave] = ss[chave]
 
 
 def ir_para(tela: str):
@@ -86,21 +94,57 @@ def sem_lote():
 # ---------------------------------------------------------------------------
 # Tela 1 — Importar
 # ---------------------------------------------------------------------------
-def processar_lote(lote):
+def limpar_chaves_do_lote():
+    for chave in [k for k in ss.keys() if str(k).startswith(("txt_", "dec_", "al_"))]:
+        del ss[chave]
+
+
+def processar_lote(lote, substituir: bool = False):
     lote = lote.model_copy(update={
         "origem_comunidade": ss["origem"].strip() or lote.origem_comunidade,
         "periodo_referencia": ss["periodo"].strip() or lote.periodo_referencia,
     })
+    ss["duplicado"], ss["aviso_banco"] = None, None
+    if repositorio.banco_configurado() and not substituir:
+        try:
+            existente = repositorio.buscar_lote(repositorio.hash_conteudo(lote), repositorio.modo_atual())
+        except Exception as e:
+            existente = None
+            ss["aviso_banco"] = f"Não foi possível verificar o histórico: {e}"
+        if existente:
+            ss["duplicado"] = existente
+            st.rerun()
     with st.spinner("Analisando a comunidade e gerando os ativos..."):
-        resultado = processar(lote)
-    for chave in [k for k in ss.keys() if str(k).startswith(("txt_", "dec_", "al_"))]:
-        del ss[chave]
+        resultado, registro = processar_com_registro(lote)
+    limpar_chaves_do_lote()
     ss.update({
         "resultado": resultado, "processado_em": datetime.now(), "autorizado": False,
         "decisoes": {i: cur.PENDENTE for i in cur.ids_dos_ativos(resultado)},
         "alertas": {}, "exportado": None,
         "lote_origem": lote.origem_comunidade, "lote_periodo": lote.periodo_referencia,
+        "lote_id": registro["lote_id"],
     })
+    if registro["erro"]:
+        ss["aviso_banco"] = f"O resultado não foi salvo no histórico: {registro['erro']}"
+    ir_para("Visão geral")
+
+
+def abrir_lote(lote_id: int):
+    """Reabre um lote do histórico do jeito que ficou (decisões, textos editados e alertas), sem chamar a IA."""
+    try:
+        salvo = repositorio.carregar_lote(lote_id)
+    except Exception as e:
+        st.warning(f"Não foi possível abrir o resultado salvo: {e}")
+        return
+    limpar_chaves_do_lote()
+    ss.update({
+        "resultado": salvo["resposta"], "processado_em": salvo["processado_em"].astimezone(),
+        "autorizado": salvo["autorizado"], "decisoes": salvo["decisoes"], "alertas": salvo["alertas"],
+        "exportado": None, "lote_origem": salvo["origem"], "lote_periodo": salvo["periodo"],
+        "lote_id": lote_id, "aviso_banco": None,
+    })
+    for campo, texto in salvo["textos"].items():
+        ss[f"txt_{campo}"] = texto
     ir_para("Visão geral")
 
 
@@ -129,6 +173,10 @@ def mostrar_leitura(leitura):
                 st.code(leitura.evidencia, language=None)
 
 
+def descartar_duplicado():  # origem e período mudam o lote, então o aviso de duplicado deixa de valer
+    ss["duplicado"] = None
+
+
 def tela_importar():
     st.title("Importar interações")
     st.markdown('<p class="cl-sub">Envie as mensagens da semana. O pipeline classifica cada uma e gera os ativos para você revisar.</p>',
@@ -139,11 +187,11 @@ def tela_importar():
         arquivo = st.file_uploader("Arquivo JSON ou CSV (colunas autor, canal, tipo e texto)", type=["json", "csv"])
         if st.button("Usar lote de exemplo"):
             ss["leitura"] = ler_arquivo(EXEMPLO.name, EXEMPLO.read_bytes())
-            ss["arquivo_id"] = "exemplo"
+            ss["arquivo_id"], ss["duplicado"] = "exemplo", None
             ss["origem"], ss["periodo"] = ss["leitura"].lote.origem_comunidade, ss["leitura"].lote.periodo_referencia
         elif arquivo is not None and arquivo.file_id != ss["arquivo_id"]:
             ss["leitura"] = ler_arquivo(arquivo.name, arquivo.getvalue())
-            ss["arquivo_id"] = arquivo.file_id
+            ss["arquivo_id"], ss["duplicado"] = arquivo.file_id, None
             if ss["leitura"].ok:
                 ss["origem"], ss["periodo"] = ss["leitura"].lote.origem_comunidade, ss["leitura"].lote.periodo_referencia
         if ss["leitura"]:
@@ -153,14 +201,27 @@ def tela_importar():
         leitura = ss["leitura"]
         with st.container(border=True):
             st.subheader("Dados do lote")
-            st.text_input("Comunidade de origem", key="origem", placeholder="Ex.: Discord_Grupo_ONE_G10")
-            st.text_input("Período de referência", key="periodo", placeholder="Ex.: Semana_04")
+            st.text_input("Comunidade de origem", key="origem", placeholder="Ex.: Discord_Grupo_ONE_G10",
+                          on_change=descartar_duplicado)
+            st.text_input("Período de referência", key="periodo", placeholder="Ex.: Semana_04",
+                          on_change=descartar_duplicado)
             if ss["periodo"].strip():
                 st.caption(f"O pacote será salvo em `ativos/{datetime.now().year}-{ss['periodo'].strip().lower().replace('_', '-')}/`")
             pronto = bool(leitura and leitura.ok)
             rotulo = f"Processar {leitura.total} interações" if pronto else "Envie um arquivo válido para processar"
             if st.button(rotulo, type="primary", disabled=not pronto, width="stretch"):
                 processar_lote(leitura.lote)
+            existente = ss["duplicado"]
+            if existente and pronto:
+                quando = existente["processado_em"].astimezone().strftime("%d/%m às %H:%M")
+                st.warning(f"Este conteúdo já foi processado em {quando} ({existente['total_interacoes']} interações).")
+                abrir, substituir = st.columns(2)
+                if abrir.button("Abrir resultado existente", width="stretch"):
+                    ss["duplicado"] = None
+                    abrir_lote(existente["id"])
+                if substituir.button("Processar de novo e substituir", width="stretch"):
+                    ss["duplicado"] = None
+                    processar_lote(leitura.lote, substituir=True)
         with st.container(border=True):
             st.markdown("**Antes de enviar**")
             st.markdown("Use nomes reais só de quem autorizou. Depoimentos podem virar posts públicos.\n\n"
@@ -173,7 +234,22 @@ def tela_importar():
 ACOES_ALERTA = {"reclamacao": "Encaminhar ao time de conteúdo"}
 
 
+def tratar_alerta(ordem: int, status: str):
+    ss["alertas"][ordem] = status
+    if ss["lote_id"]:
+        try:
+            repositorio.atualizar_alerta(ss["lote_id"], ordem, status)
+            ss["aviso_banco"] = None
+        except Exception as e:
+            ss["aviso_banco"] = f"O status do alerta não foi salvo no histórico: {e}"
+            if isinstance(e, LookupError):
+                ss["lote_id"] = None
+    st.rerun()
+
+
 def tela_visao_geral():
+    if ss["aviso_banco"]:
+        st.warning(ss["aviso_banco"])
     r = ss["resultado"]
     if not r:
         st.title("Saúde da comunidade")
@@ -190,8 +266,8 @@ def tela_visao_geral():
     if pendentes() and botao.button(f"Revisar {pendentes()} ativos", type="primary", width="stretch"):
         ir_para("Curadoria")
 
-    alertas = [a for a in analises if a["rota"] == "alerta"]
-    abertos = [a for a in alertas if a["autor"] not in ss["alertas"]]
+    alertas = [(ordem, a) for ordem, a in enumerate(analises) if a["rota"] == "alerta"]
+    abertos = [a for ordem, a in alertas if ordem not in ss["alertas"]]
     n_faq = len(ativos.get("sugestao_conteudo_faq") or [])
     partes = (["1 post"] if ativos.get("post_linkedin") else []) + \
              (["1 newsletter"] if ativos.get("destaque_newsletter_semanal") else []) + ([f"{n_faq} FAQ"] if n_faq else [])
@@ -230,23 +306,21 @@ def tela_visao_geral():
             st.subheader("Membros que precisam de apoio")
             st.caption("Não viram conteúdo. Vão para o time de comunidade decidir o contato.")
             colunas = st.columns(min(len(alertas), 2))
-            for i, a in enumerate(alertas):
+            for i, (ordem, a) in enumerate(alertas):
                 with colunas[i % len(colunas)].container(border=True):
                     st.markdown(f'**{esc(a["autor"])}** <span class="cl-mono" style="font-size:13px;color:#555D6B">{esc(a["canal"])}</span>',
                                 unsafe_allow_html=True)
                     st.markdown(f'<div class="cl-alerta">“{esc(a["texto"])}”</div>', unsafe_allow_html=True)
-                    feito = ss["alertas"].get(a["autor"])
+                    feito = ss["alertas"].get(ordem)
                     if feito:
-                        st.markdown(selo(feito, "#E8EEFB", AZUL_ESCURO), unsafe_allow_html=True)
+                        st.markdown(selo(cur.STATUS_ALERTA.get(feito, feito), "#E8EEFB", AZUL_ESCURO), unsafe_allow_html=True)
                     else:
                         b1, b2 = st.columns(2)
                         acao = ACOES_ALERTA.get(a["tipo"], "Oferecer mentoria")
                         if b1.button(acao, key=f"al_{i}_acao", width="stretch"):
-                            ss["alertas"][a["autor"]] = "Encaminhado" if a["tipo"] == "reclamacao" else "Mentoria oferecida"
-                            st.rerun()
+                            tratar_alerta(ordem, "encaminhado" if a["tipo"] == "reclamacao" else "mentoria_oferecida")
                         if b2.button("Marcar como resolvido", key=f"al_{i}_ok", width="stretch"):
-                            ss["alertas"][a["autor"]] = "Resolvido"
-                            st.rerun()
+                            tratar_alerta(ordem, "resolvido")
 
     with st.container(border=True):
         cab, filtro_col = st.columns([2, 3], vertical_alignment="bottom")
@@ -272,16 +346,30 @@ def tela_visao_geral():
 # ---------------------------------------------------------------------------
 # Tela 3 — Curadoria
 # ---------------------------------------------------------------------------
+def decidir(id_ativo: str, decisao: str):
+    """Guarda a decisão no estado e, se o lote está no histórico, no banco (com os textos editados do ativo)."""
+    ss["decisoes"][id_ativo] = decisao
+    if ss["lote_id"]:
+        try:
+            repositorio.salvar_decisao(ss["lote_id"], id_ativo, decisao, cur.textos_do_ativo(id_ativo, textos_editados()),
+                                       autorizacao=bool(ss.get("autorizado")))
+            ss["aviso_banco"] = None
+        except Exception as e:
+            ss["aviso_banco"] = f"A decisão não foi salva no histórico: {e}"
+            if isinstance(e, LookupError):
+                ss["lote_id"] = None
+
+
 def botoes_decisao(id_ativo: str, rotulo_aprovar: str, bloqueado: bool = False):
     decisao = ss["decisoes"].get(id_ativo, cur.PENDENTE)
     _, area = st.columns([2, 3])
     if decisao == cur.PENDENTE:
         d, a = area.columns(2)
         if d.button("Descartar", key=f"dec_{id_ativo}_d", width="stretch"):
-            ss["decisoes"][id_ativo] = cur.DESCARTADO
+            decidir(id_ativo, cur.DESCARTADO)
             st.rerun()
         if a.button(rotulo_aprovar, key=f"dec_{id_ativo}_a", type="primary", disabled=bloqueado, width="stretch"):
-            ss["decisoes"][id_ativo] = cur.APROVADO
+            decidir(id_ativo, cur.APROVADO)
             st.rerun()
     else:
         s, u = area.columns(2, vertical_alignment="center")
@@ -289,8 +377,13 @@ def botoes_decisao(id_ativo: str, rotulo_aprovar: str, bloqueado: bool = False):
         cores = ("#E8EEFB", AZUL_ESCURO) if decisao == cur.APROVADO else ("#EEF1F6", "#555D6B")
         s.markdown(f'<div style="text-align:right">{selo(texto, *cores)}</div>', unsafe_allow_html=True)
         if u.button("Desfazer", key=f"dec_{id_ativo}_u", width="stretch"):
-            ss["decisoes"][id_ativo] = cur.PENDENTE
+            decidir(id_ativo, cur.PENDENTE)
             st.rerun()
+
+
+def inicial(chave: str, texto: str):
+    """Valor padrão do campo; None quando o texto já está no estado (ex.: lote reaberto do histórico)."""
+    return None if chave in ss else texto
 
 
 def textos_editados() -> dict:
@@ -298,6 +391,8 @@ def textos_editados() -> dict:
 
 
 def tela_curadoria():
+    if ss["aviso_banco"]:
+        st.warning(ss["aviso_banco"])
     r = ss["resultado"]
     if not r:
         st.title("Curadoria")
@@ -320,7 +415,7 @@ def tela_curadoria():
                             f'<b>{esc(post["potencial_engajamento"]).lower()}</b></span>', unsafe_allow_html=True)
                 st.subheader(post["titulo"])
                 t, o = st.columns([3, 2], gap="medium")
-                t.text_area("Texto do post (editável)", value=post["copy"], key="txt_post_copy", height=280)
+                t.text_area("Texto do post (editável)", value=inicial("txt_post_copy", post["copy"]), key="txt_post_copy", height=280)
                 if membro:
                     o.markdown('<div class="cl-rotulo">Mensagem original</div>', unsafe_allow_html=True)
                     o.markdown(f'<div class="cl-citacao">“{esc(membro["texto"])}”</div>', unsafe_allow_html=True)
@@ -331,7 +426,7 @@ def tela_curadoria():
                 nome = membro["autor"].split()[0] if membro else "O membro"
                 autorizado = st.checkbox(f"{nome} autorizou o uso do nome e do depoimento", key="autorizado")
                 if not autorizado and ss["decisoes"].get("post") == cur.APROVADO:
-                    ss["decisoes"]["post"] = cur.PENDENTE  # sem autorização, o post volta para pendente
+                    decidir("post", cur.PENDENTE)  # sem autorização, o post volta para pendente
                 botoes_decisao("post", "Aprovar post", bloqueado=not autorizado)
                 if not autorizado and ss["decisoes"].get("post") == cur.PENDENTE:
                     st.caption("Marque a autorização para liberar a aprovação.")
@@ -341,8 +436,8 @@ def tela_curadoria():
             with st.container(border=True):
                 st.markdown(selo("Newsletter semanal", "#EEF1F6", "#33373F"), unsafe_allow_html=True)
                 st.subheader(news["secao"])
-                st.text_input("Chamada", value=news["chamada"], key="txt_news_chamada")
-                st.text_area("Resumo", value=news["resumo"], key="txt_news_resumo", height=110)
+                st.text_input("Chamada", value=inicial("txt_news_chamada", news["chamada"]), key="txt_news_chamada")
+                st.text_area("Resumo", value=inicial("txt_news_resumo", news["resumo"]), key="txt_news_resumo", height=110)
                 botoes_decisao("newsletter", "Aprovar destaque")
 
         faqs = ativos.get("sugestao_conteudo_faq") or []
@@ -352,7 +447,7 @@ def tela_curadoria():
             for i, faq in enumerate(faqs):
                 with st.container(border=True):
                     st.markdown(f"**{esc(faq['tema'])}**")
-                    st.text_area("Conteúdo", value=faq["conteudo"], key=f"txt_faq_{i}_conteudo", height=110,
+                    st.text_area("Conteúdo", value=inicial(f"txt_faq_{i}_conteudo", faq["conteudo"]), key=f"txt_faq_{i}_conteudo", height=110,
                                  label_visibility="collapsed")
                     duvida = cur.duvida_da_faq(r, i)
                     if duvida:
@@ -388,4 +483,5 @@ def tela_curadoria():
 # ---------------------------------------------------------------------------
 iniciar_estado()
 cabecalho()
-{"Importar": tela_importar, "Visão geral": tela_visao_geral, "Curadoria": tela_curadoria}[ss["pagina"]]()
+{"Importar": tela_importar, "Visão geral": tela_visao_geral, "Curadoria": tela_curadoria,
+ "Insights": tela_insights}[ss["pagina"]]()

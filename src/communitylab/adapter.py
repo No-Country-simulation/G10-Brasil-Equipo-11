@@ -1,6 +1,7 @@
 import csv
 import io
 import json
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,7 @@ ALIASES = {
     "channel": "canal",
     "type": "tipo",
     "author": "autor",
+    "date": "data",
 }
 
 CAMPOS_OBRIGATORIOS_PT = ("texto", "canal", "tipo")
@@ -87,6 +89,25 @@ def _ler_registros_csv(texto: str) -> list[dict[str, Any]]:
         raise ValueError(f"Não foi possível interpretar o CSV: {exc}") from exc
 
 
+FORMATOS_DATA = ("%Y-%m-%d", "%d/%m/%Y")
+
+
+def _ler_data(valor: Any, indice: int) -> date | None:
+    """Aceita 2026-10-05 ou 05/10/2026. Vazio vira None (o app usa o dia da importação)."""
+    if valor is None or (isinstance(valor, str) and not valor.strip()):
+        return None
+    texto = str(valor).strip()[:10]
+    for formato in FORMATOS_DATA:
+        try:
+            return datetime.strptime(texto, formato).date()
+        except ValueError:
+            pass
+    raise ValueError(
+        f"A interação {indice} tem a data '{valor}' em formato inválido. "
+        "Use AAAA-MM-DD ou DD/MM/AAAA."
+    )
+
+
 def _normalizar_interacao(
     registro: dict[str, Any],
     indice: int,
@@ -124,6 +145,7 @@ def _normalizar_interacao(
         canal=canal.strip(),
         tipo=tipo.strip(),
         texto=texto.strip(),
+        data=_ler_data(dados.get("data"), indice),
     )
 
 

@@ -1,4 +1,4 @@
-"""Testes de integração do CommunityLab. Responsável: Renato.
+"""Testes de integração do Sender AI. Responsável: Renato.
 
 Verificam o sistema como um todo, do arquivo de entrada até o pacote salvo:
 
@@ -263,6 +263,7 @@ def gemini_real(monkeypatch):
         monkeypatch.setenv(chave, valor)
     monkeypatch.delenv("LLM_MODO", raising=False)
     monkeypatch.delenv("OCI_NAMESPACE", raising=False)  # este teste não sobe nada para a nuvem
+    monkeypatch.setenv("DATABASE_URL", "")  # este teste não grava no banco
 
 
 @pytest.mark.real

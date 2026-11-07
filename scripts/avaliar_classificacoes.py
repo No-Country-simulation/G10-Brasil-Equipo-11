@@ -37,7 +37,7 @@ def configurar_modo(modo):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Avaliação de classificações do CommunityLab. Padrão: mock local, sem credenciais.")
+    parser = argparse.ArgumentParser(description="Avaliação de classificações do Sender AI. Padrão: mock local, sem credenciais.")
     parser.add_argument("--base", type=Path, default=RAIZ / "data/avaliacao_classificacoes.json")
     parser.add_argument("--cenario", choices=CENARIOS, default="tipo_oculto")
     parser.add_argument("--modo", choices=("mock", "gemini", "arquivo"), default="mock", help="gemini envia os textos ao provedor e usa a cota configurada; arquivo avalia previsões existentes")

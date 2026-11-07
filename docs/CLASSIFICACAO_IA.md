@@ -2,7 +2,7 @@
 
 ## 1. Objetivo
 
-O módulo de IA do CommunityLab analisa interações de uma comunidade de
+O módulo de IA do Sender AI analisa interações de uma comunidade de
 alunos de tecnologia, organiza essas interações por tipo, sentimento,
 tópico e relevância e encaminha cada uma para uma rota de processamento.
 

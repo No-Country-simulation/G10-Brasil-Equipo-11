@@ -11,6 +11,7 @@ from pathlib import Path
 from app.storage import caminho_objeto
 
 PENDENTE, APROVADO, DESCARTADO = "p", "a", "d"
+STATUS_ALERTA = {"encaminhado": "Encaminhado", "mentoria_oferecida": "Mentoria oferecida", "resolvido": "Resolvido"}
 
 
 def membro_do_post(resultado: dict) -> dict | None:
@@ -38,6 +39,37 @@ def ids_dos_ativos(resultado: dict) -> list[str]:
         ids.append("newsletter")
     ids += [f"faq_{i}" for i in range(len(ativos.get("sugestao_conteudo_faq") or []))]
     return ids
+
+
+def proximo_pendente(ids: list[str], decisoes: dict[str, str], atual: str | None = None) -> str | None:
+    """O primeiro pendente depois de `atual`, dando a volta na fila. None quando não sobrou nenhum."""
+    inicio = ids.index(atual) + 1 if atual in ids else 0
+    return next((i for i in ids[inicio:] + ids[:inicio] if decisoes.get(i, PENDENTE) == PENDENTE), None)
+
+
+def titulo_na_fila(resultado: dict, id_ativo: str) -> str:
+    ativos = resultado["ativos_distribuicao_gerados"]
+    if id_ativo == "post":
+        return f'Post: {ativos["post_linkedin"]["titulo"]}'
+    if id_ativo == "newsletter":
+        return f'Newsletter: {ativos["destaque_newsletter_semanal"]["secao"]}'
+    faq = ativos["sugestao_conteudo_faq"][int(id_ativo.removeprefix("faq_"))]
+    return faq["tema"].removeprefix("Dica Rápida:").strip()
+
+
+def campos_do_ativo(id_ativo: str | None) -> tuple[str, ...]:
+    """Chaves de estado dos campos que o item mostra na tela."""
+    if id_ativo == "post":
+        return ("txt_post_copy", "autorizado")
+    if id_ativo == "newsletter":
+        return ("txt_news_chamada", "txt_news_resumo")
+    return (f"txt_{id_ativo}_conteudo",) if id_ativo else ()
+
+
+def textos_do_ativo(id_ativo: str, textos: dict[str, str]) -> dict[str, str]:
+    """Os textos editados (sem o "txt_") que pertencem a um ativo, para gravar junto com a decisão."""
+    prefixo = {"post": "post_", "newsletter": "news_"}.get(id_ativo, f"{id_ativo}_")
+    return {k: v for k, v in textos.items() if k.startswith(prefixo)}
 
 
 def resumo(decisoes: dict[str, str]) -> dict[str, int]:

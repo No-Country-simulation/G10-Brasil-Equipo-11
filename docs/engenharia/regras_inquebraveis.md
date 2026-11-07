@@ -1,6 +1,6 @@
 # Regras Inquebráveis (Guardrails de Engenharia)
 
-Este documento define as restrições invioláveis para qualquer alteração na camada de ingestão, API, curadoria por IA e grafo de conhecimento do **CommunityLab**.
+Este documento define as restrições invioláveis para qualquer alteração na camada de ingestão, API, curadoria por IA e grafo de conhecimento do **Sender AI**.
 
 ## 1. Preservação de Contratos Oficiais
 - O contrato definido em `app/schemas.py` (`Interacao`, `LoteEntrada`, `AnaliseInteracao`, `AtivosDistribuicao`, `RespostaProcessamento`) **jamais** pode sofrer alterações destrutivas.

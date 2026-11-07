@@ -1,14 +1,25 @@
-# Tema do painel CommunityLab, seguindo a prévia aprovada pela equipe.
+# Tema do painel, com a paleta da identidade Sender AI. O modo fica em Configurações, no menu do canto superior.
 [theme]
-base = "light"
-primaryColor = "#2B59C3"
-backgroundColor = "#F4F5F7"
-secondaryBackgroundColor = "#FFFFFF"
-textColor = "#15171C"
 font = "sans serif"
+
+[theme.light]
+primaryColor = "#B5E847"
+backgroundColor = "#F5F7F8"
+secondaryBackgroundColor = "#EAEFF2"
+textColor = "#0B1520"
+borderColor = "#DDE3E8"
+linkColor = "#00708C"
+
+[theme.dark]
+primaryColor = "#C9F36A"
+backgroundColor = "#050A0E"
+secondaryBackgroundColor = "#0C1926"
+textColor = "#F0F6FC"
+borderColor = "#1B3347"
+linkColor = "#00E5FF"
 
 [browser]
 gatherUsageStats = false
 
 [client]
-toolbarMode = "minimal"
+toolbarMode = "viewer"

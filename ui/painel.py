@@ -85,7 +85,8 @@ def cabecalho():
     modo = selo("Modo simulado", *SELO_AVISO) if modo_mock() else selo("Gemini", *SELO_INFO)
     contexto = ""
     if ss["resultado"]:
-        contexto = f'<span class="cl-mono">{esc(ss["lote_origem"])} · {esc(ss["lote_periodo"])}</span>'
+        origem_amigavel = esc(ss["lote_origem"]).replace("_", " ")
+        contexto = f'<span class="cl-origem-badge">📡 {origem_amigavel} · {esc(ss["lote_periodo"])}</span>'
         if pendentes():
             contexto += selo(f"{pendentes()} pendentes", LIMA_FUNDO, LIMA_TINTA)
     c3.markdown(f'<div class="cl-contexto">{contexto}{modo}</div>', unsafe_allow_html=True)

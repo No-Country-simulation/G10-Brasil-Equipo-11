@@ -158,7 +158,41 @@ div.st-key-fila button[kind="primary"]:not(:disabled) span {{ color: {LIMA}; }}
 .cl-rota {{ display: grid; grid-template-columns: 140px minmax(0, 1fr) 28px; align-items: center; gap: 12px; margin: 8px 0; font-size: 14px; }}
 .cl-trilho {{ height: 14px; background: {SUPERFICIE_2}; border-radius: 4px; overflow: hidden; }}
 .cl-trilho span {{ display: block; height: 100%; border-radius: 4px; }}
-div[data-testid="stMetricValue"] {{ font-weight: 700; }}
+div[data-testid="stMetricValue"], .cl-kpi-valor, .cl-legenda b, .cl-rota b {{
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}}
+/* Feedback tátil e micro-interações (Emil Kowalski) */
+.stButton button, .stDownloadButton button {{
+  transition: transform 0.15s cubic-bezier(0.23, 1, 0.32, 1), background-color 0.15s ease, border-color 0.15s ease !important;
+}}
+.stButton button:active:not(:disabled), .stDownloadButton button:active:not(:disabled) {{
+  transform: scale(0.97) !important;
+}}
+/* Selo de comunidade no cabeçalho operacional */
+.cl-origem-badge {{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  background: {SUPERFICIE_2};
+  color: {TEXTO};
+  border: 1px solid {LINHA};
+}}
+/* Acessibilidade de foco e preferência de movimento reduzido */
+*:focus-visible {{
+  outline: 2px solid {LIMA} !important;
+  outline-offset: 2px !important;
+}}
+@media (prefers-reduced-motion: reduce) {{
+  *, *::before, *::after {{
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }}
+}}
 </style>
 """
 

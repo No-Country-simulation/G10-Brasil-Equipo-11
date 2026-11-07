@@ -60,3 +60,34 @@ async def processar_lote(request: Request):
         raise HTTPException(400, "O lote não tem interações.")
 
     return processar(lote)
+
+
+# ---------------------------------------------------------------------------
+# Endpoints complementares para a interface Web Vanilla
+# ---------------------------------------------------------------------------
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+
+RAIZ = Path(__file__).resolve().parent.parent
+
+
+@app.get("/api/exemplo")
+def obter_exemplo():
+    caminho = RAIZ / "data" / "interacoes_exemplo.json"
+    if not caminho.exists():
+        raise HTTPException(404, "Arquivo de exemplo não encontrado.")
+    return json.loads(caminho.read_text(encoding="utf-8"))
+
+
+@app.post("/api/curadoria/exportar")
+async def exportar_aprovados(request: Request):
+    dados = await request.json()
+    from ui import curadoria as cur
+    destino = cur.salvar_aprovados(dados, raiz=RAIZ)
+    return {"status": "ok", "caminho": str(destino)}
+
+
+PASTA_WEB = RAIZ / "web"
+if PASTA_WEB.exists():
+    app.mount("/", StaticFiles(directory=str(PASTA_WEB), html=True), name="web")
+

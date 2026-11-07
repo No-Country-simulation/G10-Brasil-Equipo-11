@@ -1,6 +1,6 @@
 # Roteiro de execução e verificação
 
-Este roteiro leva qualquer pessoa do zero até o CommunityLab rodando, com um resultado esperado em cada etapa. Se o seu resultado for diferente do esperado, vá para [Problemas comuns](#7-problemas-comuns).
+Este roteiro leva qualquer pessoa do zero até o Sender AI rodando, com um resultado esperado em cada etapa. Se o seu resultado for diferente do esperado, vá para [Problemas comuns](#7-problemas-comuns).
 
 Responsável: Renato. Testado em modo simulado com Python 3.13 no Linux e Windows.
 

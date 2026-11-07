@@ -1,4 +1,4 @@
-"""Verificação completa do CommunityLab. Responsável: Renato.
+"""Verificação completa do Sender AI. Responsável: Renato.
 
 Roda as etapas na ordem e mostra OK ou FALHOU em cada uma.
 Normalmente é chamado por verificar.ps1 (Windows) ou verificar.sh (Linux/Mac),
@@ -219,7 +219,7 @@ def salvar_relatorio():
     destino = RAIZ / "saida_local" / "relatorio_verificacao.txt"
     destino.parent.mkdir(parents=True, exist_ok=True)
     linhas = [
-        f"CommunityLab — relatório de verificação ({'real' if REAL else 'simulado'})",
+        f"Sender AI — relatório de verificação ({'real' if REAL else 'simulado'})",
         f"Data: {datetime.now():%Y-%m-%d %H:%M}",
         f"Python: {sys.version.split()[0]} em {sys.platform}",
         "",
@@ -229,7 +229,7 @@ def salvar_relatorio():
 
 
 def main():
-    print(f"\nCommunityLab — verificação {'com serviços reais' if REAL else 'em modo simulado'}\n")
+    print(f"\nSender AI — verificação {'com serviços reais' if REAL else 'em modo simulado'}\n")
     etapa_python()
     etapa_dependencias()
     if RESULTADOS[-1][1] == "FALHOU":

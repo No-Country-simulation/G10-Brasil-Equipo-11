@@ -12,7 +12,7 @@ import streamlit as st
 
 from app import llm, repositorio
 from ui import insights as ins
-from ui.estilo import AZUL, AZUL_ESCURO, CINZA, ROTAS, SENTIMENTOS, TINTA
+from ui.estilo import DADO_CIANO, DADO_DESCARTADO, DADO_LIMA, DADO_NEUTRO, DADO_TEXTO, ROTAS, SENTIMENTOS
 
 MODOS = {"Gemini": "gemini", "Simulado": "mock"}
 SEMANAS_PADRAO = 8
@@ -23,8 +23,8 @@ ESCALA_SENT = alt.Scale(domain=NOMES_SENT, range=[cor for _, cor in SENTIMENTOS]
 # Na barra centrada no neutro a legenda segue a leitura da barra: do negativo (esquerda) ao positivo (direita).
 ESCALA_SENT_DIVERGENTE = alt.Scale(domain=list(ins.ESCALA_SENTIMENTO),
                                    range=[dict(SENTIMENTOS)[s] for s in ins.ESCALA_SENTIMENTO])
-ESTADOS_ATIVOS = [("Aprovados", "aprovados", AZUL), ("Descartados", "descartados", CINZA),
-                  ("Pendentes", "pendentes", "#C3C8D1")]
+ESTADOS_ATIVOS = [("Aprovados", "aprovados", DADO_LIMA), ("Descartados", "descartados", DADO_DESCARTADO),
+                  ("Pendentes", "pendentes", DADO_NEUTRO)]
 EIXO_INTEIRO = alt.Axis(tickMinStep=1, format="d")
 
 
@@ -94,10 +94,11 @@ def _grafico_volume_por_canal(df: pd.DataFrame, dias: list[str]) -> alt.Chart:
     return alt.Chart(t).mark_rect(cornerRadius=2).encode(
         x=_eixo_dia(dias),
         y=alt.Y("canal:N", sort=canais, title=None, scale=alt.Scale(paddingInner=0.15), axis=alt.Axis(labelLimit=0)),
-        # A escala parte de zero: 1 mensagem num mês calmo já aparece escura, em vez de num tom médio.
-        color=alt.Color("quantidade:Q", title="Mensagens",
-                        scale=alt.Scale(domainMin=0, range=["#E8EEFB", AZUL_ESCURO]),
-                        legend=alt.Legend(format="d", tickMinStep=1, orient="top", direction="horizontal")),
+        # Opacidade em vez de escala de cor: funciona sobre o fundo claro e o escuro.
+        # A escala parte de zero: 1 mensagem num mês calmo já aparece forte, em vez de num tom médio.
+        color=alt.value(DADO_CIANO),
+        opacity=alt.Opacity("quantidade:Q", title="Mensagens", scale=alt.Scale(domainMin=0, range=[0.2, 1]),
+                            legend=alt.Legend(format="d", tickMinStep=1, orient="top", direction="horizontal")),
         tooltip=[alt.Tooltip("data_longa:N", title="Dia"), alt.Tooltip("canal:N", title="Canal"),
                  alt.Tooltip("quantidade:Q", title="Mensagens")],
     ).properties(height=alt.Step(34))
@@ -119,12 +120,12 @@ def _grafico_sentimento_por_canal(df: pd.DataFrame) -> alt.LayerChart:
         tooltip=[alt.Tooltip("canal:N", title="Canal"), alt.Tooltip("sentimento:N", title="Sentimento"),
                  alt.Tooltip("percentual:Q", title="%", format=".1f")],
     )
-    centro = alt.Chart(pd.DataFrame({"x": [0]})).mark_rule(color=TINTA, strokeWidth=1).encode(x="x:Q")
+    centro = alt.Chart(pd.DataFrame({"x": [0]})).mark_rule(color=DADO_NEUTRO, strokeWidth=1).encode(x="x:Q")
     rotulos = resumo.assign(neg=resumo["pct_negativas"].map(lambda v: f"{v:.0f}%"),
                             pos=resumo["pct_positivas"].map(lambda v: f"{v:.0f}%"), x_neg=-110, x_pos=110)
     base = alt.Chart(rotulos).encode(y=y)
-    negativos = base.mark_text(color=TINTA, fontSize=12).encode(x="x_neg:Q", text="neg:N")
-    positivos = base.mark_text(color=TINTA, fontSize=12).encode(x="x_pos:Q", text="pos:N")
+    negativos = base.mark_text(color=DADO_TEXTO, fontSize=12).encode(x="x_neg:Q", text="neg:N")
+    positivos = base.mark_text(color=DADO_TEXTO, fontSize=12).encode(x="x_pos:Q", text="pos:N")
     return alt.layer(barras, centro, negativos, positivos).properties(height=alt.Step(40))
 
 
@@ -132,9 +133,9 @@ def _grafico_topicos(df: pd.DataFrame) -> alt.LayerChart:
     t = ins.topicos_mais_falados(df)
     base = alt.Chart(t).encode(y=alt.Y("topico:N", sort=list(t["topico"]), title=None, axis=alt.Axis(labelLimit=0)),
                                x=alt.X("quantidade:Q", title="Mensagens", axis=EIXO_INTEIRO))
-    barras = base.mark_bar(color=AZUL, cornerRadiusTopRight=3, cornerRadiusBottomRight=3, height={"band": 0.7}).encode(
+    barras = base.mark_bar(color=DADO_CIANO, cornerRadiusTopRight=3, cornerRadiusBottomRight=3, height={"band": 0.7}).encode(
         tooltip=[alt.Tooltip("topico:N", title="Tópico"), alt.Tooltip("quantidade:Q", title="Mensagens")])
-    valores = base.mark_text(align="left", dx=6, color=TINTA, fontSize=12).encode(text="quantidade:Q")
+    valores = base.mark_text(align="left", dx=6, color=DADO_TEXTO, fontSize=12).encode(text="quantidade:Q")
     return alt.layer(barras, valores).properties(height=alt.Step(34))
 
 
@@ -150,7 +151,7 @@ def _rosca(t: pd.DataFrame, cores: list[str], total: int, rotulo_total: str) -> 
         order=alt.Order("ordem:Q"),
         tooltip=[alt.Tooltip("nome:N", title="Categoria"), alt.Tooltip("quantidade:Q", title="Quantidade")],
     )
-    meio = {"x": {"expr": "width / 2"}, "y": {"expr": "height / 2"}, "color": TINTA}
+    meio = {"x": {"expr": "width / 2"}, "y": {"expr": "height / 2"}, "color": DADO_TEXTO}
     numero = alt.Chart(pd.DataFrame({"t": [str(total)]})).mark_text(**meio, dy=-8, fontSize=30,
                                                                      fontWeight="bold").encode(text="t:N")
     rotulo = alt.Chart(pd.DataFrame({"t": [rotulo_total]})).mark_text(**meio, dy=18, fontSize=13).encode(text="t:N")
@@ -206,7 +207,7 @@ def tela_insights() -> None:
     dias = _dias(df, fim)
     _quadro("Sentimento por dia", "Mensagens escritas em cada dia, por sentimento.",
             _grafico_sentimento_por_dia(df, dias))
-    _quadro("Volume por canal", "Mensagens de cada canal, dia a dia. Quanto mais escuro, mais mensagens.",
+    _quadro("Volume por canal", "Mensagens de cada canal, dia a dia. Quanto mais forte a cor, mais mensagens.",
             _grafico_volume_por_canal(df, dias))
     _quadro("Sentimento por canal", "Negativas à esquerda, positivas à direita, o neutro dividido ao meio. "
             "Canais do mais positivo ao mais negativo.", _grafico_sentimento_por_canal(df))

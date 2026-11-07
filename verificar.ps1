@@ -1,4 +1,4 @@
-# CommunityLab - verificacao completa no Windows. Responsavel: Renato.
+# Sender AI - verificacao completa no Windows. Responsavel: Renato.
 #
 # Uso, na pasta raiz do projeto:
 #   powershell -ExecutionPolicy Bypass -File .\verificar.ps1
@@ -20,7 +20,7 @@ function Falhar($mensagem) {
 }
 
 Write-Host ""
-Write-Host "CommunityLab - preparando o ambiente" -ForegroundColor Cyan
+Write-Host "Sender AI - preparando o ambiente" -ForegroundColor Cyan
 
 # 1. Python 3.10+ (tenta o lancador 'py' e depois 'python')
 $python = $null

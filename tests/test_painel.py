@@ -144,6 +144,10 @@ def _app():
     return apptest.AppTest.from_file(str(RAIZ / "ui" / "painel.py"), default_timeout=60)
 
 
+def _abrir(at, item):
+    at.button(key=f"fila_{item}").click().run()
+
+
 def _botao(at, rotulo):
     return next(b for b in at.button if b.label == rotulo)
 
@@ -217,6 +221,7 @@ def test_desmarcar_autorizacao_devolve_post_para_pendente():
     assert at.radio(key="pagina").value == "Curadoria"
     at.checkbox(key="autorizado").check().run()
     at.button(key="dec_post_a").click().run()
+    _abrir(at, "post")
     at.checkbox(key="autorizado").uncheck().run()
     assert at.button(key="dec_post_a").disabled
 
@@ -248,6 +253,7 @@ def test_decisao_e_gravada_quando_ha_lote(monkeypatch):
     at = _processar_exemplo()
     at.session_state["lote_id"] = 7
     _botao(at, "Revisar 7 ativos").click().run()
+    _abrir(at, "newsletter")
     at.text_input(key="txt_news_chamada").input("Chamada revisada").run()
     at.button(key="dec_newsletter_a").click().run()
     (args, kwargs), = chamadas
@@ -259,6 +265,7 @@ def test_decisao_sem_lote_nao_chama_o_banco(monkeypatch):
     monkeypatch.setattr("app.repositorio.salvar_decisao", lambda *a, **k: chamadas.append((a, k)))
     at = _processar_exemplo()
     _botao(at, "Revisar 7 ativos").click().run()
+    _abrir(at, "newsletter")
     at.button(key="dec_newsletter_a").click().run()
     assert chamadas == [] and at.session_state["decisoes"]["newsletter"] == cur.APROVADO
 
@@ -270,6 +277,7 @@ def test_falha_ao_gravar_decisao_vira_aviso(monkeypatch):
     at = _processar_exemplo()
     at.session_state["lote_id"] = 7
     _botao(at, "Revisar 7 ativos").click().run()
+    _abrir(at, "newsletter")
     at.button(key="dec_newsletter_a").click().run()
     assert not at.exception
     assert at.session_state["decisoes"]["newsletter"] == cur.APROVADO
@@ -307,11 +315,144 @@ def test_falha_ao_gravar_alerta_vira_aviso(monkeypatch):
 def test_texto_editado_continua_ao_voltar_para_curadoria():
     at = _processar_exemplo()
     _botao(at, "Revisar 7 ativos").click().run()
+    _abrir(at, "newsletter")
     at.text_input(key="txt_news_chamada").input("Chamada revisada").run()
     at.radio(key="pagina").set_value("Visão geral").run()
     at.radio(key="pagina").set_value("Curadoria").run()
     assert not at.exception
     assert at.text_input(key="txt_news_chamada").value == "Chamada revisada"
+
+
+def _na_tela(campo):
+    """O que o navegador mostra: o valor enviado pelo servidor ou, sem ele, o valor padrão do campo."""
+    return campo.proto.value if campo.proto.set_value else campo.proto.default
+
+
+def test_textos_aparecem_na_tela_ao_voltar_para_curadoria():
+    at = _processar_exemplo()
+    _botao(at, "Revisar 7 ativos").click().run()
+    post = at.text_area(key="txt_post_copy").value
+    at.radio(key="pagina").set_value("Visão geral").run()
+    at.radio(key="pagina").set_value("Curadoria").run()
+    assert not at.exception
+    assert not at.warning
+    assert _na_tela(at.text_area(key="txt_post_copy")) == post
+    _abrir(at, "newsletter")
+    at.text_input(key="txt_news_chamada").input("Chamada revisada").run()
+    at.radio(key="pagina").set_value("Visão geral").run()
+    at.radio(key="pagina").set_value("Curadoria").run()
+    assert not at.warning
+    assert _na_tela(at.text_input(key="txt_news_chamada")) == "Chamada revisada"
+
+
+def test_fila_mostra_um_item_por_vez():
+    at = _processar_exemplo()
+    _botao(at, "Revisar 7 ativos").click().run()
+    assert [c.key for c in at.text_area] == ["txt_post_copy"]
+    _abrir(at, "faq_1")
+    assert [c.key for c in at.text_area] == ["txt_faq_1_conteudo"]
+    assert not at.exception
+
+
+def test_texto_editado_sobrevive_a_troca_de_item_e_chega_na_exportacao(tmp_path):
+    at = _processar_exemplo()
+    _botao(at, "Revisar 7 ativos").click().run()
+    at.text_area(key="txt_post_copy").input("Post revisado").run()
+    at.checkbox(key="autorizado").check().run()
+    _abrir(at, "faq_0")
+    at.text_area(key="txt_faq_0_conteudo").input("FAQ revisada").run()
+    _abrir(at, "newsletter")
+    at.text_input(key="txt_news_chamada").input("Chamada revisada").run()
+    _abrir(at, "faq_2")  # sai de todos os itens editados antes de voltar
+    assert not at.warning
+
+    _abrir(at, "post")
+    assert _na_tela(at.text_area(key="txt_post_copy")) == "Post revisado"
+    assert at.checkbox(key="autorizado").value
+    at.button(key="dec_post_a").click().run()
+    _abrir(at, "faq_0")
+    assert _na_tela(at.text_area(key="txt_faq_0_conteudo")) == "FAQ revisada"
+    at.button(key="dec_faq_0_a").click().run()
+    _abrir(at, "newsletter")
+    assert _na_tela(at.text_input(key="txt_news_chamada")) == "Chamada revisada"
+    at.button(key="dec_newsletter_a").click().run()
+
+    _botao(at, "Exportar aprovados").click().run()
+    assert not at.exception
+    salvo = json.loads(next(tmp_path.glob("saida_local/ativos/*/aprovados.json")).read_text(encoding="utf-8"))
+    assert salvo["post_linkedin"]["copy"] == "Post revisado"
+    assert salvo["destaque_newsletter_semanal"]["chamada"] == "Chamada revisada"
+    assert salvo["sugestao_conteudo_faq"][0]["conteudo"] == "FAQ revisada"
+
+
+def test_decidir_avanca_para_o_proximo_pendente_e_desfazer_fica_no_item():
+    at = _processar_exemplo()
+    _botao(at, "Revisar 7 ativos").click().run()
+    _abrir(at, "newsletter")
+    at.button(key="dec_newsletter_a").click().run()
+    assert at.session_state["item_ativo"] == "faq_0"
+    at.button(key="dec_faq_0_d").click().run()
+    assert at.session_state["item_ativo"] == "faq_1"
+    _abrir(at, "faq_0")
+    at.button(key="dec_faq_0_u").click().run()
+    assert at.session_state["item_ativo"] == "faq_0"
+
+
+def test_proximo_pendente_da_a_volta_na_fila():
+    ids = ["post", "newsletter", "faq_0"]
+    decisoes = {"post": cur.PENDENTE, "newsletter": cur.APROVADO, "faq_0": cur.DESCARTADO}
+    assert cur.proximo_pendente(ids, decisoes, "faq_0") == "post"
+    assert cur.proximo_pendente(ids, decisoes) == "post"
+    assert cur.proximo_pendente(ids, {i: cur.APROVADO for i in ids}, "post") is None
+
+
+def test_titulo_na_fila_tira_o_prefixo_repetido_da_faq():
+    resultado = {"ativos_distribuicao_gerados": {
+        "post_linkedin": {"titulo": "Conquista"},
+        "destaque_newsletter_semanal": {"secao": "Destaques"},
+        "sugestao_conteudo_faq": [{"tema": "Dica Rápida: OCID na OCI"}],
+    }}
+    assert cur.titulo_na_fila(resultado, "post") == "Post: Conquista"
+    assert cur.titulo_na_fila(resultado, "newsletter") == "Newsletter: Destaques"
+    assert cur.titulo_na_fila(resultado, "faq_0") == "OCID na OCI"
+
+
+def _contraste(cor_a: str, cor_b: str) -> float:
+    def luminancia(cor):
+        canais = [int(cor[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        r, g, b = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in canais]
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    clara, escura = sorted((luminancia(cor_a), luminancia(cor_b)), reverse=True)
+    return (clara + 0.05) / (escura + 0.05)
+
+
+@pytest.mark.parametrize("indice,tema", [(0, "claro"), (1, "escuro")])
+def test_textos_tem_contraste_legivel_nos_dois_temas(indice, tema):
+    from ui import estilo
+    for fundo in ("fundo", "superficie"):
+        for nome in ("texto", "cinza", "lima", "ciano", "laranja", "rosa"):
+            razao = _contraste(estilo.CORES[nome][indice], estilo.CORES[fundo][indice])
+            assert razao >= 4.5, f"{nome} sobre {fundo} no tema {tema}: {razao:.1f}"
+
+
+def test_html_troca_de_tema_sozinho():
+    from ui import estilo
+    claro, escuro = estilo.CORES["texto"]
+    assert estilo.css("texto") == f"light-dark({claro}, {escuro})"
+
+
+def test_cores_dos_dados_aparecem_nos_dois_fundos():
+    from ui import estilo
+    dados = [c for _, c in estilo.SENTIMENTOS] + [r["barra"] for r in estilo.ROTAS.values()] + [estilo.DADO_DESCARTADO]
+    for cor in dados:
+        for fundo in estilo.CORES["fundo"]:
+            assert _contraste(cor, fundo) >= 2.5, f"{cor} sobre {fundo}"
+
+
+def test_numeros_dentro_dos_graficos_sao_legiveis_nos_dois_fundos():
+    from ui import estilo
+    for fundo in estilo.CORES["fundo"]:
+        assert _contraste(estilo.DADO_TEXTO, fundo) >= 3.5
 
 
 def test_post_aprovado_continua_ao_voltar_para_curadoria():
@@ -321,6 +462,7 @@ def test_post_aprovado_continua_ao_voltar_para_curadoria():
     at.button(key="dec_post_a").click().run()
     at.radio(key="pagina").set_value("Visão geral").run()
     at.radio(key="pagina").set_value("Curadoria").run()
+    _abrir(at, "post")
     assert at.checkbox(key="autorizado").value
     assert at.session_state["decisoes"]["post"] == cur.APROVADO
 
@@ -521,6 +663,7 @@ def test_lote_substituido_vira_aviso_e_para_de_tentar(monkeypatch):
     at = _processar_exemplo()
     at.session_state["lote_id"] = 7
     _botao(at, "Revisar 7 ativos").click().run()
+    _abrir(at, "newsletter")
     at.button(key="dec_newsletter_a").click().run()
     assert not at.exception
     assert at.session_state["lote_id"] is None
@@ -538,7 +681,9 @@ def test_aviso_some_quando_a_gravacao_volta(monkeypatch):
     at = _processar_exemplo()
     at.session_state["lote_id"] = 7
     _botao(at, "Revisar 7 ativos").click().run()
+    _abrir(at, "newsletter")
     at.button(key="dec_newsletter_a").click().run()
     assert at.session_state["aviso_banco"]
+    _abrir(at, "newsletter")
     at.button(key="dec_newsletter_u").click().run()
     assert at.session_state["aviso_banco"] is None

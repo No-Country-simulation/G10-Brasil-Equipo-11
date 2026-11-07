@@ -1,4 +1,4 @@
-# CommunityLab Intelligence
+# Sender AI
 
 Sistema de inteligência artificial para analisar interações em comunidades digitais, identificar assuntos relevantes e gerar conteúdos que apoiem o engajamento e a distribuição de informações.
 

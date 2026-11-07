@@ -1,4 +1,4 @@
-"""Contrato JSON de entrada e saída do CommunityLab.
+"""Contrato JSON de entrada e saída do Sender AI.
 
 Este arquivo é a referência para toda a equipe: IA, backend, interface e cloud
 trabalham em cima destes modelos. Mudou o contrato? Combine com todos antes.

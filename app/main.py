@@ -1,4 +1,4 @@
-"""API do CommunityLab. Rode com: uvicorn app.main:app --reload"""
+"""API do Sender AI. Rode com: uvicorn app.main:app --reload"""
 import json
 from dotenv import load_dotenv
 
@@ -12,7 +12,7 @@ from .grafo import processar  # noqa: E402
 from .llm import modo_mock  # noqa: E402
 from .schemas import LoteEntrada, RespostaProcessamento  # noqa: E402
 
-app = FastAPI(title="CommunityLab", version="0.1.0")
+app = FastAPI(title="Sender AI", version="0.1.0")
 
 
 @app.get("/saude")

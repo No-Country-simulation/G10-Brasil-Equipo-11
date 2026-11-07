@@ -1,4 +1,4 @@
-"""Testes de integração do CommunityLab. Responsável: Renato.
+"""Testes de integração do Sender AI. Responsável: Renato.
 
 Verificam o sistema como um todo, do arquivo de entrada até o pacote salvo:
 

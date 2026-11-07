@@ -1,4 +1,4 @@
-"""Prompts do CommunityLab. Dono: pessoa 1 (IA e prompts) | Guardrails Anti-Slop: Marcelo Sales.
+"""Prompts do Sender AI. Dono: pessoa 1 (IA e prompts) | Guardrails Anti-Slop: Marcelo Sales.
 
 Cada canal tem tom próprio: LinkedIn inspirador, newsletter leve, FAQ didático.
 Os exemplos (few-shot) ensinam o estilo; troque-os pelos da voz da marca de vocês.

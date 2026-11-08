@@ -241,3 +241,49 @@ def test_exportar_permite_post_com_autorizacao_do_membro(tmp_path, monkeypatch):
     assert r.json()["status"] == "ok"
 
 
+# ---------------------------------------------------------------------------
+# Testes da Landing Page Oficial (Atomic Design + Ponytail + Humanizer)
+# ---------------------------------------------------------------------------
+def test_servir_landing_page_modulos_e_css():
+    r_css = cliente.get("/css/03-landing.css")
+    assert r_css.status_code == 200
+    assert ".lp-hero" in r_css.text
+    assert ".lp-bird-svg" in r_css.text
+
+    arquivos_js = [
+        ("/js/views/landing-view.js", "renderLandingView"),
+        ("/js/organisms/landing-header.js", "btn-landing-entrar"),
+        ("/js/organisms/landing-hero.js", "btn-hero-entrar"),
+        ("/js/organisms/landing-content.js", "btn-cta-entrar"),
+        ("/js/views/login-view.js", "btn-voltar-landing"),
+    ]
+    for rota, marcador in arquivos_js:
+        resp = cliente.get(rota)
+        assert resp.status_code == 200, f"Falha ao carregar {rota}"
+        assert marcador in resp.text, f"Marcador {marcador} ausente em {rota}"
+
+
+def test_landing_page_ponytail_limite_linhas_e_humanizer():
+    rotas_componentes = [
+        "/css/03-landing.css",
+        "/js/views/landing-view.js",
+        "/js/organisms/landing-header.js",
+        "/js/organisms/landing-hero.js",
+        "/js/organisms/landing-content.js",
+        "/js/views/login-view.js",
+    ]
+    cliches_banidos = [
+        "Não é sobre falar mais alto",
+        "HACKATHON ORACLE EDITION",
+        "/api/v1/ingest",
+        "FEIXE: ON",
+    ]
+    for rota in rotas_componentes:
+        texto = cliente.get(rota).text
+        linhas = texto.splitlines()
+        assert len(linhas) < 100, f"Componente {rota} excedeu 100 linhas ({len(linhas)})"
+        for cliche in cliches_banidos:
+            assert cliche not in texto, f"Clichê ou código obsoleto '{cliche}' encontrado em {rota}"
+
+
+

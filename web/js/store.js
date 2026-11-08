@@ -35,6 +35,8 @@ export class Store {
       filtroRota: 'Todas',
       isProcessing: false,
       aviso: null,
+      publicView: 'landing',
+      saudeInfo: null,
       logado: false,
       authConfigurado: false,
       authCarregando: true,
@@ -52,6 +54,7 @@ export class Store {
   resetSession() {
     this.setState({
       logado: false,
+      publicView: 'landing',
       authErro: null,
       usuario: null,
       activeTab: 'importar',

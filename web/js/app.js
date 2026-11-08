@@ -4,6 +4,7 @@ import { store } from './store.js';
 import { api } from './api.js';
 import { renderHeaderBar, initHeaderEvents } from './organisms/header-bar.js';
 import { initThemeToggle } from './atoms/theme-toggle.js';
+import { renderLandingView } from './views/landing-view.js';
 import { renderLoginView } from './views/login-view.js';
 import { renderImportView } from './views/import-view.js';
 import { renderOverviewView } from './views/overview-view.js';
@@ -13,12 +14,15 @@ import { renderInsightsView } from './views/insights-view.js';
 function renderApp() {
   const root = document.getElementById('app-root');
   if (!root) return;
-  const { activeTab, logado } = store.getState();
+  const { activeTab, logado, publicView, theme } = store.getState();
 
   if (!logado) {
-    root.innerHTML = renderLoginView();
+    document.documentElement.setAttribute('data-theme', 'dark');
+    root.innerHTML = publicView === 'login' ? renderLoginView() : renderLandingView();
     return;
   }
+
+  document.documentElement.setAttribute('data-theme', theme || 'dark');
 
   const views = {
     importar: renderImportView,
@@ -44,7 +48,19 @@ function initEventHandlers() {
   initThemeToggle();
 
   document.addEventListener('click', async (e) => {
-    // 0. Autenticação e Login
+    // 0. Navegação Landing <-> Login
+    if (e.target.closest('.btn-ir-login')) {
+      store.setState({ publicView: 'login', authErro: null });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (e.target.closest('#btn-voltar-landing')) {
+      store.setState({ publicView: 'landing', authErro: null });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    // 0.1 Autenticação e Login
     if (e.target.closest('#btn-login-submit')) {
       const usuarioInput = document.getElementById('login_usuario');
       const senhaInput = document.getElementById('login_senha');
@@ -427,7 +443,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   store.subscribe(renderApp);
   initEventHandlers();
 
-  // 1. Verifica autenticação de admin
+  // 1. Verifica saúde da API e autenticação de admin
+  try {
+    const saude = await api.verificarSaude();
+    store.setState({ saudeInfo: saude });
+  } catch (err) {
+    console.warn('[Sender AI] /saude indisponível:', err);
+  }
   try {
     const auth = await api.obterStatusAuth();
     store.setState({

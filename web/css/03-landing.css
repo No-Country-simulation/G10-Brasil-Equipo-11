@@ -1,0 +1,67 @@
+/* web/css/03-landing.css — Estilos modulares da Landing Page (< 90 linhas) */
+.lp-header {
+  position: sticky; top: 0; z-index: 90;
+  background: rgba(5, 10, 14, 0.88);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+.lp-nav {
+  max-width: 1200px; margin: 0 auto; padding: 0.9rem 1.25rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+}
+.lp-links {
+  display: flex; align-items: center; gap: 1.75rem;
+  font-size: 0.9rem; color: var(--muted);
+}
+.lp-links a:hover { color: var(--text); }
+.lp-hero {
+  position: relative; padding: 5rem 1.25rem 4.5rem;
+  border-bottom: 1px solid var(--line);
+  background-image:
+    linear-gradient(to right, rgba(27, 51, 71, 0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(27, 51, 71, 0.35) 1px, transparent 1px),
+    radial-gradient(circle at 72% 45%, rgba(0, 229, 255, 0.08), transparent 60%);
+  background-size: 48px 48px, 48px 48px, 100% 100%;
+}
+.lp-wrap { max-width: 1200px; margin: 0 auto; }
+.lp-hero-grid {
+  display: grid; grid-template-columns: 1.1fr 0.9fr;
+  gap: 3rem; align-items: center;
+}
+.lp-headline {
+  font-size: clamp(2.1rem, 4.2vw, 3.35rem);
+  font-weight: 700; line-height: 1.1; letter-spacing: -0.025em;
+  margin-bottom: 1.25rem; max-width: 22ch;
+}
+.lp-lead {
+  color: var(--muted); font-size: 1.05rem; line-height: 1.65;
+  max-width: 56ch; margin-bottom: 1.75rem;
+}
+.lp-bird-stage {
+  position: relative; min-height: 360px;
+  display: grid; place-items: center;
+}
+.lp-orbit {
+  position: absolute; width: 320px; height: 320px;
+  border: 1px dashed var(--line); border-radius: 50%;
+}
+.lp-bird-svg {
+  width: min(310px, 85%); position: relative; z-index: 2;
+  filter: drop-shadow(0 16px 32px rgba(0, 229, 255, 0.14));
+}
+.lp-stat-pill {
+  position: absolute; z-index: 3;
+  background: var(--bg-surface); border: 1px solid var(--line);
+  border-radius: var(--radius-md); padding: 0.75rem 1rem;
+  box-shadow: var(--shadow-card);
+}
+.lp-section {
+  padding: 4.5rem 1.25rem; border-bottom: 1px solid var(--line);
+}
+.lp-section-alt { background: rgba(12, 25, 38, 0.45); }
+.lp-step { border-top: 2px solid var(--line); padding-top: 1.25rem; }
+@media (max-width: 860px) {
+  .lp-links { display: none; }
+  .lp-hero-grid { grid-template-columns: 1fr; gap: 2rem; }
+  .lp-bird-stage { min-height: 280px; }
+}

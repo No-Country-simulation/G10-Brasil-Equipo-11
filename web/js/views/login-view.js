@@ -9,6 +9,12 @@ export function renderLoginView() {
   return `
     <div class="view-login" style="min-height: 85vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 2rem 1rem;">
 
+      <div style="width: 100%; max-width: 420px; margin-bottom: 0.75rem;">
+        <button id="btn-voltar-landing" type="button" style="font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; padding: 4px 0;">
+          ← Voltar ao início
+        </button>
+      </div>
+
       <div class="card" style="width: 100%; max-width: 420px; padding: 2.25rem 2rem; border-top: 3px solid var(--accent-lime); box-shadow: var(--shadow-card);">
         
         <!-- Logo e Título Limpos -->

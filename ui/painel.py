@@ -23,7 +23,6 @@ import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
 from app import repositorio  # noqa: E402
-from app.grafo import processar_com_registro  # noqa: E402
 from app.llm import modo_mock  # noqa: E402
 from ui import curadoria as cur  # noqa: E402
 from ui import fontes, login  # noqa: E402
@@ -134,6 +133,7 @@ def processar_lote(lote, substituir: bool = False):
             ss["duplicado"] = existente
             st.rerun()
     with st.spinner("Analisando a comunidade e gerando os ativos..."):
+        from app.grafo import processar_com_registro  # o LangGraph leva segundos para importar: só quando processar
         resultado, registro = processar_com_registro(lote)
     limpar_chaves_do_lote()
     ss.update({

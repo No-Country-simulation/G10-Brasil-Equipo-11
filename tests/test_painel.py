@@ -799,3 +799,23 @@ def test_aviso_some_quando_a_gravacao_volta(monkeypatch):
     _abrir(at, "newsletter")
     at.button(key="dec_newsletter_u").click().run()
     assert at.session_state["aviso_banco"] is None
+
+
+# ---------------------------------------------------------------------------
+# Desempenho
+# ---------------------------------------------------------------------------
+def test_abrir_o_painel_nao_carrega_o_pipeline():
+    """O LangGraph leva segundos para importar; só deve carregar ao processar um lote."""
+    import subprocess
+    codigo = (
+        "import sys\n"
+        "from streamlit.testing.v1 import AppTest\n"
+        f"at = AppTest.from_file({str(RAIZ / 'ui' / 'painel.py')!r}, default_timeout=60)\n"
+        "at.session_state['logado'] = True\n"
+        "at.run()\n"
+        "assert not at.exception, at.exception\n"
+        "print('langgraph' in sys.modules)\n"
+    )
+    saida = subprocess.run([sys.executable, "-c", codigo], capture_output=True, text=True, cwd=RAIZ, timeout=120)
+    assert saida.returncode == 0, saida.stderr
+    assert saida.stdout.strip().splitlines()[-1] == "False"

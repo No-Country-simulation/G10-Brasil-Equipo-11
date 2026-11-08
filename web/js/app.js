@@ -242,10 +242,12 @@ function initEventHandlers() {
       const card = btnAlertaAcao.closest('.cl-alert-card');
       const ordem = card?.dataset.ordem;
       if (ordem !== undefined) {
-        store.setState(s => ({ alertas: { ...s.alertas, [ordem]: 'mentoria_oferecida' } }));
-        const { loteId } = store.getState();
+        const { resultado, loteId } = store.getState();
+        const analise = resultado?.analises?.[parseInt(ordem, 10)];
+        const novoStatus = analise?.tipo === 'reclamacao' ? 'encaminhado' : 'mentoria_oferecida';
+        store.setState(s => ({ alertas: { ...s.alertas, [ordem]: novoStatus } }));
         if (loteId) {
-          api.tratarAlerta(loteId, parseInt(ordem, 10), 'mentoria_oferecida');
+          api.tratarAlerta(loteId, parseInt(ordem, 10), novoStatus);
         }
       }
       return;

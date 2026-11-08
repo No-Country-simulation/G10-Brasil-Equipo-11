@@ -34,9 +34,37 @@ export class Store {
       filtroRota: 'Todas',
       isProcessing: false,
       aviso: null,
+      logado: false,
+      authConfigurado: false,
+      authCarregando: true,
+      authErro: null,
+      usuario: null,
+      insightsData: null,
+      insightsCarregando: false,
+      insightsModoDemo: false,
+      insightsFiltros: { modo: 'mock', inicio: '', fim: '', comunidade: '', canal: '' },
       ...initialState,
     };
     this.listeners = new Set();
+  }
+
+  resetSession() {
+    this.setState({
+      logado: false,
+      authErro: null,
+      usuario: null,
+      activeTab: 'importar',
+      arquivo: null,
+      leitura: null,
+      resultado: null,
+      processadoEm: null,
+      decisoes: {},
+      activeItem: null,
+      textosEditados: {},
+      autorizado: false,
+      alertas: {},
+      exportResult: null,
+    });
   }
 
   getState() {

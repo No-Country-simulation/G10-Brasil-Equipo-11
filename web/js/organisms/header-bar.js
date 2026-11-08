@@ -6,7 +6,7 @@ import { renderThemeToggle } from '../atoms/theme-toggle.js';
 import { store } from '../store.js';
 
 export function renderHeaderBar() {
-  const { activeTab, resultado, origem, periodo, decisoes } = store.getState();
+  const { activeTab, resultado, origem, periodo, decisoes, logado } = store.getState();
   const tabs = [
     { id: 'importar', label: 'Importar' },
     { id: 'visao', label: 'Visão geral' },
@@ -56,6 +56,16 @@ export function renderHeaderBar() {
           ` : ''}
           ${renderBadge('Modo simulado', 'warning')}
           ${renderThemeToggle()}
+          ${logado ? `
+            <button id="btn-logout" title="Encerrar sessão de admin" style="
+              display: inline-flex; align-items: center; gap: 5px;
+              padding: 6px 12px; border-radius: var(--radius-md); font-size: 13px; font-weight: 500;
+              background: var(--bg-surface-2); color: var(--muted); border: 1px solid var(--line);
+              transition: all var(--transition-fast);
+            ">
+              <span>🚪</span> Sair
+            </button>
+          ` : ''}
         </div>
 
       </div>

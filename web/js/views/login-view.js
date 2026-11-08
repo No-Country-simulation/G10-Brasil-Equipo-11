@@ -1,0 +1,93 @@
+// web/js/views/login-view.js
+// Tela de Login Administrativo do Painel (< 100 linhas)
+import { renderKicker } from '../atoms/kicker.js';
+import { renderThemeToggle } from '../atoms/theme-toggle.js';
+import { esc } from '../atoms/escape.js';
+import { store } from '../store.js';
+
+export function renderLoginView() {
+  const { authConfigurado, authCarregando, authErro } = store.getState();
+
+  return `
+    <div class="view-login" style="min-height: 85vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 2rem 1rem;">
+      
+      <!-- Topo utilitário com alternador de tema -->
+      <div style="position: absolute; top: 1.5rem; right: 2rem;">
+        ${renderThemeToggle()}
+      </div>
+
+      <div class="card" style="width: 100%; max-width: 440px; padding: 2.25rem 2rem; border-top: 3px solid var(--accent-lime); box-shadow: var(--shadow-card);">
+        
+        <!-- Logo e Cabeçalho -->
+        <div style="text-align: center; margin-bottom: 1.75rem;">
+          <img src="assets/logo_sender_ai.png" alt="Sender AI" style="height: 38px; width: auto; margin: 0 auto 0.75rem; display: block;" onerror="this.style.display='none'; document.getElementById('login-fallback-logo').style.display='block';" />
+          <h2 id="login-fallback-logo" style="display: none; font-weight: 700; font-size: 22px; letter-spacing: -0.02em;">Sender AI</h2>
+          ${renderKicker('AUTH', 'CONSOLE DE ACESSO')}
+          <h1 class="page-title" style="font-size: 1.65rem; margin-top: 0.25rem;">Entrar</h1>
+          <p class="page-subtitle" style="font-size: 0.88rem;">Credencial de demonstração administrativa</p>
+        </div>
+
+        ${authCarregando ? `
+          <div style="text-align: center; padding: 2rem; color: var(--muted); font-size: 14px;">
+            <p>Verificando credenciais...</p>
+          </div>
+        ` : `
+          ${!authConfigurado ? `
+            <div style="background: var(--accent-amber-bg); border: 1px solid var(--accent-amber); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.25rem; font-size: 13px; color: var(--text); line-height: 1.4;">
+              <strong>⚠️ Login não configurado:</strong> defina <code style="font-family: var(--font-mono); color: var(--accent-lime);">ADMIN_USUARIO</code> e <code style="font-family: var(--font-mono); color: var(--accent-lime);">ADMIN_SENHA</code> no <code>.env</code> e reinicie o app.
+            </div>
+          ` : ''}
+
+          ${authErro ? `
+            <div id="login-error-box" style="background: var(--accent-coral-bg); border: 1px solid var(--accent-coral); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 8px;">
+              <span>⛔</span>
+              <span>${esc(authErro)}</span>
+            </div>
+          ` : ''}
+
+          <form id="form-login" onsubmit="return false;" style="display: flex; flex-direction: column; gap: 1rem;">
+            <div>
+              <label for="login_usuario" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 0.35rem; color: var(--text);">Usuário</label>
+              <input 
+                type="text" 
+                id="login_usuario" 
+                name="usuario" 
+                autocomplete="username" 
+                placeholder="Ex: admin"
+                ${!authConfigurado ? 'disabled' : ''}
+                style="width: 100%; padding: 0.65rem 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--bg-surface-2); color: var(--text); font-size: 14px;" 
+              />
+            </div>
+
+            <div>
+              <label for="login_senha" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 0.35rem; color: var(--text);">Senha</label>
+              <input 
+                type="password" 
+                id="login_senha" 
+                name="senha" 
+                autocomplete="current-password" 
+                placeholder="••••••••"
+                ${!authConfigurado ? 'disabled' : ''}
+                style="width: 100%; padding: 0.65rem 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--bg-surface-2); color: var(--text); font-size: 14px;" 
+              />
+            </div>
+
+            <button 
+              type="submit" 
+              id="btn-login-submit" 
+              ${!authConfigurado ? 'disabled style="opacity: 0.5; cursor: not-allowed;' : 'style="'}
+              width: 100%; margin-top: 0.5rem; padding: 0.75rem 1rem; border-radius: var(--radius-md); font-size: 14px; font-weight: 600; background: var(--accent-lime); color: var(--accent-lime-ink); border: none; transition: filter var(--transition-fast);"
+            >
+              Entrar
+            </button>
+          </form>
+
+          <p style="text-align: center; color: var(--dim); font-size: 12px; margin-top: 1.5rem; line-height: 1.4;">
+            Demonstração com segurança de camada de aplicação. A senha fica em texto no <code>.env</code>.
+          </p>
+        `}
+
+      </div>
+    </div>
+  `.trim();
+}

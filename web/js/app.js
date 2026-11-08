@@ -1,9 +1,10 @@
 // web/js/app.js
-// Ponto de entrada, orquestrador reativo e controle de eventos (< 160 linhas)
+// Ponto de entrada, orquestrador reativo e controle de eventos
 import { store } from './store.js';
 import { api } from './api.js';
 import { renderHeaderBar, initHeaderEvents } from './organisms/header-bar.js';
 import { initThemeToggle } from './atoms/theme-toggle.js';
+import { renderLoginView } from './views/login-view.js';
 import { renderImportView } from './views/import-view.js';
 import { renderOverviewView } from './views/overview-view.js';
 import { renderCurationView, extrairItensCuradoria } from './views/curation-view.js';
@@ -12,7 +13,12 @@ import { renderInsightsView } from './views/insights-view.js';
 function renderApp() {
   const root = document.getElementById('app-root');
   if (!root) return;
-  const { activeTab } = store.getState();
+  const { activeTab, logado } = store.getState();
+
+  if (!logado) {
+    root.innerHTML = renderLoginView();
+    return;
+  }
 
   const views = {
     importar: renderImportView,
@@ -38,6 +44,48 @@ function initEventHandlers() {
   initThemeToggle();
 
   document.addEventListener('click', async (e) => {
+    // 0. Autenticação e Login
+    if (e.target.closest('#btn-login-submit')) {
+      const usuarioInput = document.getElementById('login_usuario');
+      const senhaInput = document.getElementById('login_senha');
+      const usuario = usuarioInput ? usuarioInput.value.trim() : '';
+      const senha = senhaInput ? senhaInput.value : '';
+      if (!usuario || !senha) {
+        store.setState({ authErro: 'Por favor preencha usuário e senha.' });
+        return;
+      }
+      try {
+        const res = await api.login(usuario, senha);
+        store.setState({ logado: true, usuario: res.usuario, authErro: null });
+      } catch (err) {
+        store.setState({ authErro: err.message || 'Usuário ou senha inválidos.' });
+      }
+      return;
+    }
+
+    if (e.target.closest('#btn-logout')) {
+      try {
+        await api.logout();
+      } catch (err) {
+        console.warn('Erro ao sair:', err);
+      }
+      store.resetSession();
+      return;
+    }
+
+    // 0.1 Insights / Histórico
+    if (e.target.closest('#btn-insights-load-demo') || e.target.closest('#btn-insights-refresh')) {
+      store.setState({ insightsCarregando: true });
+      try {
+        const dados = await api.obterInsights({ demo: true });
+        store.setState({ insightsData: dados, insightsCarregando: false, insightsModoDemo: true });
+      } catch (err) {
+        alert('Erro ao carregar insights: ' + err.message);
+        store.setState({ insightsCarregando: false });
+      }
+      return;
+    }
+
     // 1. Navegação rápida
     if (e.target.closest('#btn-go-importar')) {
       store.setState({ activeTab: 'importar' });
@@ -288,6 +336,27 @@ function initEventHandlers() {
       reader.readAsText(file);
     }
   });
+
+  // Envio de formulário (ex: Enter no Login)
+  document.addEventListener('submit', async (e) => {
+    if (e.target.id === 'form-login') {
+      e.preventDefault();
+      const usuarioInput = document.getElementById('login_usuario');
+      const senhaInput = document.getElementById('login_senha');
+      const usuario = usuarioInput ? usuarioInput.value.trim() : '';
+      const senha = senhaInput ? senhaInput.value : '';
+      if (!usuario || !senha) {
+        store.setState({ authErro: 'Por favor preencha usuário e senha.' });
+        return;
+      }
+      try {
+        const res = await api.login(usuario, senha);
+        store.setState({ logado: true, usuario: res.usuario, authErro: null });
+      } catch (err) {
+        store.setState({ authErro: err.message || 'Usuário ou senha inválidos.' });
+      }
+    }
+  });
 }
 
 function salvarTextosAtivos() {
@@ -341,6 +410,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.documentElement.setAttribute('data-theme', store.getState().theme);
   store.subscribe(renderApp);
   initEventHandlers();
+
+  // 1. Verifica autenticação de admin
+  try {
+    const auth = await api.obterStatusAuth();
+    store.setState({
+      logado: Boolean(auth.logado),
+      authConfigurado: Boolean(auth.configurado),
+      authCarregando: false,
+    });
+  } catch (err) {
+    console.warn('[Sender AI] Status de autenticação indisponível:', err);
+    store.setState({ authCarregando: false });
+  }
+
+  // 2. Carrega fontes dinâmicas
   try {
     const dadosFontes = await api.obterFontes();
     if (dadosFontes && dadosFontes.canais) {

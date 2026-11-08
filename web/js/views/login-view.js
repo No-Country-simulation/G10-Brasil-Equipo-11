@@ -1,7 +1,5 @@
 // web/js/views/login-view.js
-// Tela de Login Administrativo do Painel (< 100 linhas)
-import { renderKicker } from '../atoms/kicker.js';
-import { renderThemeToggle } from '../atoms/theme-toggle.js';
+// Tela de Login Administrativo Minimalista (< 75 linhas)
 import { esc } from '../atoms/escape.js';
 import { store } from '../store.js';
 
@@ -10,21 +8,13 @@ export function renderLoginView() {
 
   return `
     <div class="view-login" style="min-height: 85vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 2rem 1rem;">
-      
-      <!-- Topo utilitário com alternador de tema -->
-      <div style="position: absolute; top: 1.5rem; right: 2rem;">
-        ${renderThemeToggle()}
-      </div>
 
-      <div class="card" style="width: 100%; max-width: 440px; padding: 2.25rem 2rem; border-top: 3px solid var(--accent-lime); box-shadow: var(--shadow-card);">
+      <div class="card" style="width: 100%; max-width: 420px; padding: 2.25rem 2rem; border-top: 3px solid var(--accent-lime); box-shadow: var(--shadow-card);">
         
-        <!-- Logo e Cabeçalho -->
-        <div style="text-align: center; margin-bottom: 1.75rem;">
-          <img src="assets/logo_sender_ai.png" alt="Sender AI" style="height: 38px; width: auto; margin: 0 auto 0.75rem; display: block;" onerror="this.style.display='none'; document.getElementById('login-fallback-logo').style.display='block';" />
-          <h2 id="login-fallback-logo" style="display: none; font-weight: 700; font-size: 22px; letter-spacing: -0.02em;">Sender AI</h2>
-          ${renderKicker('AUTH', 'CONSOLE DE ACESSO')}
-          <h1 class="page-title" style="font-size: 1.65rem; margin-top: 0.25rem;">Entrar</h1>
-          <p class="page-subtitle" style="font-size: 0.88rem;">Credencial de demonstração administrativa</p>
+        <!-- Logo e Título Limpos -->
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+          <div role="img" aria-label="Sender AI" style="width: 42px; height: 42px; margin: 0 auto 0.75rem; background: var(--text); -webkit-mask: url('assets/logo_sender_ai.png') center / contain no-repeat; mask: url('assets/logo_sender_ai.png') center / contain no-repeat;"></div>
+          <h1 class="page-title" style="font-size: 1.65rem; margin: 0;">Entrar</h1>
         </div>
 
         ${authCarregando ? `
@@ -81,10 +71,6 @@ export function renderLoginView() {
               Entrar
             </button>
           </form>
-
-          <p style="text-align: center; color: var(--dim); font-size: 12px; margin-top: 1.5rem; line-height: 1.4;">
-            Demonstração com segurança de camada de aplicação. A senha fica em texto no <code>.env</code>.
-          </p>
         `}
 
       </div>

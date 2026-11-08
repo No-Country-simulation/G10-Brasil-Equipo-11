@@ -5,6 +5,7 @@ import { api } from './api.js';
 import { renderHeaderBar, initHeaderEvents } from './organisms/header-bar.js';
 import { initThemeToggle } from './atoms/theme-toggle.js';
 import { renderLandingView } from './views/landing-view.js';
+import { initLandingEvents } from './organisms/landing-events.js';
 import { renderLoginView } from './views/login-view.js';
 import { renderImportView } from './views/import-view.js';
 import { renderOverviewView } from './views/overview-view.js';
@@ -46,6 +47,7 @@ function renderApp() {
 function initEventHandlers() {
   initHeaderEvents();
   initThemeToggle();
+  initLandingEvents();
 
   document.addEventListener('click', async (e) => {
     // 0. Navegação Landing <-> Login

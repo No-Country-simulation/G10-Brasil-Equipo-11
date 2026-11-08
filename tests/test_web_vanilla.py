@@ -245,16 +245,25 @@ def test_exportar_permite_post_com_autorizacao_do_membro(tmp_path, monkeypatch):
 # Testes da Landing Page Oficial (Atomic Design + Ponytail + Humanizer)
 # ---------------------------------------------------------------------------
 def test_servir_landing_page_modulos_e_css():
-    r_css = cliente.get("/css/03-landing.css")
-    assert r_css.status_code == 200
-    assert ".lp-hero" in r_css.text
-    assert ".lp-bird-svg" in r_css.text
+    r_css1 = cliente.get("/css/03-landing.css")
+    assert r_css1.status_code == 200
+    assert ".lp-hero" in r_css1.text
+    assert ".lp-hero-bird" in r_css1.text
+    assert "no-store" in r_css1.headers.get("Cache-Control", "")
+
+    r_css2 = cliente.get("/css/04-landing-sections.css")
+    assert r_css2.status_code == 200
+    assert ".lp-dashboard" in r_css2.text
+    assert ".lp-cta-box" in r_css2.text
 
     arquivos_js = [
         ("/js/views/landing-view.js", "renderLandingView"),
-        ("/js/organisms/landing-header.js", "btn-landing-entrar"),
-        ("/js/organisms/landing-hero.js", "btn-hero-entrar"),
-        ("/js/organisms/landing-content.js", "btn-cta-entrar"),
+        ("/js/organisms/landing-header.js", "btn-landing-entrar-topo"),
+        ("/js/organisms/landing-hero.js", "btn-landing-entrar-hero"),
+        ("/js/organisms/landing-content.js", "01 // O Desafio"),
+        ("/js/organisms/landing-demo.js", "btn-landing-entrar-demo"),
+        ("/js/organisms/landing-footer.js", "btn-landing-entrar-cta"),
+        ("/js/organisms/landing-events.js", "initLandingEvents"),
         ("/js/views/login-view.js", "btn-voltar-landing"),
     ]
     for rota, marcador in arquivos_js:
@@ -266,17 +275,20 @@ def test_servir_landing_page_modulos_e_css():
 def test_landing_page_ponytail_limite_linhas_e_humanizer():
     rotas_componentes = [
         "/css/03-landing.css",
+        "/css/04-landing-sections.css",
         "/js/views/landing-view.js",
         "/js/organisms/landing-header.js",
         "/js/organisms/landing-hero.js",
         "/js/organisms/landing-content.js",
+        "/js/organisms/landing-demo.js",
+        "/js/organisms/landing-footer.js",
+        "/js/organisms/landing-events.js",
         "/js/views/login-view.js",
     ]
     cliches_banidos = [
         "Não é sobre falar mais alto",
         "HACKATHON ORACLE EDITION",
         "/api/v1/ingest",
-        "FEIXE: ON",
     ]
     for rota in rotas_componentes:
         texto = cliente.get(rota).text

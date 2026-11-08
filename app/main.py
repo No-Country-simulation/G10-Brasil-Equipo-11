@@ -20,6 +20,15 @@ app = FastAPI(title="Sender AI", version="0.1.0")
 RAIZ = Path(__file__).resolve().parent.parent
 
 
+@app.middleware("http")
+async def desativar_cache_estatico(request: Request, call_next):
+    resposta = await call_next(request)
+    if request.url.path == "/" or request.url.path.endswith((".html", ".css", ".js")):
+        resposta.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return resposta
+
+
+
 @app.get("/saude")
 def saude():
     return {"status": "ok", "modo_llm": "mock" if modo_mock() else "gemini"}

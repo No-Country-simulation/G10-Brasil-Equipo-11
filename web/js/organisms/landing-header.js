@@ -1,38 +1,38 @@
-// web/js/organisms/landing-header.js
-// Organismo: Cabeçalho público da Landing Page (< 55 linhas)
-import { renderBadge } from '../atoms/badge.js';
-import { renderButton } from '../atoms/button.js';
 import { store } from '../store.js';
 
 export function renderLandingHeader() {
   const { saudeInfo } = store.getState();
-  const modoTexto = saudeInfo?.modo_llm === 'gemini' ? 'Gemini ativo' : 'Modo simulado';
-  const modoCor = saudeInfo?.modo_llm === 'gemini' ? 'info' : 'warning';
+  const modoBadge = saudeInfo?.modo_gemini ? 'GEMINI LIVE' : 'v2.6 HUD';
 
   return `
     <header class="lp-header">
-      <div class="lp-nav">
-        <a href="#inicio" style="display:flex; align-items:center; gap:10px;" aria-label="Sender AI início">
-          <div role="img" aria-label="Sender AI" style="width:30px; height:30px; background:var(--text); -webkit-mask:url('assets/logo_sender_ai.png') center / contain no-repeat; mask:url('assets/logo_sender_ai.png') center / contain no-repeat;"></div>
-          <span style="font-weight:700; font-size:18px; letter-spacing:-0.02em; color:var(--text);">Sender AI</span>
+      <div class="lp-wrap lp-nav">
+        <a class="lp-brand" href="#inicio" aria-label="Sender AI início">
+          <svg class="lp-bird" width="36" height="30" viewBox="0 0 120 80" aria-hidden="true">
+            <path fill="currentColor" d="M5 55C28 34 42 20 53 5c-2 19 7 28 21 30 12 2 23-4 41-18-10 18-22 31-39 38-15 6-28 4-40-2L5 55Z"/>
+            <path fill="currentColor" d="M46 53c-13 7-25 14-39 23 22-7 39-12 54-20l-15-3Z"/>
+          </svg>
+          Sender AI
+          <span class="lp-brand-badge">${modoBadge}</span>
         </a>
 
-        <nav class="lp-links" aria-label="Seções da página">
-          <a href="#problema">O problema</a>
-          <a href="#como-funciona">Como funciona</a>
-          <a href="#governanca">Curadoria humana</a>
+        <nav class="lp-navlinks" aria-label="Seções da página inicial">
+          <a href="#solucao">01.Desafio</a>
+          <a href="#como-funciona">02.Pipeline</a>
+          <a href="#demonstracao">03.Telemetria</a>
+          <a href="#recursos">04.Governança</a>
         </nav>
 
-        <div style="display:flex; align-items:center; gap:12px;">
-          ${renderBadge(modoTexto, modoCor)}
-          ${renderButton({
-            id: 'btn-landing-entrar',
-            text: 'Entrar',
-            variant: 'primary',
-            extraClass: 'btn-ir-login',
-          })}
+        <div class="lp-navright">
+          <button type="button" class="lp-hud-toggle active" id="flashlightToggle" title="Ativar/Desativar Feixe de Luz Interativo">
+            <span class="lp-status-dot"></span>
+            <span id="flashlightLabel">FEIXE: ON</span>
+          </button>
+          <button type="button" class="lp-btn lime btn-ir-login" id="btn-landing-entrar-topo">
+            Entrar no Console ↗
+          </button>
         </div>
       </div>
     </header>
-  `.trim();
+  `;
 }

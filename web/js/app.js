@@ -55,21 +55,50 @@ function initEventHandlers() {
     }
     if (e.target.closest('#btn-load-example')) {
       try {
-        const dados = await api.carregarExemplo();
+        const dados = await api.carregarExemplo('padrao');
         store.setState({
           arquivo: null,
           leitura: {
             nome: 'interacoes_exemplo.json',
-            detalhe: '3 KB · JSON',
+            detalhe: '3 KB · JSON (12 msgs)',
             total: dados.interacoes.length,
             anonimas: dados.interacoes.filter(i => !i.autor).length,
             lote: dados,
           },
-          origem: dados.origem_comunidade || 'Discord_Grupo_ONE_G10',
-          periodo: dados.periodo_referencia || 'Semana_04',
+          fonte: 'Discord',
+          canal: 'Grupo ONE G10',
+          mes: 11,
+          ano: 2026,
+          origem: 'Discord · Grupo ONE G10',
+          periodo: '2026-11',
         });
       } catch (err) {
         alert('Erro ao carregar exemplo: ' + err.message);
+      }
+      return;
+    }
+
+    if (e.target.closest('#btn-load-demo')) {
+      try {
+        const dados = await api.carregarExemplo('demo');
+        store.setState({
+          arquivo: null,
+          leitura: {
+            nome: 'interacoes_30out_02nov_2026.json',
+            detalhe: '5 KB · JSON (20 msgs)',
+            total: dados.interacoes.length,
+            anonimas: dados.interacoes.filter(i => !i.autor).length,
+            lote: dados,
+          },
+          fonte: 'Discord',
+          canal: 'Grupo ONE G10',
+          mes: 11,
+          ano: 2026,
+          origem: 'Discord · Grupo ONE G10',
+          periodo: '2026-11',
+        });
+      } catch (err) {
+        alert('Erro ao carregar lote de demonstração: ' + err.message);
       }
       return;
     }
@@ -191,8 +220,49 @@ function initEventHandlers() {
     }
   });
 
-  // Input de Arquivo
+  // Change events para selects e input de arquivo
   document.addEventListener('change', (e) => {
+    if (e.target.id === 'select-fonte') {
+      const novaFonte = e.target.value;
+      const { fontesData, mes, ano } = store.getState();
+      const canais = fontesData?.canais?.[novaFonte] || [];
+      const novoCanal = canais[0] || '';
+      store.setState({
+        fonte: novaFonte,
+        canal: novoCanal,
+        origem: `${novaFonte} · ${novoCanal}`,
+        periodo: `${ano}-${String(mes).padStart(2, '0')}`,
+      });
+      return;
+    }
+    if (e.target.id === 'select-canal') {
+      const novoCanal = e.target.value;
+      const { fonte, mes, ano } = store.getState();
+      store.setState({
+        canal: novoCanal,
+        origem: `${fonte} · ${novoCanal}`,
+        periodo: `${ano}-${String(mes).padStart(2, '0')}`,
+      });
+      return;
+    }
+    if (e.target.id === 'select-mes') {
+      const novoMes = parseInt(e.target.value, 10);
+      const { ano } = store.getState();
+      store.setState({
+        mes: novoMes,
+        periodo: `${ano}-${String(novoMes).padStart(2, '0')}`,
+      });
+      return;
+    }
+    if (e.target.id === 'select-ano') {
+      const novoAno = parseInt(e.target.value, 10);
+      const { mes } = store.getState();
+      store.setState({
+        ano: novoAno,
+        periodo: `${novoAno}-${String(mes).padStart(2, '0')}`,
+      });
+      return;
+    }
     if (e.target.id === 'file-input' && e.target.files?.[0]) {
       const file = e.target.files[0];
       const reader = new FileReader();
@@ -267,9 +337,17 @@ function decidirAtivo(decisao) {
 }
 
 // Inicialização
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   document.documentElement.setAttribute('data-theme', store.getState().theme);
   store.subscribe(renderApp);
   initEventHandlers();
+  try {
+    const dadosFontes = await api.obterFontes();
+    if (dadosFontes && dadosFontes.canais) {
+      store.setState({ fontesData: dadosFontes });
+    }
+  } catch (err) {
+    console.warn('[Sender AI] Fontes dinâmicas não disponíveis:', err);
+  }
   renderApp();
 });

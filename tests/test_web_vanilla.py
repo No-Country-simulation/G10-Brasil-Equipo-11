@@ -36,6 +36,24 @@ def test_obter_exemplo_endpoint():
     assert len(dados["interacoes"]) == 12
 
 
+def test_obter_exemplo_demo_endpoint():
+    resposta = cliente.get("/api/exemplo?tipo=demo")
+    assert resposta.status_code == 200
+    dados = resposta.json()
+    assert dados["origem_comunidade"] == "Discord_Grupo_ONE_G10"
+    assert len(dados["interacoes"]) == 20
+
+
+def test_obter_fontes_endpoint():
+    resposta = cliente.get("/api/fontes")
+    assert resposta.status_code == 200
+    dados = resposta.json()
+    assert "Discord" in dados["canais"]
+    assert "Grupo ONE G10" in dados["canais"]["Discord"]
+    assert len(dados["meses"]) == 12
+    assert len(dados["anos"]) >= 3
+
+
 def test_exportar_aprovados_endpoint(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     payload = {

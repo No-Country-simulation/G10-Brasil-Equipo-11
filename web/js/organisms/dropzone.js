@@ -23,9 +23,10 @@ export function renderDropzone() {
         <div style="color:var(--muted); font-size:13px; margin-bottom:14px;">
           Colunas autor, canal, tipo e texto (até 200MB)
         </div>
-        <div style="display:flex; justify-content:center; gap:10px;">
+        <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
           ${renderButton({ id: 'btn-browse-file', text: 'Selecionar arquivo', variant: 'secondary' })}
-          ${renderButton({ id: 'btn-load-example', text: 'Usar lote de exemplo', variant: 'primary' })}
+          ${renderButton({ id: 'btn-load-example', text: 'Lote de exemplo (12 msgs)', variant: 'secondary' })}
+          ${renderButton({ id: 'btn-load-demo', text: 'Lote demo (30/10 a 02/11)', variant: 'primary' })}
         </div>
       </div>
 

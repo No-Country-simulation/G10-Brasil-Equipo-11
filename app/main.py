@@ -72,11 +72,24 @@ RAIZ = Path(__file__).resolve().parent.parent
 
 
 @app.get("/api/exemplo")
-def obter_exemplo():
-    caminho = RAIZ / "data" / "interacoes_exemplo.json"
+def obter_exemplo(tipo: str = "padrao"):
+    if tipo in ("demo", "30out", "novembro"):
+        caminho = RAIZ / "data" / "interacoes_30out_02nov_2026.json"
+    else:
+        caminho = RAIZ / "data" / "interacoes_exemplo.json"
     if not caminho.exists():
         raise HTTPException(404, "Arquivo de exemplo não encontrado.")
     return json.loads(caminho.read_text(encoding="utf-8"))
+
+
+@app.get("/api/fontes")
+def obter_fontes():
+    from ui import fontes
+    return {
+        "canais": fontes.CANAIS,
+        "meses": fontes.MESES,
+        "anos": fontes.anos_disponiveis(),
+    }
 
 
 @app.post("/api/curadoria/exportar")

@@ -8,9 +8,16 @@ export const api = {
     return res.json();
   },
 
-  async carregarExemplo() {
-    const res = await fetch('/api/exemplo');
+  async carregarExemplo(tipo = 'padrao') {
+    const url = tipo === 'padrao' ? '/api/exemplo' : `/api/exemplo?tipo=${encodeURIComponent(tipo)}`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error(`Falha ao obter lote de exemplo (${res.status})`);
+    return res.json();
+  },
+
+  async obterFontes() {
+    const res = await fetch('/api/fontes');
+    if (!res.ok) throw new Error(`Falha ao obter fontes (${res.status})`);
     return res.json();
   },
 

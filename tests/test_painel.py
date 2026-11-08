@@ -139,9 +139,18 @@ def test_aprovados_salvos_ao_lado_do_pacote(resultado):
 # ---------------------------------------------------------------------------
 # Painel completo, com cliques simulados
 # ---------------------------------------------------------------------------
-def _app():
+def _app(logado: bool = True):
     apptest = pytest.importorskip("streamlit.testing.v1")
-    return apptest.AppTest.from_file(str(RAIZ / "ui" / "painel.py"), default_timeout=60)
+    at = apptest.AppTest.from_file(str(RAIZ / "ui" / "painel.py"), default_timeout=60)
+    if logado:
+        at.session_state["logado"] = True
+    return at
+
+
+def _escolher_lote(at, fonte="Discord", canal="Grupo ONE G10"):
+    at.selectbox(key="fonte").select(fonte).run()
+    at.selectbox(key="canal").select(canal).run()
+    return at
 
 
 def _abrir(at, item):
@@ -155,6 +164,7 @@ def _botao(at, rotulo):
 def _processar_exemplo():
     at = _app().run()
     _botao(at, "Usar lote de exemplo").click().run()
+    _escolher_lote(at)
     _botao(at, "Processar 12 interações").click().run()
     assert not at.exception
     return at
@@ -485,13 +495,112 @@ def test_mensagem_com_html_nao_vira_codigo(tmp_path):
     assert "&lt;script&gt;" in html
 
 
-def test_origem_digitada_continua_ao_voltar_para_importar():
+def test_fonte_canal_e_mes_continuam_ao_voltar_para_importar():
     at = _app().run()
     _botao(at, "Usar lote de exemplo").click().run()
-    at.text_input(key="origem").input("Forum_Teste").run()
+    _escolher_lote(at, "Telegram", "Vagas Tech")
+    at.selectbox(key="mes").select(3).run()
     _botao(at, "Processar 12 interações").click().run()
     at.radio(key="pagina").set_value("Importar").run()
-    assert at.text_input(key="origem").value == "Forum_Teste"
+    assert at.selectbox(key="fonte").value == "Telegram"
+    assert at.selectbox(key="canal").value == "Vagas Tech"
+    assert at.selectbox(key="mes").value == 3
+
+
+def test_lote_comeca_sem_fonte_e_no_mes_atual():
+    from datetime import date
+    at = _app().run()
+    assert at.selectbox(key="fonte").value is None
+    assert at.selectbox(key="mes").value == date.today().month
+    assert at.selectbox(key="ano").value == date.today().year
+    assert not any(s.key == "canal" for s in at.selectbox), "canal só aparece depois da fonte"
+
+
+def test_canal_mostra_so_os_da_fonte_escolhida():
+    from ui.fontes import CANAIS
+    at = _app().run()
+    at.selectbox(key="fonte").select("WhatsApp").run()
+    assert at.selectbox(key="canal").options == CANAIS["WhatsApp"]
+    assert at.selectbox(key="canal").value is None
+
+
+def test_trocar_a_fonte_limpa_o_canal():
+    at = _escolher_lote(_app().run(), "Discord", "Dev Brasil")
+    at.selectbox(key="fonte").select("Telegram").run()
+    assert at.selectbox(key="canal").value is None
+
+
+def test_processar_exige_fonte_e_canal():
+    at = _app().run()
+    _botao(at, "Usar lote de exemplo").click().run()
+    assert _botao(at, "Escolha a fonte e o canal para processar").disabled
+    at.selectbox(key="fonte").select("Discord").run()
+    assert _botao(at, "Escolha a fonte e o canal para processar").disabled
+    at.selectbox(key="canal").select("Dev Brasil").run()
+    assert not _botao(at, "Processar 12 interações").disabled
+
+
+def test_lote_salvo_com_a_comunidade_e_o_mes_escolhidos():
+    from datetime import date
+    at = _app().run()
+    _botao(at, "Usar lote de exemplo").click().run()
+    _escolher_lote(at, "Arquivo manual", "Pesquisa de satisfação")
+    at.selectbox(key="mes").select(2).run()
+    at.selectbox(key="ano").select(date.today().year - 1).run()
+    _botao(at, "Processar 12 interações").click().run()
+    assert at.session_state["lote_origem"] == "Arquivo manual · Pesquisa de satisfação"
+    assert at.session_state["lote_periodo"] == f"{date.today().year - 1}-02"
+
+
+# ---------------------------------------------------------------------------
+# Login
+# ---------------------------------------------------------------------------
+@pytest.fixture
+def admin(monkeypatch):
+    monkeypatch.setenv("ADMIN_USUARIO", "admin")
+    monkeypatch.setenv("ADMIN_SENHA", "segredo")
+
+
+def _entrar(at, usuario, senha):
+    at.text_input(key="login_usuario").input(usuario)
+    at.text_input(key="login_senha").input(senha)
+    _botao(at, "Entrar").click().run()
+    return at
+
+
+def test_sem_login_mostra_so_a_tela_de_login(admin):
+    at = _app(logado=False).run()
+    assert not at.exception
+    assert not any(r.key == "pagina" for r in at.radio)
+    assert any(b.label == "Entrar" for b in at.button)
+
+
+def test_login_certo_abre_a_importacao(admin):
+    at = _entrar(_app(logado=False).run(), "admin", "segredo")
+    assert not at.exception
+    assert at.radio(key="pagina").value == "Importar"
+
+
+def test_login_errado_avisa_e_continua_bloqueado(admin):
+    at = _entrar(_app(logado=False).run(), "admin", "errada")
+    assert any("Usuário ou senha inválidos" in e.value for e in at.error)
+    assert not any(r.key == "pagina" for r in at.radio)
+
+
+def test_sem_admin_no_env_avisa_e_nao_deixa_entrar(monkeypatch):
+    monkeypatch.setenv("ADMIN_USUARIO", "")
+    monkeypatch.setenv("ADMIN_SENHA", "")
+    at = _app(logado=False).run()
+    assert any("ADMIN_USUARIO" in w.value for w in at.warning)
+    assert _botao(at, "Entrar").disabled
+
+
+def test_sair_volta_para_o_login(admin):
+    at = _processar_exemplo()
+    _botao(at, "Sair").click().run()
+    assert not any(r.key == "pagina" for r in at.radio)
+    assert any(b.label == "Entrar" for b in at.button)
+    assert not at.session_state["logado"]
 
 
 # ---------------------------------------------------------------------------
@@ -514,6 +623,7 @@ def _com_duplicado():
     from datetime import datetime, timezone
     at = _app().run()
     _botao(at, "Usar lote de exemplo").click().run()
+    _escolher_lote(at)
     at.session_state["duplicado"] = {"id": 999, "processado_em": datetime.now(timezone.utc), "total_interacoes": 12}
     return at.run()
 
@@ -534,16 +644,18 @@ def test_falha_ao_abrir_resultado_existente_avisa_e_fica_em_importar(monkeypatch
 
 def test_mudar_origem_descarta_aviso_de_duplicado():
     at = _com_duplicado()
-    at.text_input(key="origem").input("Outra_Comunidade").run()
+    at.selectbox(key="fonte").select("Telegram").run()
     assert not any("já foi processado" in w.value for w in at.warning)
     assert at.session_state["duplicado"] is None
 
 
 @pytest.mark.real
-def test_duplicado_oferece_abrir_ou_substituir(banco_real_painel):
+def test_duplicado_oferece_abrir_ou_substituir(banco_real_painel, monkeypatch):
+    from ui import fontes
+    monkeypatch.setitem(fontes.CANAIS, "Discord", [banco_real_painel])  # comunidade só de teste, apagada no fim
     at = _app().run()
     _botao(at, "Usar lote de exemplo").click().run()
-    at.text_input(key="origem").input(banco_real_painel).run()
+    _escolher_lote(at, "Discord", banco_real_painel)
     _botao(at, "Processar 12 interações").click().run()
     at.radio(key="pagina").set_value("Importar").run()
     _botao(at, "Processar 12 interações").click().run()

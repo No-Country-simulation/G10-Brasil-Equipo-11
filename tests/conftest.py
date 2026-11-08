@@ -73,3 +73,4 @@ def banco_real_painel(monkeypatch):
     url, comunidade = banco_de_teste(monkeypatch, "Teste_Painel_")
     yield comunidade
     limpar_comunidade(url, comunidade)
+    limpar_comunidade(url, f"Discord · {comunidade}")  # o painel salva como "<fonte> · <canal>"

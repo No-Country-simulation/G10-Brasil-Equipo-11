@@ -127,8 +127,10 @@ html, body, [class*="css"], .stMarkdown, .stButton button, .stTextInput input, .
 .cl-kpi-valor {{ display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; margin: 12px 0 6px; }}
 h1 {{ font-weight: 700 !important; letter-spacing: -0.02em; }}
 .cl-logo {{ width: 79px; height: 76px; background: {TEXTO}; -webkit-mask: {MASCARA_LOGO}; mask: {MASCARA_LOGO}; }}
-.stButton button[kind="primary"]:not(:disabled), .stDownloadButton button[kind="primary"]:not(:disabled) {{ color: {LIMA_TINTA}; }}
-.stButton button[kind="primary"]:not(:disabled) p, .stDownloadButton button[kind="primary"]:not(:disabled) p {{ color: {LIMA_TINTA}; font-weight: 600; }}
+.stButton button[kind="primary"]:not(:disabled), .stDownloadButton button[kind="primary"]:not(:disabled),
+.stFormSubmitButton button[kind="primaryFormSubmit"]:not(:disabled) {{ color: {LIMA_TINTA}; }}
+.stButton button[kind="primary"]:not(:disabled) p, .stDownloadButton button[kind="primary"]:not(:disabled) p,
+.stFormSubmitButton button[kind="primaryFormSubmit"]:not(:disabled) p {{ color: {LIMA_TINTA}; font-weight: 600; }}
 .cl-contexto {{ display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 10px; font-size: 13px; color: {CINZA}; }}
 .cl-mono {{ font-family: 'IBM Plex Mono', monospace; }}
 .cl-selo {{ display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; }}

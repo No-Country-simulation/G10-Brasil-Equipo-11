@@ -155,18 +155,22 @@ Em outro terminal, com o ambiente virtual ativado:
 python -m streamlit run ui/painel.py
 ```
 
-O painel abre em http://localhost:8501 e tem quatro telas:
+O painel abre em http://localhost:8501 com uma tela de login. Há um único usuário, o admin, definido no `.env` por `ADMIN_USUARIO` e `ADMIN_SENHA` (o `.env.example` traz `admin` / `admin123`). É uma trava de demonstração: a senha fica em texto no `.env`, recarregar a página (F5) pede o login de novo e o botão **Sair** do cabeçalho volta para o login com o painel zerado.
+
+Depois de entrar, são quatro telas:
 
 | Tela | O que faz |
 | --- | --- |
-| **Importar** | Recebe um JSON ou CSV (colunas `autor`, `canal`, `tipo`, `texto` e, opcional, `data`), mostra as primeiras linhas e explica como corrigir CSV do Excel com ponto e vírgula ou codificação antiga |
+| **Importar** | Recebe um JSON ou CSV (colunas `autor`, `canal`, `tipo`, `texto` e, opcional, `data`), mostra as primeiras linhas e explica como corrigir CSV do Excel com ponto e vírgula ou codificação antiga. Antes de processar, escolha a **fonte dos dados** (Discord, Telegram, WhatsApp ou Arquivo manual), o **canal** dessa fonte e o **mês de referência**. O lote é salvo como `<fonte> · <canal>` e o pacote vai para `ativos/<ano>-<mês>/` |
 | **Visão geral** | Indicadores, sentimento, rotas, membros que precisam de apoio e tabela de interações com filtro por rota |
-| **Curadoria** | Edição, aprovação e descarte do post, da newsletter e das dicas de FAQ. O post só é aprovado com a autorização do membro marcada. Os aprovados são exportados para `saida_local/ativos/<ano>-semana-XX/aprovados.json` |
+| **Curadoria** | Edição, aprovação e descarte do post, da newsletter e das dicas de FAQ. O post só é aprovado com a autorização do membro marcada. Os aprovados são exportados para `saida_local/ativos/<ano>-<mês>/aprovados.json` |
 | **Insights** | Histórico dia a dia das mensagens guardadas no Supabase (veja a seção Supabase) |
 
 A `data` de cada mensagem é o dia em que ela foi escrita, no formato `2026-10-05` ou `05/10/2026`. Sem ela, vale o dia da importação.
 
-Código do painel: `ui/painel.py` (telas), `ui/importacao.py` (leitura de arquivos), `ui/curadoria.py` (regras de aprovação e exportação) e `ui/estilo.py` (visual). Os testes ficam em `tests/test_painel.py`.
+Os canais de cada fonte são fictícios, para demonstração, e ficam em `ui/fontes.py`. A origem e o período que vierem dentro do arquivo são ignorados pelo painel; valem os escolhidos na tela.
+
+Código do painel: `ui/painel.py` (telas), `ui/login.py` (login), `ui/fontes.py` (fontes e canais), `ui/importacao.py` (leitura de arquivos), `ui/curadoria.py` (regras de aprovação e exportação) e `ui/estilo.py` (visual). Os testes ficam em `tests/test_painel.py`.
 
 ## Executando os testes
 

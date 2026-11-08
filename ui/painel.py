@@ -1,13 +1,13 @@
 """Painel de curadoria do Sender AI.
 
-Quatro telas: Importar → Visão geral → Curadoria, mais Insights (histórico).
+Tela de login (um admin, do .env) e quatro telas: Importar → Visão geral → Curadoria, mais Insights (histórico).
 
 Rode da raiz do projeto com:  python -m streamlit run ui/painel.py
 """
 import json
 import sys
 from collections import Counter
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
@@ -26,6 +26,7 @@ from app import repositorio  # noqa: E402
 from app.grafo import processar_com_registro  # noqa: E402
 from app.llm import modo_mock  # noqa: E402
 from ui import curadoria as cur  # noqa: E402
+from ui import fontes, login  # noqa: E402
 from ui.estilo import (  # noqa: E402
     CIANO, CINZA, ICONE, LARANJA, LIMA_FUNDO, LIMA_TINTA, ROTAS, SELO_AVISO, SELO_INFO, SELO_NEUTRO, SELO_SUCESSO,
     aplicar_estilo, barra_sentimento, barras_rotas, esc, logo_html, selo,
@@ -48,15 +49,17 @@ def iniciar_estado():
     padrao = {
         "pagina": "Importar", "leitura": None, "arquivo_id": None, "resultado": None,
         "processado_em": None, "decisoes": {}, "alertas": {}, "exportado": None,
-        "origem": "", "periodo": "", "lote_origem": "", "lote_periodo": "",
+        "fonte": None, "canal": None, "mes": date.today().month, "ano": date.today().year,
+        "lote_origem": "", "lote_periodo": "", "logado": False,
         "lote_id": None, "aviso_banco": None, "duplicado": None, "item_ativo": None,
     }
     for chave, valor in padrao.items():
         ss.setdefault(chave, valor)
     if "_ir_para" in ss:  # trocar de tela por código precisa acontecer antes do seletor existir
         ss["pagina"] = ss.pop("_ir_para")
-    if ss["pagina"] != "Importar":  # fora da tela, o Streamlit apagaria o que foi digitado nos campos do lote
-        ss["origem"], ss["periodo"] = ss["origem"], ss["periodo"]
+    if ss["pagina"] != "Importar":  # fora da tela, o Streamlit apagaria o que foi escolhido nos campos do lote
+        for chave in CAMPOS_DO_LOTE:
+            ss[chave] = ss[chave]
     if ss["resultado"]:
         ids = cur.ids_dos_ativos(ss["resultado"])
         if ss["item_ativo"] not in ids:
@@ -69,6 +72,9 @@ def iniciar_estado():
             ss[chave] = ss[chave]
 
 
+CAMPOS_DO_LOTE = ("fonte", "canal", "mes", "ano")
+
+
 def ir_para(tela: str):
     ss["_ir_para"] = tela
     st.rerun()
@@ -78,8 +84,12 @@ def pendentes() -> int:
     return cur.resumo(ss["decisoes"])["pendentes"] if ss["decisoes"] else 0
 
 
+def sair():
+    ss.clear()  # volta para o login com o painel zerado, como numa sessão nova
+
+
 def cabecalho():
-    c1, c2, c3 = st.columns([2, 4, 3], vertical_alignment="center")
+    c1, c2, c3, c4 = st.columns([2, 4, 3, 1], vertical_alignment="center")
     c1.markdown(logo_html(), unsafe_allow_html=True)
     c2.container(key="nav").radio("Seção", TELAS, key="pagina", horizontal=True, label_visibility="collapsed")
     modo = selo("Modo simulado", *SELO_AVISO) if modo_mock() else selo("Gemini", *SELO_INFO)
@@ -89,6 +99,7 @@ def cabecalho():
         if pendentes():
             contexto += selo(f"{pendentes()} pendentes", LIMA_FUNDO, LIMA_TINTA)
     c3.markdown(f'<div class="cl-contexto">{contexto}{modo}</div>', unsafe_allow_html=True)
+    c4.button("Sair", icon=":material/logout:", on_click=sair, width="stretch")
     st.divider()
 
 
@@ -109,8 +120,8 @@ def limpar_chaves_do_lote():
 
 def processar_lote(lote, substituir: bool = False):
     lote = lote.model_copy(update={
-        "origem_comunidade": ss["origem"].strip() or lote.origem_comunidade,
-        "periodo_referencia": ss["periodo"].strip() or lote.periodo_referencia,
+        "origem_comunidade": fontes.comunidade(ss["fonte"], ss["canal"]),
+        "periodo_referencia": fontes.periodo(ss["ano"], ss["mes"]),
     })
     ss["duplicado"], ss["aviso_banco"] = None, None
     if repositorio.banco_configurado() and not substituir:
@@ -181,8 +192,26 @@ def mostrar_leitura(leitura):
                 st.code(leitura.evidencia, language=None)
 
 
-def descartar_duplicado():  # origem e período mudam o lote, então o aviso de duplicado deixa de valer
+def descartar_duplicado():  # fonte, canal e mês mudam o lote, então o aviso de duplicado deixa de valer
     ss["duplicado"] = None
+
+
+def trocar_fonte():
+    ss["canal"] = None  # os canais são de cada fonte
+    descartar_duplicado()
+
+
+def campos_do_lote():
+    st.selectbox("Fonte dos dados", list(fontes.CANAIS), key="fonte", index=None,
+                 placeholder="Escolha a fonte", on_change=trocar_fonte)
+    if ss["fonte"]:
+        st.selectbox("Canal", fontes.CANAIS[ss["fonte"]], key="canal", index=None,
+                     placeholder="Escolha o canal", on_change=descartar_duplicado)
+    mes, ano = st.columns(2)
+    mes.selectbox("Mês de referência", list(range(1, 13)), key="mes", format_func=fontes.nome_do_mes,
+                  on_change=descartar_duplicado)
+    ano.selectbox("Ano", fontes.anos_disponiveis(), key="ano", on_change=descartar_duplicado)
+    st.caption(f"O pacote será salvo em `ativos/{fontes.periodo(ss['ano'], ss['mes'])}/`")
 
 
 def tela_importar():
@@ -196,12 +225,9 @@ def tela_importar():
         if st.button("Usar lote de exemplo"):
             ss["leitura"] = ler_arquivo(EXEMPLO.name, EXEMPLO.read_bytes())
             ss["arquivo_id"], ss["duplicado"] = "exemplo", None
-            ss["origem"], ss["periodo"] = ss["leitura"].lote.origem_comunidade, ss["leitura"].lote.periodo_referencia
         elif arquivo is not None and arquivo.file_id != ss["arquivo_id"]:
             ss["leitura"] = ler_arquivo(arquivo.name, arquivo.getvalue())
             ss["arquivo_id"], ss["duplicado"] = arquivo.file_id, None
-            if ss["leitura"].ok:
-                ss["origem"], ss["periodo"] = ss["leitura"].lote.origem_comunidade, ss["leitura"].lote.periodo_referencia
         if ss["leitura"]:
             mostrar_leitura(ss["leitura"])
 
@@ -209,14 +235,14 @@ def tela_importar():
         leitura = ss["leitura"]
         with st.container(border=True):
             st.subheader("Dados do lote")
-            st.text_input("Comunidade de origem", key="origem", placeholder="Ex.: Discord_Grupo_ONE_G10",
-                          on_change=descartar_duplicado)
-            st.text_input("Período de referência", key="periodo", placeholder="Ex.: Semana_04",
-                          on_change=descartar_duplicado)
-            if ss["periodo"].strip():
-                st.caption(f"O pacote será salvo em `ativos/{datetime.now().year}-{ss['periodo'].strip().lower().replace('_', '-')}/`")
-            pronto = bool(leitura and leitura.ok)
-            rotulo = f"Processar {leitura.total} interações" if pronto else "Envie um arquivo válido para processar"
+            campos_do_lote()
+            pronto = bool(leitura and leitura.ok and ss["fonte"] and ss.get("canal"))
+            if not (leitura and leitura.ok):
+                rotulo = "Envie um arquivo válido para processar"
+            elif not pronto:
+                rotulo = "Escolha a fonte e o canal para processar"
+            else:
+                rotulo = f"Processar {leitura.total} interações"
             if st.button(rotulo, type="primary", disabled=not pronto, width="stretch"):
                 processar_lote(leitura.lote)
             existente = ss["duplicado"]
@@ -517,7 +543,28 @@ def tela_curadoria():
 
 
 # ---------------------------------------------------------------------------
+def tela_login():
+    _, meio, _ = st.columns([1, 1.2, 1])
+    with meio:
+        st.markdown(logo_html(), unsafe_allow_html=True)
+        st.title("Entrar")
+        configurado = login.configurado()
+        if not configurado:
+            st.warning("Login não configurado: defina ADMIN_USUARIO e ADMIN_SENHA no .env e reinicie o app.")
+        with st.form("login", border=True):
+            usuario = st.text_input("Usuário", key="login_usuario")
+            senha = st.text_input("Senha", key="login_senha", type="password")
+            if st.form_submit_button("Entrar", type="primary", disabled=not configurado, width="stretch"):
+                if login.confere(usuario, senha):
+                    ss["logado"] = True
+                    st.rerun()
+                st.error("Usuário ou senha inválidos.")
+
+
 iniciar_estado()
+if not ss["logado"]:
+    tela_login()
+    st.stop()
 cabecalho()
 {"Importar": tela_importar, "Visão geral": tela_visao_geral, "Curadoria": tela_curadoria,
  "Insights": tela_insights}[ss["pagina"]]()

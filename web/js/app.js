@@ -169,6 +169,7 @@ function initEventHandlers() {
 
         store.setState({
           resultado,
+          loteId: resultado.lote_id || null,
           processadoEm: new Date().toISOString(),
           decisoes: defaultDecisoes,
           activeItem: itens[0] ? itens[0].id : null,
@@ -211,6 +212,7 @@ function initEventHandlers() {
     if (e.target.closest('#btn-exportar-aprovados')) {
       const { resultado, decisoes, textosEditados, origem, periodo, autorizado } = store.getState();
       const payload = {
+        resultado,
         origem_comunidade: origem,
         periodo_referencia: periodo,
         aprovado_em: new Date().toISOString(),
@@ -241,6 +243,10 @@ function initEventHandlers() {
       const ordem = card?.dataset.ordem;
       if (ordem !== undefined) {
         store.setState(s => ({ alertas: { ...s.alertas, [ordem]: 'mentoria_oferecida' } }));
+        const { loteId } = store.getState();
+        if (loteId) {
+          api.tratarAlerta(loteId, parseInt(ordem, 10), 'mentoria_oferecida');
+        }
       }
       return;
     }
@@ -250,6 +256,10 @@ function initEventHandlers() {
       const ordem = card?.dataset.ordem;
       if (ordem !== undefined) {
         store.setState(s => ({ alertas: { ...s.alertas, [ordem]: 'resolvido' } }));
+        const { loteId } = store.getState();
+        if (loteId) {
+          api.tratarAlerta(loteId, parseInt(ordem, 10), 'resolvido');
+        }
       }
       return;
     }
@@ -381,7 +391,7 @@ function salvarTextosAtivos() {
 }
 
 function decidirAtivo(decisao) {
-  const { activeItem, decisoes, resultado } = store.getState();
+  const { activeItem, decisoes, resultado, loteId, textosEditados, autorizado } = store.getState();
   if (!activeItem) return;
 
   const nextDecisoes = { ...decisoes, [activeItem]: decisao };
@@ -403,6 +413,10 @@ function decidirAtivo(decisao) {
     decisoes: nextDecisoes,
     activeItem: proximo || activeItem,
   });
+
+  if (loteId) {
+    api.salvarDecisao(loteId, activeItem, decisao, textosEditados, autorizado);
+  }
 }
 
 // Inicialização

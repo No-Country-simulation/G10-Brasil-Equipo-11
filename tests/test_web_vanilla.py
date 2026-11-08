@@ -154,3 +154,90 @@ def test_api_insights_demo_mode():
     assert "volume_por_canal" in dados
     assert "aproveitamento" in dados
 
+
+# ---------------------------------------------------------------------------
+# Testes de Segurança Reforçada e Persistência
+# ---------------------------------------------------------------------------
+def test_endpoints_bloqueados_sem_login_quando_admin_configurado(monkeypatch):
+    monkeypatch.setenv("ADMIN_USUARIO", "admin")
+    monkeypatch.setenv("ADMIN_SENHA", "segredo")
+
+    # 1. /processar
+    r_proc = cliente.post("/processar", json={"interacoes": []})
+    assert r_proc.status_code == 401
+    assert "Acesso restrito" in r_proc.json()["detail"]
+
+    # 2. /api/curadoria/exportar
+    r_exp = cliente.post("/api/curadoria/exportar", json={"periodo_referencia": "2026-11"})
+    assert r_exp.status_code == 401
+
+    # 3. /api/curadoria/decidir
+    r_dec = cliente.post("/api/curadoria/decidir", json={"chave": "post", "decisao": "a"})
+    assert r_dec.status_code == 401
+
+    # 4. /api/alertas/tratar
+    r_alt = cliente.post("/api/alertas/tratar", json={"ordem": 0, "status": "resolvido"})
+    assert r_alt.status_code == 401
+
+    # 5. /api/insights
+    r_ins = cliente.get("/api/insights")
+    assert r_ins.status_code == 401
+
+
+def test_endpoints_liberados_com_token_autenticado(monkeypatch):
+    monkeypatch.setenv("ADMIN_USUARIO", "admin")
+    monkeypatch.setenv("ADMIN_SENHA", "segredo")
+
+    resp_login = cliente.post("/api/auth/login", json={"usuario": "admin", "senha": "segredo"})
+    assert resp_login.status_code == 200
+    token = resp_login.json()["token"]
+    cookies = resp_login.cookies
+
+    # Decidir curadoria
+    r_dec = cliente.post("/api/curadoria/decidir", json={"chave": "post", "decisao": "a"}, cookies=cookies)
+    assert r_dec.status_code == 200
+    assert r_dec.json()["status"] == "ok"
+
+    # Tratar alerta com header
+    r_alt = cliente.post("/api/alertas/tratar", json={"ordem": 0, "status": "resolvido"}, headers={"X-Sender-Token": token})
+    assert r_alt.status_code == 200
+    assert r_alt.json()["status"] == "ok"
+
+
+def test_exportar_recusa_path_traversal(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    payload = {
+        "origem_comunidade": "Discord_Grupo_ONE_G10",
+        "periodo_referencia": "../../pasta_externa",
+    }
+    r = cliente.post("/api/curadoria/exportar", json=payload)
+    assert r.status_code == 400
+    assert "inválido" in r.json()["detail"].lower()
+
+
+def test_exportar_bloqueia_post_sem_autorizacao_do_membro(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    payload = {
+        "origem_comunidade": "Discord_Grupo_ONE_G10",
+        "periodo_referencia": "2026-11",
+        "post_linkedin": {"titulo": "Destaque", "copy": "Conteúdo...", "membro": "Fulano"},
+        "autorizado": False,
+    }
+    r = cliente.post("/api/curadoria/exportar", json=payload)
+    assert r.status_code == 422
+    assert "autorização do membro" in r.json()["detail"]
+
+
+def test_exportar_permite_post_com_autorizacao_do_membro(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    payload = {
+        "origem_comunidade": "Discord_Grupo_ONE_G10",
+        "periodo_referencia": "2026-11",
+        "post_linkedin": {"titulo": "Destaque", "copy": "Conteúdo...", "membro": "Fulano"},
+        "autorizado": True,
+    }
+    r = cliente.post("/api/curadoria/exportar", json=payload)
+    assert r.status_code == 200
+    assert r.json()["status"] == "ok"
+
+

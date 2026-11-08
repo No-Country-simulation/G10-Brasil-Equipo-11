@@ -5,6 +5,7 @@ A pessoa decide: "p" pendente, "a" aprovado, "d" descartado.
 O pacote de aprovados leva os textos COMO FORAM EDITADOS no painel.
 """
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -126,7 +127,14 @@ def montar_aprovados(resultado: dict, decisoes: dict[str, str], textos: dict[str
 
 def salvar_aprovados(pacote: dict, raiz: Path = Path(".")) -> Path:
     """Salva ao lado do pacote de distribuição: saida_local/ativos/<ano>-semana-XX/aprovados.json."""
-    pasta = raiz / "saida_local" / Path(caminho_objeto(pacote["periodo_referencia"])).parent
+    periodo = str(pacote.get("periodo_referencia") or "").strip()
+    if not re.fullmatch(r"^[a-zA-Z0-9_\-]+$", periodo):
+        raise ValueError(f"Período de referência inválido: {periodo}")
+    pasta_base = (raiz / "saida_local").resolve()
+    relativo = Path(caminho_objeto(periodo)).parent
+    pasta = (pasta_base / relativo).resolve()
+    if not pasta.is_relative_to(pasta_base):
+        raise ValueError("Tentativa de gravação fora do diretório permitido.")
     pasta.mkdir(parents=True, exist_ok=True)
     destino = pasta / "aprovados.json"
     destino.write_text(json.dumps(pacote, ensure_ascii=False, indent=2), encoding="utf-8")

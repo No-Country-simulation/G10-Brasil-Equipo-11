@@ -129,25 +129,24 @@ Copy-Item .env.example .env
 
 O modo simulado é a configuração inicial recomendada para executar o projeto sem credenciais externas.
 
-## Executando a API
+## Executando a Aplicação e Interfaces
+
+O Sender AI oferece duas formas de interação: o **Painel Streamlit** (interface oficial para demonstração da equipe) e a **Interface Vanilla Web** (aplicação web pura servida diretamente pelo FastAPI).
+
+### 1. Servidor de API e Interface Vanilla Web (FastAPI)
 
 Na raiz do projeto:
 
 ```powershell
-python -m uvicorn app.main:app --reload
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Verifique o estado da aplicação:
+- **Aplicação Web:** Acesse `http://127.0.0.1:8000/` no navegador.
+- **Saúde da API:** `GET http://127.0.0.1:8000/saude`
+- **Processamento de Lotes:** `POST http://127.0.0.1:8000/processar` (com suporte a JSON e upload multipart).
+- **Credenciais de Demonstração:** Usuário `admin` | Senha `segredo` (lidos do `.env`).
 
-```text
-GET http://127.0.0.1:8000/saude
-```
-
-A API disponibiliza o endpoint `POST /processar` para receber um lote de interações.
-
-O endpoint `GET /` não está implementado nesta versão.
-
-## Executando o painel
+### 2. Painel Streamlit (Interface Oficial)
 
 Em outro terminal, com o ambiente virtual ativado:
 
@@ -155,7 +154,7 @@ Em outro terminal, com o ambiente virtual ativado:
 python -m streamlit run ui/painel.py
 ```
 
-O painel abre em http://localhost:8501 com uma tela de login. Há um único usuário, o admin, definido no `.env` por `ADMIN_USUARIO` e `ADMIN_SENHA` (o `.env.example` traz `admin` / `admin123`). É uma trava de demonstração: a senha fica em texto no `.env`, recarregar a página (F5) pede o login de novo e o botão **Sair** do cabeçalho volta para o login com o painel zerado.
+O painel abre em http://localhost:8501 com a tela de login. Há um único usuário, o admin, definido no `.env` por `ADMIN_USUARIO` e `ADMIN_SENHA` (o `.env.example` traz `admin` / `admin123`). É uma trava de demonstração: a senha fica em texto no `.env`, recarregar a página (F5) pede o login de novo e o botão **Sair** do cabeçalho volta para o login com o painel zerado.
 
 Depois de entrar, são quatro telas:
 

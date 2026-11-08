@@ -21,6 +21,8 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
+from dotenv import dotenv_values
+
 RAIZ = Path(__file__).resolve().parent
 REAL = "--real" in sys.argv
 RESULTADOS: list[tuple[str, str, str]] = []
@@ -162,9 +164,32 @@ def etapa_api():
         registrar("API sobe e responde /saude", "OK", f"porta {porta}, modo_llm={modo}")
 
         lote = json.loads((RAIZ / "data" / "interacoes_exemplo.json").read_text(encoding="utf-8"))
+        headers = {"Content-Type": "application/json"}
+
+        # Se houver admin configurado, autentica na API para liberar os endpoints protegidos
+        cfg = dotenv_values(RAIZ / ".env")
+        usuario = os.environ.get("ADMIN_USUARIO") or cfg.get("ADMIN_USUARIO")
+        senha = os.environ.get("ADMIN_SENHA") or cfg.get("ADMIN_SENHA")
+        if usuario and senha:
+            try:
+                pedido_login = urllib.request.Request(
+                    f"{base}/api/auth/login",
+                    data=json.dumps({"usuario": usuario, "senha": senha}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(pedido_login, timeout=10) as r_login:
+                    resp_login = json.loads(r_login.read().decode("utf-8"))
+                    token = resp_login.get("token")
+                    if token:
+                        headers["X-Sender-Token"] = token
+                        registrar("Autenticação de admin na API", "OK", f"usuário '{usuario}' autenticado via token")
+            except Exception as e:
+                registrar("Autenticação de admin na API", "AVISO", f"falha ao obter token: {e}")
+
         pedido = urllib.request.Request(
             f"{base}/processar", data=json.dumps(lote).encode("utf-8"),
-            headers={"Content-Type": "application/json"}, method="POST")
+            headers=headers, method="POST")
         inicio = time.time()
         try:
             with urllib.request.urlopen(pedido, timeout=300) as r:
@@ -244,6 +269,10 @@ def main():
     relatorio = salvar_relatorio()
     print("\n" + ("TUDO OK" if not falhas else f"{len(falhas)} ETAPA(S) FALHARAM") +
           f" — relatório em {relatorio.relative_to(RAIZ)}\n")
+    if not falhas:
+        print("Como iniciar as interfaces:")
+        print("  • Painel Streamlit (Oficial):  streamlit run ui/painel.py")
+        print("  • Servidor API & Web (FastAPI): python -m uvicorn app.main:app --host 127.0.0.1 --port 8000\n")
     return 1 if falhas else 0
 
 

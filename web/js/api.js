@@ -48,8 +48,47 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(pacote),
     });
-    if (!res.ok) throw new Error(`Falha ao exportar aprovados (${res.status})`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Falha ao exportar aprovados (${res.status})`);
+    }
     return res.json();
+  },
+
+  async salvarDecisao(loteId, chave, decisao, textos = {}, autorizacao = false) {
+    const res = await fetch('/api/curadoria/decidir', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lote_id: loteId,
+        chave,
+        decisao,
+        textos,
+        autorizacao,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.warn('Falha ao salvar decisão no banco:', err.detail || res.status);
+    }
+    return res.json().catch(() => ({}));
+  },
+
+  async tratarAlerta(loteId, ordem, status) {
+    const res = await fetch('/api/alertas/tratar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lote_id: loteId,
+        ordem,
+        status,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.warn('Falha ao atualizar alerta no banco:', err.detail || res.status);
+    }
+    return res.json().catch(() => ({}));
   },
 
   async obterStatusAuth() {

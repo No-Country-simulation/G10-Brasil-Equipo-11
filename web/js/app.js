@@ -19,17 +19,7 @@ function renderApp() {
 
   if (!logado) {
     document.documentElement.setAttribute('data-theme', 'dark');
-    const isLogin = publicView === 'login';
-    root.innerHTML = `
-      <div class="landing-host ${isLogin ? 'landing-host-dimmed' : ''}">
-        ${renderLandingView()}
-      </div>
-      ${isLogin ? `
-        <div class="login-overlay" id="loginOverlayBackdrop">
-          ${renderLoginView()}
-        </div>
-      ` : ''}
-    `;
+    root.innerHTML = publicView === 'login' ? renderLoginView() : renderLandingView();
     return;
   }
 
@@ -63,10 +53,12 @@ function initEventHandlers() {
     // 0. Navegação Landing <-> Login
     if (e.target.closest('.btn-ir-login')) {
       store.setState({ publicView: 'login', authErro: null });
+      window.scrollTo({ top: 0, behavior: 'instant' });
       return;
     }
-    if (e.target.closest('#btn-voltar-landing') || e.target.id === 'loginOverlayBackdrop') {
+    if (e.target.closest('#btn-voltar-landing')) {
       store.setState({ publicView: 'landing', authErro: null });
+      window.scrollTo({ top: 0, behavior: 'instant' });
       return;
     }
 

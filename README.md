@@ -1,4 +1,4 @@
-# CommunityLab Intelligence
+# Sender AI
 
 Sistema de inteligência artificial para analisar interações em comunidades digitais, identificar assuntos relevantes e gerar conteúdos que apoiem o engajamento e a distribuição de informações.
 
@@ -38,11 +38,13 @@ CommunityLab/
 │   ├── llm.py
 │   ├── main.py
 │   ├── prompts.py
+│   ├── repositorio.py
 │   ├── schemas.py
 │   └── storage.py
 ├── data/
 │   ├── avaliacao_classificacoes.json
-│   └── interacoes_exemplo.json
+│   ├── interacoes_exemplo.json
+│   └── interacoes_outubro_2026.json   # 54 mensagens fictícias de outubro, para a demo dos Insights
 ├── docs/
 │   ├── EXECUCAO.md
 │   ├── analise_resultados.md
@@ -52,6 +54,8 @@ CommunityLab/
 ├── scripts/
 │   ├── analisar_comunidade.py
 │   └── avaliar_classificacoes.py
+├── supabase/
+│   └── migrations/
 ├── src/
 │   └── communitylab/
 │       ├── adapter.py
@@ -71,7 +75,9 @@ CommunityLab/
 │   ├── curadoria.py
 │   ├── estilo.py
 │   ├── importacao.py
-│   └── painel.py
+│   ├── insights.py
+│   ├── painel.py
+│   └── tela_insights.py
 ├── .env.example
 ├── .gitignore
 ├── pyproject.toml
@@ -123,25 +129,24 @@ Copy-Item .env.example .env
 
 O modo simulado é a configuração inicial recomendada para executar o projeto sem credenciais externas.
 
-## Executando a API
+## Executando a Aplicação e Interfaces
+
+O Sender AI oferece duas formas de interação: o **Painel Streamlit** (interface oficial para demonstração da equipe) e a **Interface Vanilla Web** (aplicação web pura servida diretamente pelo FastAPI).
+
+### 1. Servidor de API e Interface Vanilla Web (FastAPI)
 
 Na raiz do projeto:
 
 ```powershell
-python -m uvicorn app.main:app --reload
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Verifique o estado da aplicação:
+- **Aplicação Web:** Acesse `http://127.0.0.1:8000/` no navegador.
+- **Saúde da API:** `GET http://127.0.0.1:8000/saude`
+- **Processamento de Lotes:** `POST http://127.0.0.1:8000/processar` (com suporte a JSON e upload multipart).
+- **Credenciais de Demonstração:** Usuário `admin` | Senha `segredo` (lidos do `.env`).
 
-```text
-GET http://127.0.0.1:8000/saude
-```
-
-A API disponibiliza o endpoint `POST /processar` para receber um lote de interações.
-
-O endpoint `GET /` não está implementado nesta versão.
-
-## Executando o painel
+### 2. Painel Streamlit (Interface Oficial)
 
 Em outro terminal, com o ambiente virtual ativado:
 
@@ -149,15 +154,22 @@ Em outro terminal, com o ambiente virtual ativado:
 python -m streamlit run ui/painel.py
 ```
 
-O painel abre em http://localhost:8501 e tem três telas:
+O painel abre em http://localhost:8501 com a tela de login. Há um único usuário, o admin, definido no `.env` por `ADMIN_USUARIO` e `ADMIN_SENHA` (o `.env.example` traz `admin` / `admin123`). É uma trava de demonstração: a senha fica em texto no `.env`, recarregar a página (F5) pede o login de novo e o botão **Sair** do cabeçalho volta para o login com o painel zerado.
+
+Depois de entrar, são quatro telas:
 
 | Tela | O que faz |
 | --- | --- |
-| **Importar** | Recebe um JSON ou CSV (colunas `autor`, `canal`, `tipo`, `texto`), mostra as primeiras linhas e explica como corrigir CSV do Excel com ponto e vírgula ou codificação antiga |
+| **Importar** | Recebe um JSON ou CSV (colunas `autor`, `canal`, `tipo`, `texto` e, opcional, `data`), mostra as primeiras linhas e explica como corrigir CSV do Excel com ponto e vírgula ou codificação antiga. Antes de processar, escolha a **fonte dos dados** (Discord, Telegram, WhatsApp ou Arquivo manual), o **canal** dessa fonte e o **mês de referência**. O lote é salvo como `<fonte> · <canal>` e o pacote vai para `ativos/<ano>-<mês>/` |
 | **Visão geral** | Indicadores, sentimento, rotas, membros que precisam de apoio e tabela de interações com filtro por rota |
-| **Curadoria** | Edição, aprovação e descarte do post, da newsletter e das dicas de FAQ. O post só é aprovado com a autorização do membro marcada. Os aprovados são exportados para `saida_local/ativos/<ano>-semana-XX/aprovados.json` |
+| **Curadoria** | Edição, aprovação e descarte do post, da newsletter e das dicas de FAQ. O post só é aprovado com a autorização do membro marcada. Os aprovados são exportados para `saida_local/ativos/<ano>-<mês>/aprovados.json` |
+| **Insights** | Histórico dia a dia das mensagens guardadas no Supabase (veja a seção Supabase) |
 
-Código do painel: `ui/painel.py` (telas), `ui/importacao.py` (leitura de arquivos), `ui/curadoria.py` (regras de aprovação e exportação) e `ui/estilo.py` (visual). Os testes ficam em `tests/test_painel.py`.
+A `data` de cada mensagem é o dia em que ela foi escrita, no formato `2026-10-05` ou `05/10/2026`. Sem ela, vale o dia da importação.
+
+Os canais de cada fonte são fictícios, para demonstração, e ficam em `ui/fontes.py`. A origem e o período que vierem dentro do arquivo são ignorados pelo painel; valem os escolhidos na tela.
+
+Código do painel: `ui/painel.py` (telas), `ui/login.py` (login), `ui/fontes.py` (fontes e canais), `ui/importacao.py` (leitura de arquivos), `ui/curadoria.py` (regras de aprovação e exportação) e `ui/estilo.py` (visual). Os testes ficam em `tests/test_painel.py`.
 
 ## Executando os testes
 
@@ -207,6 +219,29 @@ O uso do modelo real depende da configuração de `GEMINI_API_KEY` e das demais 
 ### Armazenamento
 
 O sistema pode salvar os resultados localmente ou utilizar o OCI Object Storage quando configurado. A integração real com a nuvem deve ser validada separadamente.
+
+### Supabase
+
+Opcional. Com um banco Postgres do Supabase, os lotes processados ficam guardados e o painel ganha histórico e a aba **Insights**.
+
+1. Crie um projeto no Supabase.
+2. Abra o **SQL Editor** e execute, em ordem, cada arquivo de `supabase/migrations/` (ou use `supabase db push`).
+3. Copie a string do **Session pooler** (a conexão direta só funciona por IPv6) para `DATABASE_URL` no `.env`.
+
+O que muda no painel:
+
+* Os lotes processados ficam no histórico.
+* Se o mesmo conteúdo (comunidade e interações) for processado de novo no mesmo modo (simulado ou Gemini), o painel avisa e oferece **Abrir resultado existente** ou **Processar de novo e substituir**. A API `/processar` substitui o lote em silêncio.
+* As decisões da curadoria e o status dos alertas são lembrados.
+* A aba **Insights** agrega as mensagens salvas pela data de cada uma, dia a dia, no período escolhido no calendário. Lotes simulados e Gemini nunca se misturam, e a aba começa no modo em que o app está rodando.
+
+Sem `DATABASE_URL`, nada muda. Se o banco falhar, o processamento continua: o painel mostra um aviso e o log registra `[Supabase]`. O tempo limite de conexão é de 5 segundos.
+
+**Segurança:** o RLS fica ligado e sem policies, então a chave pública (anon) do Supabase não lê nenhum dado. O acesso é só pela `DATABASE_URL`. Use apenas dados fictícios.
+
+**Desenvolvimento local:** um Supabase local (Supabase CLI / Docker) também serve. Aponte `DATABASE_URL` para o Postgres dele (padrão `postgresql://postgres:postgres@127.0.0.1:54322/postgres`, ou um banco separado) e aplique a migração com `psql` ou pelo SQL Editor do Studio local.
+
+**Testes:** `python -m pytest -m real -v` agora também testa o banco e cria/apaga dados de teste com nomes `Teste_Repositorio_*` e `Teste_Painel_*`.
 
 ## Responsabilidade e revisão humana
 

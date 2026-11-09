@@ -1,0 +1,62 @@
+:root {
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Modo Escuro Padrão (Dark Abissal HUD) */
+  --bg: #050a0e;
+  --bg-surface: #0c1926;
+  --bg-surface-2: #122436;
+  --line: #1b3347;
+  --text: #f0f6fc;
+  --muted: #7d93a8;
+  --dim: #566b80;
+
+  --accent-lime: #c9f36a;
+  --accent-lime-bg: rgba(201, 243, 106, 0.12);
+  --accent-lime-ink: #071204;
+  --accent-cyan: #00e5ff;
+  --accent-cyan-bg: rgba(0, 229, 255, 0.12);
+  --accent-amber: #ffb84d;
+  --accent-amber-bg: rgba(255, 184, 77, 0.14);
+  --accent-coral: #ff5c7c;
+  --accent-coral-bg: rgba(255, 92, 124, 0.14);
+
+  /* Paleta dos Dados nos Gráficos (visível em ambos os fundos) */
+  --dado-cyan: #0097b8;
+  --dado-positivo: #5b9fb3;
+  --dado-neutro: #7d8fa1;
+  --dado-laranja: #d9822b;
+  --dado-rosa: #e0456b;
+  --dado-lime: #6fa012;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+
+  --ease-natural: cubic-bezier(0.23, 1, 0.32, 1);
+  --transition-fast: 0.15s var(--ease-natural);
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] {
+  --bg: #f5f7f8;
+  --bg-surface: #ffffff;
+  --bg-surface-2: #eef2f5;
+  --line: #dde3e8;
+  --text: #0b1520;
+  --muted: #5a6b7c;
+  --dim: #a9b4bf;
+
+  --accent-lime: #4d7c0f;
+  --accent-lime-bg: rgba(181, 232, 71, 0.3);
+  --accent-lime-ink: #0d1705;
+  --accent-cyan: #00708c;
+  --accent-cyan-bg: rgba(0, 136, 170, 0.12);
+  --accent-amber: #b45309;
+  --accent-amber-bg: rgba(224, 138, 30, 0.16);
+  --accent-coral: #c81e47;
+  --accent-coral-bg: rgba(200, 30, 71, 0.14);
+
+  --shadow-card: 0 4px 18px rgba(11, 21, 32, 0.06);
+}

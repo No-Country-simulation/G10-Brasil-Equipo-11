@@ -49,3 +49,14 @@
 .lp-hud-tag { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--accent-cyan); letter-spacing: 0.12em; text-transform: uppercase; display: block; margin-bottom: 4px; }
 .lp-floating-card strong { display: block; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 22px; margin-top: 4px; color: var(--text); }
 .fc1 { top: 44px; left: 0; } .fc2 { bottom: 44px; right: 0; } .lp-fc-label { color: var(--muted); }
+
+/* View Transitions API nativo W3C — Transições fluidas sem bibliotecas externas */
+@view-transition { navigation: auto; }
+::view-transition-old(root) { animation: 0.22s cubic-bezier(0.16, 1, 0.3, 1) both vt-fade-out; }
+::view-transition-new(root) { animation: 0.26s cubic-bezier(0.16, 1, 0.3, 1) both vt-fade-in; }
+@keyframes vt-fade-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-6px); } }
+@keyframes vt-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+

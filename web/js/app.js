@@ -12,10 +12,10 @@ import { renderOverviewView } from './views/overview-view.js';
 import { renderCurationView, extrairItensCuradoria } from './views/curation-view.js';
 import { renderInsightsView } from './views/insights-view.js';
 
-function renderApp() {
-  const root = document.getElementById('app-root');
-  if (!root) return;
-  const { activeTab, logado, publicView, theme } = store.getState();
+let lastRenderedView = null;
+
+function executeRender(root, state) {
+  const { activeTab, logado, publicView, theme } = state;
 
   if (!logado) {
     document.documentElement.setAttribute('data-theme', 'dark');
@@ -44,6 +44,28 @@ function renderApp() {
   `;
 }
 
+function renderApp() {
+  const root = document.getElementById('app-root');
+  if (!root) return;
+  const state = store.getState();
+  const currentViewKey = !state.logado ? state.publicView : `app-${state.activeTab}`;
+
+  const viewChanged = lastRenderedView !== null && lastRenderedView !== currentViewKey;
+  lastRenderedView = currentViewKey;
+
+  if (viewChanged && document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.startViewTransition(() => {
+      executeRender(root, state);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    });
+  } else {
+    executeRender(root, state);
+    if (viewChanged) {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }
+}
+
 function initEventHandlers() {
   initHeaderEvents();
   initThemeToggle();
@@ -53,12 +75,10 @@ function initEventHandlers() {
     // 0. Navegação Landing <-> Login
     if (e.target.closest('.btn-ir-login')) {
       store.setState({ publicView: 'login', authErro: null });
-      window.scrollTo({ top: 0, behavior: 'instant' });
       return;
     }
     if (e.target.closest('#btn-voltar-landing')) {
       store.setState({ publicView: 'landing', authErro: null });
-      window.scrollTo({ top: 0, behavior: 'instant' });
       return;
     }
 

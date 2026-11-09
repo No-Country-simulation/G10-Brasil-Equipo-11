@@ -48,7 +48,7 @@ export function renderLandingFooter() {
             <h2>Escute sua comunidade.<br>Ative a telemetria hoje.</h2>
             <p>Transforme o ruído das conversas em inteligência prática. Conecte sua comunidade agora e tome decisões orientadas a dados e pessoas.</p>
           </div>
-          <button type="button" class="lp-btn lime btn-ir-login" id="btn-landing-entrar-cta">Entrar na Comunidade ↗</button>
+          <button type="button" class="lp-btn lime btn-ir-login" id="btn-landing-entrar-cta">Iniciar Triagem Agora ↗</button>
         </div>
       </div>
     </section>

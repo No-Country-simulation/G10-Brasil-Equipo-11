@@ -259,7 +259,7 @@ def test_servir_landing_page_modulos_e_css():
     arquivos_js = [
         ("/js/views/landing-view.js", "renderLandingView"),
         ("/js/organisms/landing-header.js", "btn-landing-entrar-topo"),
-        ("/js/organisms/landing-hero.js", "btn-landing-entrar-hero"),
+        ("/js/organisms/landing-hero.js", "Explorar Telemetria"),
         ("/js/organisms/landing-content.js", "01 // O Desafio"),
         ("/js/organisms/landing-demo.js", "btn-landing-entrar-demo"),
         ("/js/organisms/landing-footer.js", "btn-landing-entrar-cta"),

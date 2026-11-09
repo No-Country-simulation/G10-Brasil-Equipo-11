@@ -19,13 +19,7 @@ export function renderLandingHero() {
             O Sender AI ilumina interações dispersas em comunidades digitais e transforma mensagens brutas em insights estruturados, alertas críticos e oportunidades acionáveis com revisão humana.
           </p>
           <div class="lp-hero-actions">
-            <button type="button" class="lp-btn lime btn-ir-login" id="btn-landing-entrar-hero">
-              Entrar no Console <span>↗</span>
-            </button>
-            <a class="lp-btn light" href="#demonstracao">Explorar Telemetria</a>
-          </div>
-          <div class="lp-micro">
-            <span>[ZERO DEPENDÊNCIAS]</span> · INTEGRAÇÃO PYTHON API · HUMAN-IN-THE-LOOP
+            <a class="lp-btn lime" href="#demonstracao">Explorar Telemetria <span>↓</span></a>
           </div>
         </div>
 

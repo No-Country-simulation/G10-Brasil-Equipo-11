@@ -5,7 +5,6 @@ const PERIOD_DATA = {
 };
 
 export function initLandingEvents() {
-  let flashlightActive = true;
   const showToast = (msg) => {
     const t = document.getElementById('lpToast');
     if (!t) return;
@@ -16,7 +15,6 @@ export function initLandingEvents() {
   };
 
   document.addEventListener('pointermove', (e) => {
-    if (!flashlightActive) return;
     const hero = document.getElementById('inicio');
     if (!hero) return;
     const rect = hero.getBoundingClientRect();
@@ -31,16 +29,6 @@ export function initLandingEvents() {
   });
 
   document.addEventListener('click', (e) => {
-    const toggle = e.target.closest('#flashlightToggle');
-    if (toggle) {
-      flashlightActive = !flashlightActive;
-      document.querySelector('.view-landing')?.classList.toggle('flashlight-off', !flashlightActive);
-      toggle.classList.toggle('active', flashlightActive);
-      const lbl = document.getElementById('flashlightLabel');
-      if (lbl) lbl.textContent = flashlightActive ? 'FEIXE: ON' : 'FEIXE: OFF';
-      showToast(flashlightActive ? 'Feixe de inspeção ativado (60 FPS)' : 'Feixe de inspeção desativado');
-    }
-
     const pBtn = e.target.closest('.lp-period-btn');
     if (pBtn && PERIOD_DATA[pBtn.dataset.period]) {
       document.querySelectorAll('.lp-period-btn').forEach(b => b.classList.remove('active'));

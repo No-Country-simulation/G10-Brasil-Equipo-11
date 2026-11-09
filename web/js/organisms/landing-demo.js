@@ -16,7 +16,7 @@ export function renderLandingDemo() {
               <span style="color:var(--accent)">◈</span> SENDER_AI // <span id="activeTabTitle" style="color:var(--muted)">TELEMETRIA_GERAL</span>
             </div>
             <div class="lp-dash-controls">
-              <button type="button" class="lp-btn-upload btn-ir-login" id="btn-landing-entrar-demo">↗ Acessar Console Real (Python API)</button>
+              <button type="button" class="lp-btn-upload btn-ir-login" id="btn-landing-entrar-demo">Entrar ↗</button>
               <span class="lp-live">● ENGINE ONLINE</span>
             </div>
           </div>

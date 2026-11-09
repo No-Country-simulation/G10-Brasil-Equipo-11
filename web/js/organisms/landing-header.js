@@ -1,9 +1,4 @@
-import { store } from '../store.js';
-
 export function renderLandingHeader() {
-  const { saudeInfo } = store.getState();
-  const modoBadge = saudeInfo?.modo_gemini ? 'GEMINI LIVE' : 'v2.6 HUD';
-
   return `
     <header class="lp-header">
       <div class="lp-wrap lp-nav">
@@ -13,7 +8,6 @@ export function renderLandingHeader() {
             <path fill="currentColor" d="M46 53c-13 7-25 14-39 23 22-7 39-12 54-20l-15-3Z"/>
           </svg>
           Sender AI
-          <span class="lp-brand-badge">${modoBadge}</span>
         </a>
 
         <nav class="lp-navlinks" aria-label="Seções da página inicial">
@@ -24,12 +18,8 @@ export function renderLandingHeader() {
         </nav>
 
         <div class="lp-navright">
-          <button type="button" class="lp-hud-toggle active" id="flashlightToggle" title="Ativar/Desativar Feixe de Luz Interativo">
-            <span class="lp-status-dot"></span>
-            <span id="flashlightLabel">FEIXE: ON</span>
-          </button>
           <button type="button" class="lp-btn lime btn-ir-login" id="btn-landing-entrar-topo">
-            Entrar no Console ↗
+            Entrar
           </button>
         </div>
       </div>

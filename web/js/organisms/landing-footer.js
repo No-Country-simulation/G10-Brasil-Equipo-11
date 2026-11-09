@@ -46,28 +46,16 @@ export function renderLandingFooter() {
         <div class="lp-cta-box">
           <div>
             <h2>Escute sua comunidade.<br>Ative a telemetria hoje.</h2>
-            <p>Sender AI — arquitetura leve em HTML/CSS/JS puro conectada ao backend Python, SQLite e Supabase.</p>
+            <p>Transforme o ruído das conversas em inteligência prática. Conecte sua comunidade agora e tome decisões orientadas a dados e pessoas.</p>
           </div>
-          <button type="button" class="lp-btn lime btn-ir-login" id="btn-landing-entrar-cta">Entrar no Console ↗</button>
+          <button type="button" class="lp-btn lime btn-ir-login" id="btn-landing-entrar-cta">Entrar</button>
         </div>
       </div>
     </section>
 
     <footer class="lp-footer">
-      <div class="lp-wrap lp-foot">
-        <a class="lp-brand" href="#inicio">
-          <svg class="lp-bird" width="36" height="30" viewBox="0 0 120 80" aria-hidden="true">
-            <path fill="currentColor" d="M5 55C28 34 42 20 53 5c-2 19 7 28 21 30 12 2 23-4 41-18-10 18-22 31-39 38-15 6-28 4-40-2L5 55Z"/>
-            <path fill="currentColor" d="M46 53c-13 7-25 14-39 23 22-7 39-12 54-20l-15-3Z"/>
-          </svg>
-          Sender AI
-        </a>
-        <span>© 2026 SENDER AI · TELEMETRIA E CURADORIA HUMANA · ZERO-DEPENDENCY STACK</span>
-        <div class="lp-footlinks">
-          <a href="#solucao">Desafio</a>
-          <a href="#como-funciona">Pipeline</a>
-          <a href="#demonstracao">Console</a>
-        </div>
+      <div class="lp-wrap lp-foot" style="justify-content:center;text-align:center;">
+        <span>© 2026 Sender AI · Telemetria e Curadoria para Comunidades</span>
       </div>
     </footer>
     <div class="lp-toast" id="lpToast">Sistema inicializado.</div>

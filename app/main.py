@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import Depends, FastAPI, HTTPException, Request  # noqa: E402
+from fastapi.responses import HTMLResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import ValidationError  # noqa: E402
 
@@ -32,6 +33,19 @@ async def desativar_cache_estatico(request: Request, call_next):
 @app.get("/saude")
 def saude():
     return {"status": "ok", "modo_llm": "mock" if modo_mock() else "gemini"}
+
+
+@app.get("/", response_class=HTMLResponse)
+def servir_index():
+    caminho = RAIZ / "web" / "index.html"
+    if caminho.exists():
+        conteudo = caminho.read_text(encoding="utf-8")
+        resposta = HTMLResponse(content=conteudo)
+        resposta.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resposta.headers["Pragma"] = "no-cache"
+        resposta.headers["Expires"] = "0"
+        return resposta
+    return HTMLResponse("<!DOCTYPE html><html><body><h1>Sender AI</h1></body></html>")
 
 
 @app.post("/processar", response_model=RespostaProcessamento, dependencies=[Depends(exigir_admin)])

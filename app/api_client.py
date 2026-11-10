@@ -50,6 +50,7 @@ def request(
     path: str,
     *,
     payload: dict | None = None,
+    params: dict[str, Any] | None = None,
     idempotency_key: str | None = None,
 ) -> Any:
     base = os.getenv(
@@ -66,6 +67,7 @@ def request(
             method,
             f"{base}{path}",
             json=payload,
+            params=params,
             headers=headers(idempotency_key),
             timeout=timeout,
         )

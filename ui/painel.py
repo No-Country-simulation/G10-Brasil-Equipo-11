@@ -21,6 +21,7 @@ import uuid
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
+from ui.tela_insights import tela_insights
 
 RAIZ = Path(__file__).resolve().parent.parent
 
@@ -58,7 +59,12 @@ from ui.estilo import (
 from ui.importacao import ler_arquivo
 
 
-TELAS = ["Importar", "Visão geral", "Curadoria"]
+TELAS = [
+    "Importar",
+    "Visão geral",
+    "Insights",
+    "Curadoria",
+]
 EXEMPLO = RAIZ / "data" / "interacoes_exemplo.json"
 
 st.set_page_config(
@@ -96,6 +102,8 @@ def iniciar_estado() -> None:
         "autorizado": False,
         "consentimento_api": False,
         "consentimento_referencia": "",
+        "_carregamento_automatico_feito": False,
+        "_erro_carregamento_automatico": None,
     }
 
     for chave, valor in padrao.items():
@@ -249,7 +257,7 @@ def mostrar_leitura(leitura) -> None:
 
             if not previa.empty:
                 st.dataframe(
-                    previa[["autor", "canal", "tipo", "texto"]],
+                    previa[["data", "autor", "canal", "tipo", "texto"]],
                     hide_index=True,
                     width="stretch",
                 )
@@ -392,8 +400,6 @@ def _aplicar_estado_persistido(detalhe: dict) -> None:
         "export_idempotency_key": None,
         "lote_origem": detalhe.get("origem_comunidade", ""),
         "lote_periodo": detalhe.get("periodo_referencia", ""),
-        "origem": detalhe.get("origem_comunidade", ""),
-        "periodo": detalhe.get("periodo_referencia", ""),
         "processado_em": _data_processamento(detalhe),
         "autorizado": consentimento_confirmado,
         "consentimento_api": consentimento_confirmado,
@@ -708,7 +714,59 @@ def tela_retomar_lote() -> None:
                     f"Não foi possível recuperar o lote: {exc}"
                 )
 
+def carregar_ultimo_processamento() -> None:
+    """Recupera automaticamente o último processamento salvo no Oracle."""
+    if not modo_api() or ss["_carregamento_automatico_feito"]:
+        return
 
+    ss["_carregamento_automatico_feito"] = True
+
+    # Não sobrescreve dados já carregados ou um lote recém-processado.
+    if ss.get("resultado") or ss.get("processamento_id"):
+        return
+
+    try:
+        resposta = api_request(
+            "GET",
+            "/processamentos?limit=100&offset=0",
+        )
+
+        itens = resposta.get("items") or []
+        ss["lotes_salvos"] = itens
+
+        concluidos = [
+            item for item in itens
+            if item.get("status") == "SUCESSO" and item.get("id")
+        ]
+
+        if not concluidos:
+            return
+
+        def data_ordem(item):
+            valor = (
+                item.get("criado_em")
+                or item.get("created_at")
+                or item.get("processado_em")
+            )
+
+            try:
+                return datetime.fromisoformat(
+                    str(valor).replace("Z", "+00:00")
+                ).timestamp()
+            except (TypeError, ValueError, OSError):
+                return 0
+
+        ultimo = max(concluidos, key=data_ordem)
+
+        detalhe = api_request(
+            "GET",
+            f"/processamentos/{ultimo['id']}",
+        )
+
+        _aplicar_estado_persistido(detalhe)
+
+    except APIClientError as exc:
+        ss["_erro_carregamento_automatico"] = str(exc)
 # ---------------------------------------------------------------------------
 # Tela 2 — Visão geral
 # ---------------------------------------------------------------------------
@@ -1277,6 +1335,12 @@ def _salvar_decisao(
             return False
 
         ss["decisoes"][id_ativo] = novo_status
+
+        # Mantém a simulação local coerente com o comportamento da API.
+        # A referência documental já está armazenada pelo próprio widget.
+        if id_ativo == "post":
+            ss["consentimento_api"] = bool(consentimento)
+
         return True
 
     asset_id = ss.get("ids_ativos", {}).get(id_ativo)
@@ -1877,10 +1941,7 @@ def _exportar_aprovados() -> None:
                 referencia
             )
 
-        destino = cur.salvar_aprovados(
-            pacote,
-            raiz=RAIZ,
-        )
+        destino = cur.salvar_aprovados(pacote)
 
         conteudo = json.dumps(
             pacote,
@@ -1957,11 +2018,19 @@ def _repetir_upload_exportacao() -> None:
 # Inicialização
 # ---------------------------------------------------------------------------
 iniciar_estado()
+carregar_ultimo_processamento()
 cabecalho()
+
+if ss.get("_erro_carregamento_automatico"):
+    st.warning(
+        "Não foi possível recuperar o último processamento "
+        f"do Oracle: {ss.pop('_erro_carregamento_automatico')}"
+    )
 
 telas = {
     "Importar": tela_importar,
     "Visão geral": tela_visao_geral,
+    "Insights": tela_insights,
     "Curadoria": tela_curadoria,
 }
 

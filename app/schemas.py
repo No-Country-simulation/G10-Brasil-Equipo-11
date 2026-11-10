@@ -1,6 +1,7 @@
 """Contratos JSON da API CommunityLab."""
 from __future__ import annotations
-
+from datetime import date
+from datetime import date
 from typing import Literal
 
 from pydantic import (
@@ -40,6 +41,10 @@ class Interacao(ContratoEntrada):
     canal: str = Field(min_length=1, max_length=300)
     tipo: TipoInteracao = "outro"
     texto: str = Field(min_length=1, max_length=20000)
+
+    # Data em que a interação foi publicada.
+    # Opcional para manter compatibilidade com arquivos antigos.
+    data: date | None = None
 
     @field_validator("autor", "canal", "texto")
     @classmethod

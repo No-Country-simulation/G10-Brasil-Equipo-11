@@ -5,7 +5,8 @@ import hashlib
 import json
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from typing import Any
 
 from . import database
@@ -81,6 +82,25 @@ def _set_clobs(cursor, *names: str) -> None:
         **{name: oracledb.DB_TYPE_CLOB for name in names}
     )
 
+def _normalizar_data_interacao(valor: Any) -> date:
+    """
+    Converte a data recebida.
+    Quando não houver data original, utiliza a data da importação
+    no fuso horário de São Paulo.
+    """
+
+    if valor is None or valor == "":
+        return datetime.now(
+            ZoneInfo("America/Sao_Paulo")
+        ).date()
+
+    if isinstance(valor, datetime):
+        return valor.date()
+
+    if isinstance(valor, date):
+        return valor
+
+    return date.fromisoformat(str(valor).strip()[:10])
 
 def _existing_by_key(
     cursor,
@@ -366,6 +386,9 @@ def iniciar_processamento(
                         "id": interaction_id,
                         "process_id": process_id,
                         "position": index,
+                        "message_date": _normalizar_data_interacao(
+                            item.get("data")
+                        ),
                         "author": item["autor"],
                         "channel": item["canal"],
                         "kind": item["tipo"],
@@ -379,12 +402,25 @@ def iniciar_processamento(
                 cursor.executemany(
                     """
                     INSERT INTO CL_INTERACOES (
-                        ID, PROCESSAMENTO_ID, POSICAO,
-                        AUTOR, CANAL, TIPO, TEXTO, CRIADO_EM
+                        ID,
+                        PROCESSAMENTO_ID,
+                        POSICAO,
+                        DATA_INTERACAO,
+                        AUTOR,
+                        CANAL,
+                        TIPO,
+                        TEXTO,
+                        CRIADO_EM
                     )
                     VALUES (
-                        :id, :process_id, :position,
-                        :author, :channel, :kind, :text,
+                        :id,
+                        :process_id,
+                        :position,
+                        :message_date,
+                        :author,
+                        :channel,
+                        :kind,
+                        :text,
                         SYSTIMESTAMP
                     )
                     """,
@@ -2172,3 +2208,291 @@ def atualizar_exportacao_upload(
                 )
 
         conn.commit()
+# ---------------------------------------------------------------------------
+# Insights: consultas históricas no Oracle
+# ---------------------------------------------------------------------------
+
+def _filtro_lista_sql(
+    coluna: str,
+    valores: list[str] | None,
+    prefixo: str,
+    params: dict,
+) -> str:
+    """Gera filtro IN com binds individuais, sem interpolar valores no SQL."""
+    valores_unicos = list(dict.fromkeys(
+        str(valor).strip()
+        for valor in (valores or [])
+        if str(valor).strip()
+    ))
+
+    if not valores_unicos:
+        return ""
+
+    placeholders = []
+
+    for indice, valor in enumerate(valores_unicos):
+        nome = f"{prefixo}_{indice}"
+        placeholders.append(f":{nome}")
+        params[nome] = valor
+
+    return f"{coluna} IN ({', '.join(placeholders)})"
+
+
+def _contexto_filtros_insights(
+    modo: str,
+    comunidades: list[str] | None,
+    canais: list[str] | None,
+    params: dict,
+) -> list[str]:
+    """Monta os filtros comuns de modo, comunidade e canal."""
+    if modo not in {"mock", "gemini"}:
+        raise ValueError("Modo de IA inválido.")
+
+    condicoes = [
+        "p.STATUS = 'SUCESSO'",
+        "p.MODO_IA = :modo",
+    ]
+
+    params["modo"] = modo
+
+    comunidade_sql = _filtro_lista_sql(
+        "p.ORIGEM_COMUNIDADE",
+        comunidades,
+        "comunidade",
+        params,
+    )
+
+    if comunidade_sql:
+        condicoes.append(comunidade_sql)
+
+    canal_sql = _filtro_lista_sql(
+        "i.CANAL",
+        canais,
+        "canal",
+        params,
+    )
+
+    if canal_sql:
+        condicoes.append(canal_sql)
+
+    return condicoes
+
+
+def opcoes_filtros_insights(modo: str) -> dict:
+    """Retorna comunidades e canais disponíveis para o modo selecionado."""
+    if modo not in {"mock", "gemini"}:
+        raise ValueError("Modo de IA inválido.")
+
+    with database.connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT DISTINCT ORIGEM_COMUNIDADE
+                FROM CL_PROCESSAMENTOS
+                WHERE STATUS = 'SUCESSO'
+                  AND MODO_IA = :modo
+                ORDER BY ORIGEM_COMUNIDADE
+                """,
+                {"modo": modo},
+            )
+
+            comunidades = [
+                row[0] for row in cursor.fetchall()
+            ]
+
+            cursor.execute(
+                """
+                SELECT DISTINCT i.CANAL
+                FROM CL_INTERACOES i
+                JOIN CL_PROCESSAMENTOS p
+                  ON p.ID = i.PROCESSAMENTO_ID
+                WHERE p.STATUS = 'SUCESSO'
+                  AND p.MODO_IA = :modo
+                  AND i.DATA_INTERACAO IS NOT NULL
+                  AND i.ANALISE_JSON IS NOT NULL
+                ORDER BY i.CANAL
+                """,
+                {"modo": modo},
+            )
+
+            canais = [
+                row[0] for row in cursor.fetchall()
+            ]
+
+    return {
+        "comunidades": comunidades,
+        "canais": canais,
+    }
+
+
+def consultar_interacoes_insights(
+    inicio: date,
+    fim: date,
+    modo: str,
+    comunidades: list[str] | None = None,
+    canais: list[str] | None = None,
+) -> list[dict]:
+    """
+    Consulta interações analisadas pela data original da mensagem.
+
+    O intervalo é inclusivo: início até fim, inclusive.
+    A análise é extraída do JSON persistido em ANALISE_JSON.
+    """
+    if inicio > fim:
+        raise ValueError("A data inicial não pode ser posterior à final.")
+
+    params = {
+        "inicio": inicio,
+        "fim_exclusivo": fim + timedelta(days=1),
+    }
+
+    condicoes = _contexto_filtros_insights(
+        modo,
+        comunidades,
+        canais,
+        params,
+    )
+
+    condicoes.extend([
+        "i.DATA_INTERACAO >= :inicio",
+        "i.DATA_INTERACAO < :fim_exclusivo",
+        "i.ANALISE_JSON IS NOT NULL",
+    ])
+
+    sql = f"""
+        SELECT
+            p.ID AS LOTE_ID,
+            i.DATA_INTERACAO AS DATA,
+            p.ORIGEM_COMUNIDADE AS COMUNIDADE,
+            i.CANAL AS CANAL,
+            JSON_VALUE(
+                i.ANALISE_JSON,
+                '$.sentimento'
+                RETURNING VARCHAR2(80)
+                NULL ON ERROR
+            ) AS SENTIMENTO,
+            JSON_VALUE(
+                i.ANALISE_JSON,
+                '$.topico'
+                RETURNING VARCHAR2(300)
+                NULL ON ERROR
+            ) AS TOPICO,
+            JSON_VALUE(
+                i.ANALISE_JSON,
+                '$.rota'
+                RETURNING VARCHAR2(80)
+                NULL ON ERROR
+            ) AS ROTA
+        FROM CL_INTERACOES i
+        JOIN CL_PROCESSAMENTOS p
+          ON p.ID = i.PROCESSAMENTO_ID
+        WHERE {' AND '.join(condicoes)}
+        ORDER BY
+            i.DATA_INTERACAO,
+            p.ID,
+            i.POSICAO
+    """
+
+    with database.connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(sql, params)
+
+            return [
+                {
+                    "lote_id": row[0],
+                    "data": row[1],
+                    "comunidade": row[2],
+                    "canal": row[3],
+                    "sentimento": row[4],
+                    "topico": row[5],
+                    "rota": row[6],
+                }
+                for row in cursor.fetchall()
+            ]
+
+
+def consultar_ativos_insights(
+    inicio: date,
+    fim: date,
+    modo: str,
+    comunidades: list[str] | None = None,
+    canais: list[str] | None = None,
+) -> list[dict]:
+    """
+    Consulta ativos vinculados às interações do período.
+
+    EXISTS evita contar várias vezes um mesmo ativo que tenha
+    mais de uma interação de origem, como uma newsletter.
+    """
+    if inicio > fim:
+        raise ValueError("A data inicial não pode ser posterior à final.")
+
+    params = {
+        "inicio": inicio,
+        "fim_exclusivo": fim + timedelta(days=1),
+    }
+
+    condicoes = _contexto_filtros_insights(
+        modo,
+        comunidades,
+        None,
+        params,
+    )
+
+    fontes = [
+        "ai.ATIVO_ID = a.ID",
+        "i.ID = ai.INTERACAO_ID",
+        "i.DATA_INTERACAO >= :inicio",
+        "i.DATA_INTERACAO < :fim_exclusivo",
+    ]
+
+    canal_sql = _filtro_lista_sql(
+        "i.CANAL",
+        canais,
+        "canal",
+        params,
+    )
+
+    if canal_sql:
+        fontes.append(canal_sql)
+
+    condicoes.append(
+        """
+        EXISTS (
+            SELECT 1
+            FROM CL_ATIVO_INTERACOES ai
+            JOIN CL_INTERACOES i
+              ON i.ID = ai.INTERACAO_ID
+            WHERE """ + " AND ".join(fontes) + """
+        )
+        """
+    )
+
+    sql = f"""
+        SELECT
+            a.PROCESSAMENTO_ID,
+            a.CHAVE_ATIVO,
+            a.TIPO_ATIVO,
+            LOWER(a.STATUS_CURADORIA) AS STATUS
+        FROM CL_ATIVOS a
+        JOIN CL_PROCESSAMENTOS p
+          ON p.ID = a.PROCESSAMENTO_ID
+        WHERE {' AND '.join(condicoes)}
+        ORDER BY
+            a.PROCESSAMENTO_ID,
+            a.CHAVE_ATIVO
+    """
+
+    with database.connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(sql, params)
+
+            return [
+                {
+                    "lote_id": row[0],
+                    "chave": row[1],
+                    "tipo": row[2],
+                    "status": row[3],
+                }
+                for row in cursor.fetchall()
+            ]

@@ -4,7 +4,7 @@ Desenvolvimento: COMMUNITYLAB_DB_MODE=disabled e OCI_STORAGE_MODE=local.
 Demonstração final: Oracle Database + OCI Object Storage + API key.
 """
 from __future__ import annotations
-
+from datetime import date
 import hmac
 import json
 import logging
@@ -492,7 +492,10 @@ def processar_lote(
         result["persistencia"] = "desativada"
         return result
 
-    input_dict = lote.model_dump(mode="json")
+    input_dict = lote.model_dump(
+        mode="json",
+        exclude_none=True,
+    )
 
     try:
         started = repository.iniciar_processamento(
@@ -640,6 +643,114 @@ def listar_processamentos(
             detail="Não foi possível consultar os processamentos.",
         ) from exc
 
+
+# ---------------------------------------------------------------------------
+# Insights: consultas históricas
+# ---------------------------------------------------------------------------
+
+@app.get("/insights/opcoes")
+def obter_opcoes_insights(
+    modo: Literal["mock", "gemini"] = Query("mock"),
+    _actor: str = Depends(require_api_access),
+):
+    _require_oracle()
+
+    try:
+        return repository.opcoes_filtros_insights(modo)
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        logger.exception("Falha ao consultar opções de Insights")
+
+        raise HTTPException(
+            status_code=503,
+            detail="Não foi possível consultar os filtros de Insights.",
+        ) from exc
+
+
+@app.get("/insights/interacoes")
+def obter_interacoes_insights(
+    inicio: date,
+    fim: date,
+    modo: Literal["mock", "gemini"] = Query("mock"),
+    comunidades: list[str] | None = Query(None),
+    canais: list[str] | None = Query(None),
+    _actor: str = Depends(require_api_access),
+):
+    _require_oracle()
+
+    try:
+        items = repository.consultar_interacoes_insights(
+            inicio=inicio,
+            fim=fim,
+            modo=modo,
+            comunidades=comunidades,
+            canais=canais,
+        )
+
+        return {
+            "items": items,
+            "total": len(items),
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        logger.exception("Falha ao consultar interações de Insights")
+
+        raise HTTPException(
+            status_code=503,
+            detail="Não foi possível consultar as interações de Insights.",
+        ) from exc
+
+
+@app.get("/insights/ativos")
+def obter_ativos_insights(
+    inicio: date,
+    fim: date,
+    modo: Literal["mock", "gemini"] = Query("mock"),
+    comunidades: list[str] | None = Query(None),
+    canais: list[str] | None = Query(None),
+    _actor: str = Depends(require_api_access),
+):
+    _require_oracle()
+
+    try:
+        items = repository.consultar_ativos_insights(
+            inicio=inicio,
+            fim=fim,
+            modo=modo,
+            comunidades=comunidades,
+            canais=canais,
+        )
+
+        return {
+            "items": items,
+            "total": len(items),
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        logger.exception("Falha ao consultar ativos de Insights")
+
+        raise HTTPException(
+            status_code=503,
+            detail="Não foi possível consultar os ativos de Insights.",
+        ) from exc
 
 @app.get("/processamentos/{process_id}")
 def obter_processamento(

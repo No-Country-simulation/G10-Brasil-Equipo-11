@@ -179,9 +179,16 @@ def validate_schema() -> None:
             "OCI_OBJECT_NAME",
         },
         "CL_INTERACOES": {
-            "ID", "PROCESSAMENTO_ID", "POSICAO",
-            "TEXTO", "ANALISE_JSON",
-        },
+        "ID",
+        "PROCESSAMENTO_ID",
+        "POSICAO",
+        "AUTOR",
+        "CANAL",
+        "TIPO",
+        "TEXTO",
+        "ANALISE_JSON",
+        "DATA_INTERACAO",
+    },
         "CL_ATIVOS": {
             "ID", "PROCESSAMENTO_ID", "CHAVE_ATIVO",
             "TIPO_ATIVO", "PAYLOAD_JSON", "STATUS_CURADORIA",
@@ -321,9 +328,9 @@ def validate_schema() -> None:
 
             version = int(row[0])
 
-            if version != 2:
+            if version != 3:
                 raise RuntimeError(
                     f"Versão do schema Oracle não suportada: {version}. "
-                    "A aplicação requer a versão 2; execute as "
-                    "migrações 001 e 002."
+                    "A aplicação requer a versão 3; execute as "
+                    "migrações 001, 002 e 003."
                 )

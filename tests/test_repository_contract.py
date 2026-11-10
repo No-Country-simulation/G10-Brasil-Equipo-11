@@ -1,5 +1,6 @@
 import pytest
-
+from app.repository import _normalizar_data_interacao
+from datetime import date, datetime
 from app.repository import (
     _asset_records,
     fingerprint_request,
@@ -146,3 +147,26 @@ def test_ativo_sem_fonte_e_rejeitado():
 def test_serializacao_nao_oculta_tipos_invalidos():
     with pytest.raises(TypeError):
         json_dumps({"valor": object()})
+
+
+
+
+
+def test_normalizar_data_interacao():
+    assert _normalizar_data_interacao(
+        "2026-10-05"
+    ) == date(2026, 10, 5)
+
+
+def test_normalizar_data_interacao_preserva_date():
+    entrada = date(2026, 10, 5)
+
+    assert _normalizar_data_interacao(
+        entrada
+    ) == entrada
+
+
+def test_normalizar_data_interacao_usa_data_atual():
+    resultado = _normalizar_data_interacao(None)
+
+    assert isinstance(resultado, date)

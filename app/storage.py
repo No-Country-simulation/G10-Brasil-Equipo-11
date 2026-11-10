@@ -33,7 +33,7 @@ def _modo() -> str:
 
 def _safe_period(period: str) -> str:
     normalized = re.sub(
-        r"[^a-zA-Z0-9_-]+",
+        r"[^a-zA-Z0-9-]+",
         "-",
         str(period).strip().lower(),
     ).strip("-_")

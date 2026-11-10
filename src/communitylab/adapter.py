@@ -1,8 +1,9 @@
 ﻿import csv
 import json
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
-
+from datetime import date, datetime
 from app.schemas import Interacao, LoteEntrada
 from communitylab.ingestion import load_interactions
 
@@ -12,7 +13,84 @@ ALIASES = {
     "channel": "canal",
     "type": "tipo",
     "author": "autor",
+    "date": "data",
 }
+
+FORMATOS_DATA = ("%Y-%m-%d", "%d/%m/%Y")
+
+
+def _ler_data(valor: Any, indice: int) -> date | None:
+    """
+    Aceita AAAA-MM-DD e DD/MM/AAAA.
+    Datas vazias permanecem None.
+    """
+
+    if valor is None or (
+        isinstance(valor, str) and not valor.strip()
+    ):
+        return None
+
+    if isinstance(valor, datetime):
+        return valor.date()
+
+    if isinstance(valor, date):
+        return valor
+
+    texto = str(valor).strip()[:10]
+
+    for formato in FORMATOS_DATA:
+        try:
+            return datetime.strptime(texto, formato).date()
+        except ValueError:
+            continue
+
+    raise ValueError(
+        f"A interação {indice} tem a data '{valor}' "
+        "em formato inválido. "
+        "Use AAAA-MM-DD ou DD/MM/AAAA."
+    )
+
+def _normalizar_data(valor: Any, indice: int) -> date | None:
+    """Aceita datas ISO, timestamps ISO e datas brasileiras DD/MM/AAAA."""
+    if valor is None:
+        return None
+
+    if isinstance(valor, datetime):
+        return valor.date()
+
+    if isinstance(valor, date):
+        return valor
+
+    if not isinstance(valor, str):
+        raise ValueError(
+            f"A data da interação {indice} deve ser um texto ou uma data válida."
+        )
+
+    texto = valor.strip()
+    if not texto:
+        return None
+
+    # ISO date ou timestamp ISO-8601.
+    try:
+        if len(texto) == 10:
+            return date.fromisoformat(texto)
+        return datetime.fromisoformat(
+            texto.replace("Z", "+00:00")
+        ).date()
+    except ValueError:
+        pass
+
+    # Formato normalmente exportado pelo Excel em português.
+    for formato in ("%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(texto, formato).date()
+        except ValueError:
+            continue
+
+    raise ValueError(
+        f"A data da interação {indice} é inválida: {texto!r}. "
+        "Use AAAA-MM-DD ou DD/MM/AAAA."
+    )
 
 
 def _normalizar_interacao(
@@ -30,6 +108,7 @@ def _normalizar_interacao(
     canal = dados.get("canal")
     tipo = dados.get("tipo") or "outro"
     autor = dados.get("autor")
+    data_interacao = _normalizar_data(dados.get("data"), indice)
 
     if not isinstance(texto, str) or not texto.strip():
         raise ValueError(
@@ -52,6 +131,7 @@ def _normalizar_interacao(
         canal=canal.strip(),
         tipo=tipo.strip(),
         texto=texto.strip(),
+        data=_ler_data(dados.get("data"), indice),
     )
 
 

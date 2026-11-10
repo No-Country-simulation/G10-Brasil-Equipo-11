@@ -25,7 +25,12 @@ CSV = (
 @pytest.fixture(autouse=True)
 def ambiente(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+
+    # Os testes do painel exercitam o processamento local.
+    monkeypatch.setenv("COMMUNITYLAB_UI_BACKEND", "local")
     monkeypatch.setenv("LLM_MODO", "mock")
+    monkeypatch.setenv("OCI_STORAGE_MODE", "local")
+
     monkeypatch.delenv("OCI_NAMESPACE", raising=False)
 
 
@@ -132,7 +137,7 @@ def test_aprovados_salvos_ao_lado_do_pacote(resultado):
     pacote = cur.montar_aprovados(resultado, {"newsletter": cur.APROVADO}, {}, "D", "Semana_04", autorizado=False)
     destino = cur.salvar_aprovados(pacote)
     assert destino.as_posix().endswith("ativos/" + destino.parent.name + "/aprovados.json")
-    assert destino.parent.name.endswith("semana-04")
+    assert destino.parent.name.endswith("-semana-04")
     assert json.loads(destino.read_text(encoding="utf-8"))["destaque_newsletter_semanal"]
 
 
@@ -168,8 +173,8 @@ def test_exemplo_processado_vai_para_visao_geral():
     assert at.radio(key="pagina").value == "Visão geral"
     metricas = {m.label: m.value for m in at.metric}
     assert metricas["Interações processadas"] == "12"
-    assert metricas["Membros que precisam de apoio"] == "2"
-    assert metricas["Ativos para aprovar"] == str(2 + 5)  # post + newsletter + 5 FAQ
+    assert metricas["Alertas aguardando triagem"] == "2"
+    assert metricas["Ativos para revisar"] == str(2 + 5)
 
 
 def test_filtro_de_rota_na_tabela():
@@ -183,29 +188,60 @@ def test_alerta_tratado_sai_da_contagem():
     at = _processar_exemplo()
     at.button(key="al_0_ok").click().run()
     metricas = {m.label: m.value for m in at.metric}
-    assert metricas["Membros que precisam de apoio"] == "1"
+    assert metricas["Alertas aguardando triagem"] == "1"
 
 
 def test_curadoria_exige_autorizacao_e_exporta_texto_editado(tmp_path):
     at = _processar_exemplo()
+
     _botao(at, "Revisar 7 ativos").click().run()
     assert at.radio(key="pagina").value == "Curadoria"
     assert not at.exception
 
-    assert at.button(key="dec_post_a").disabled, "post não pode ser aprovado sem autorização"
+    # O post exige autorização e referência documental.
+    assert at.button(key="dec_post_a").disabled
+
     at.checkbox(key="autorizado").check().run()
-    at.text_area(key="txt_post_copy").input("Post revisado pela equipe").run()
+
+    assert at.button(key="dec_post_a").disabled
+
+    at.text_input(key="consentimento_referencia").input(
+        "PROTOCOLO-TESTE-001"
+    ).run()
+
+    assert not at.button(key="dec_post_a").disabled
+
+    at.text_area(key="txt_post_copy").input(
+        "Post revisado pela equipe"
+    ).run()
+
     at.button(key="dec_post_a").click().run()
-    at.text_input(key="txt_news_chamada").input("Chamada revisada").run()
+
+    # Aprovar a newsletter.
+    at.text_input(key="txt_news_chamada").input(
+        "Chamada revisada"
+    ).run()
+
     at.button(key="dec_newsletter_a").click().run()
+
+    # Descartar o primeiro FAQ.
     at.button(key="dec_faq_0_d").click().run()
 
     metricas = {m.label: m.value for m in at.metric}
-    assert metricas["Aprovados"] == "2" and metricas["Descartados"] == "1"
 
+    assert metricas["Aprovados"] == "2"
+    assert metricas["Descartados"] == "1"
+
+    # Exportar os aprovados.
     _botao(at, "Exportar aprovados").click().run()
     assert not at.exception
-    salvo = json.loads(next(tmp_path.glob("saida_local/ativos/*/aprovados.json")).read_text(encoding="utf-8"))
+
+    salvo = json.loads(
+        next(
+            tmp_path.glob("saida_local/ativos/*/aprovados.json")
+        ).read_text(encoding="utf-8")
+    )
+
     assert salvo["post_linkedin"]["copy"] == "Post revisado pela equipe"
     assert salvo["destaque_newsletter_semanal"]["chamada"] == "Chamada revisada"
     assert salvo["descartados"] == ["faq_0"]
@@ -213,11 +249,25 @@ def test_curadoria_exige_autorizacao_e_exporta_texto_editado(tmp_path):
 
 def test_desmarcar_autorizacao_devolve_post_para_pendente():
     at = _processar_exemplo()
+
     _botao(at, "Revisar 7 ativos").click().run()
     assert at.radio(key="pagina").value == "Curadoria"
+
     at.checkbox(key="autorizado").check().run()
+
+    at.text_input(key="consentimento_referencia").input(
+        "PROTOCOLO-TESTE-002"
+    ).run()
+
     at.button(key="dec_post_a").click().run()
+
+    # Revogar a autorização.
     at.checkbox(key="autorizado").uncheck().run()
+
+    # Salvar a revogação.
+    at.button(key="dec_post_s").click().run()
+
+    # O post deve voltar para pendente.
     assert at.button(key="dec_post_a").disabled
 
 

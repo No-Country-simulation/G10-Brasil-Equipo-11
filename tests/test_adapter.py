@@ -78,3 +78,81 @@ def test_rejeitar_lista_vazia(tmp_path):
 
     with pytest.raises(ValueError, match="não contém interações"):
         carregar_lote(arquivo)
+
+def test_carregar_data_iso_em_json(tmp_path):
+    arquivo = tmp_path / "interacoes.json"
+    arquivo.write_text(
+        json.dumps(
+            {
+                "interactions": [
+                    {
+                        "author": "Pessoa Teste",
+                        "channel": "#geral",
+                        "type": "feedback",
+                        "text": "Mensagem com data",
+                        "date": "2026-10-21",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    lote = carregar_lote(arquivo)
+    assert lote.interacoes[0].data.isoformat() == "2026-10-21"
+
+
+def test_carregar_data_brasileira_em_csv(tmp_path):
+    arquivo = tmp_path / "interacoes.csv"
+    arquivo.write_text(
+        "autor,canal,tipo,texto,data\n"
+        "Ana,#geral,feedback,Mensagem com data,21/10/2026\n",
+        encoding="utf-8",
+    )
+
+    lote = carregar_lote(arquivo)
+    assert lote.interacoes[0].data.isoformat() == "2026-10-21"
+
+
+def test_data_vazia_permanece_opcional(tmp_path):
+    arquivo = tmp_path / "interacoes.json"
+    arquivo.write_text(
+        json.dumps(
+            [
+                {
+                    "author": "Pessoa Teste",
+                    "channel": "#geral",
+                    "type": "feedback",
+                    "text": "Mensagem antiga sem data",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    lote = carregar_lote(arquivo)
+    assert lote.interacoes[0].data is None
+
+
+def test_rejeitar_data_invalida(tmp_path):
+    arquivo = tmp_path / "interacoes.json"
+    arquivo.write_text(
+        json.dumps(
+            [
+                {
+                    "author": "Pessoa Teste",
+                    "channel": "#geral",
+                    "type": "feedback",
+                    "text": "Mensagem com data inválida",
+                    "date": "31/02/2026",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="data da interação 1 é inválida",
+    ):
+        carregar_lote(arquivo)

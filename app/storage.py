@@ -5,6 +5,7 @@ Configuração do SDK: https://docs.oracle.com/iaas/Content/API/Concepts/sdkconf
 """
 import json
 import os
+import re
 from datetime import date
 from pathlib import Path
 
@@ -12,6 +13,8 @@ BUCKET = os.getenv("OCI_BUCKET", "communitylab-ativos-marketing")
 
 
 def caminho_objeto(periodo: str) -> str:
+    if re.fullmatch(r"\d{4}-\d{2}", periodo):  # mês de referência do painel (AAAA-MM) já traz o ano
+        return f"ativos/{periodo}/pacote-distribuicao.json"
     semana = periodo.lower().replace("_", "-")
     return f"ativos/{date.today().year}-{semana}/pacote-distribuicao.json"
 

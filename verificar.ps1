@@ -55,4 +55,12 @@ Write-Host "[ OK ] Dependencias instaladas"
 $argumentos = @("verificar.py")
 if ($Real) { $argumentos += "--real" }
 & $venvPython @argumentos
-exit $LASTEXITCODE
+$codigoSaida = $LASTEXITCODE
+
+if ($codigoSaida -eq 0) {
+    Write-Host "Comandos para iniciar as interfaces:" -ForegroundColor Green
+    Write-Host "  * Painel Streamlit: & `"$venvPython`" -m streamlit run ui/painel.py" -ForegroundColor Cyan
+    Write-Host "  * Servidor API & Web: & `"$venvPython`" -m uvicorn app.main:app --host 127.0.0.1 --port 8000" -ForegroundColor Cyan
+}
+
+exit $codigoSaida

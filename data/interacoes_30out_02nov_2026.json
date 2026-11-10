@@ -1,0 +1,146 @@
+{
+  "origem_comunidade": "Discord_Grupo_ONE_G10",
+  "periodo_referencia": "30_Outubro_a_02_Novembro_2026",
+  "interacoes": [
+    {
+      "data": "2026-10-30",
+      "autor": "Amanda Figueiredo",
+      "canal": "#geral",
+      "tipo": "outro",
+      "texto": "Sexta pós-hackathon! Alguém já sabe quando sai o resultado das equipes?"
+    },
+    {
+      "data": "2026-10-30",
+      "autor": "Caio Bittencourt",
+      "canal": "#duvidas-oci",
+      "tipo": "pergunta_tecnica",
+      "texto": "Apaguei a VM mas o volume de boot continua aparecendo no console. Preciso remover na mão?"
+    },
+    {
+      "data": "2026-10-30",
+      "autor": "Fernanda Queiroz",
+      "canal": "#feedback-curso",
+      "tipo": "feedback",
+      "texto": "A mentoria da última semana fez toda a diferença. Seria ótimo ter isso desde o início do programa."
+    },
+    {
+      "data": "2026-10-30",
+      "autor": "Leonardo Assis",
+      "canal": "#projetos",
+      "tipo": "projeto",
+      "texto": "Publiquei o repositório do nosso agente de triagem de currículos. Quem quiser contribuir, PRs são bem-vindos!"
+    },
+    {
+      "data": "2026-10-30",
+      "autor": "Priscila Vargas",
+      "canal": "#feedback-curso",
+      "tipo": "reclamacao",
+      "texto": "A plataforma de entrega caiu bem na última hora e ninguém respondeu no suporte. Muito estressante."
+    },
+    {
+      "data": "2026-10-31",
+      "autor": "Gustavo Henrique Lins",
+      "canal": "#duvidas-langgraph",
+      "tipo": "pergunta_tecnica",
+      "texto": "Como faço para rodar dois nós em paralelo no LangGraph e juntar os resultados depois?"
+    },
+    {
+      "data": "2026-10-31",
+      "autor": "Helena Moura",
+      "canal": "#conquistas-e-vagas",
+      "tipo": "depoimento",
+      "texto": "Passei na primeira fase do processo seletivo e o recrutador elogiou o projeto do hackathon no meu portfólio!"
+    },
+    {
+      "data": "2026-10-31",
+      "autor": "Rafael Toledo",
+      "canal": "#geral",
+      "tipo": "outro",
+      "texto": "Feriadão chegando. Alguém vai montar grupo de estudos no fim de semana?"
+    },
+    {
+      "data": "2026-10-31",
+      "autor": "Juliana Esteves",
+      "canal": "#duvidas-oci",
+      "tipo": "reclamacao",
+      "texto": "Recebi um e-mail de cobrança da OCI mesmo usando o free tier. Ninguém avisou que o load balancer era pago."
+    },
+    {
+      "data": "2026-10-31",
+      "autor": "Thiago Nascimento",
+      "canal": "#projetos",
+      "tipo": "projeto",
+      "texto": "Estou adaptando nosso chatbot do hackathon para atender uma ONG de bairro. Alguém tem experiência com WhatsApp API?"
+    },
+    {
+      "data": "2026-11-01",
+      "autor": "Bianca Ferraz",
+      "canal": "#duvidas-langgraph",
+      "tipo": "pergunta_tecnica",
+      "texto": "Qual a melhor forma de limitar o número de iterações de um agente para ele não entrar em loop?"
+    },
+    {
+      "data": "2026-11-01",
+      "autor": "Mateus Coutinho",
+      "canal": "#feedback-curso",
+      "tipo": "feedback",
+      "texto": "Sugestão para a próxima turma: um módulo curto de custos em cloud antes dos laboratórios práticos."
+    },
+    {
+      "data": "2026-11-01",
+      "autor": "Lívia Sant'Anna",
+      "canal": "#conquistas-e-vagas",
+      "tipo": "depoimento",
+      "texto": "Consegui minha certificação OCI Foundations hoje! Os simulados do grupo ajudaram demais."
+    },
+    {
+      "data": "2026-11-01",
+      "autor": "André Pacheco",
+      "canal": "#geral",
+      "tipo": "outro",
+      "texto": "Compartilhando a gravação da live de encerramento para quem perdeu. Link fixado no canal."
+    },
+    {
+      "data": "2026-11-01",
+      "autor": "Camila Rezende",
+      "canal": "#duvidas-oci",
+      "tipo": "pergunta_tecnica",
+      "texto": "Dá para agendar o desligamento automático de uma instância na OCI à noite?"
+    },
+    {
+      "data": "2026-11-02",
+      "autor": "Diego Marçal",
+      "canal": "#feedback-curso",
+      "tipo": "reclamacao",
+      "texto": "Até agora não recebemos o certificado de conclusão e já passou o prazo informado."
+    },
+    {
+      "data": "2026-11-02",
+      "autor": "Sofia Albuquerque",
+      "canal": "#projetos",
+      "tipo": "projeto",
+      "texto": "Fizemos um dashboard em Streamlit com os dados do Discord da turma. Quem quiser ver, apresentamos na quarta."
+    },
+    {
+      "data": "2026-11-02",
+      "autor": "Vinícius Prado",
+      "canal": "#duvidas-langgraph",
+      "tipo": "pergunta_tecnica",
+      "texto": "Alguém já integrou LangGraph com Supabase para guardar o histórico das conversas?"
+    },
+    {
+      "data": "2026-11-02",
+      "autor": "Tainá Correia",
+      "canal": "#conquistas-e-vagas",
+      "tipo": "depoimento",
+      "texto": "Entrei como estagiária de IA numa fintech! Comecei hoje e já estou usando o que aprendi aqui."
+    },
+    {
+      "data": "2026-11-02",
+      "autor": "Eduarda Lins",
+      "canal": "#geral",
+      "tipo": "outro",
+      "texto": "Segunda-feira de volta aos estudos. Qual vai ser o próximo desafio da comunidade?"
+    }
+  ]
+}

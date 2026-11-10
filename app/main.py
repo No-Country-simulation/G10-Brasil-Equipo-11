@@ -1,18 +1,33 @@
 """API do Sender AI. Rode com: uvicorn app.main:app --reload"""
 import json
+from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Request  # noqa: E402
+from fastapi import Depends, FastAPI, HTTPException, Request  # noqa: E402
+from fastapi.responses import HTMLResponse  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import ValidationError  # noqa: E402
 
 from communitylab.adapter import carregar_lote_bytes  # noqa: E402
-from .grafo import processar  # noqa: E402
+from .grafo import processar_com_registro  # noqa: E402
 from .llm import modo_mock  # noqa: E402
+from .rotas_web import exigir_admin, router as rotas_web_router  # noqa: E402
 from .schemas import LoteEntrada, RespostaProcessamento  # noqa: E402
 
 app = FastAPI(title="Sender AI", version="0.1.0")
+
+RAIZ = Path(__file__).resolve().parent.parent
+
+
+@app.middleware("http")
+async def desativar_cache_estatico(request: Request, call_next):
+    resposta = await call_next(request)
+    if request.url.path == "/" or request.url.path.endswith((".html", ".css", ".js")):
+        resposta.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return resposta
+
 
 
 @app.get("/saude")
@@ -20,7 +35,20 @@ def saude():
     return {"status": "ok", "modo_llm": "mock" if modo_mock() else "gemini"}
 
 
-@app.post("/processar", response_model=RespostaProcessamento)
+@app.get("/", response_class=HTMLResponse)
+def servir_index():
+    caminho = RAIZ / "web" / "index.html"
+    if caminho.exists():
+        conteudo = caminho.read_text(encoding="utf-8")
+        resposta = HTMLResponse(content=conteudo)
+        resposta.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resposta.headers["Pragma"] = "no-cache"
+        resposta.headers["Expires"] = "0"
+        return resposta
+    return HTMLResponse("<!DOCTYPE html><html><body><h1>Sender AI</h1></body></html>")
+
+
+@app.post("/processar", response_model=RespostaProcessamento, dependencies=[Depends(exigir_admin)])
 async def processar_lote(request: Request):
     """Processa um lote de interações enviado como JSON (LoteEntrada) ou upload multipart (campo 'arquivo')."""
     content_type = (request.headers.get("content-type") or "").lower()
@@ -59,4 +87,15 @@ async def processar_lote(request: Request):
     if not lote.interacoes:
         raise HTTPException(400, "O lote não tem interações.")
 
-    return processar(lote)
+    resp, registro = processar_com_registro(lote)
+    resp["lote_id"] = registro.get("lote_id")
+    return resp
+
+
+# Rotas web (auth, fontes, curadoria, insights)
+app.include_router(rotas_web_router)
+
+# Frontend estático Vanilla Web
+PASTA_WEB = RAIZ / "web"
+if PASTA_WEB.exists():
+    app.mount("/", StaticFiles(directory=str(PASTA_WEB), html=True), name="web")

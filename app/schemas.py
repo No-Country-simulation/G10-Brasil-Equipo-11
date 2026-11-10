@@ -98,3 +98,4 @@ class RespostaProcessamento(BaseModel):
     analises: list[Analise]
     ativos_distribuicao_gerados: AtivosDistribuicao
     armazenamento_oci: ArmazenamentoOci
+    lote_id: Optional[int] = None

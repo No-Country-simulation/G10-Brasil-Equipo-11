@@ -36,6 +36,14 @@ def banco_desligado(request, monkeypatch):
         monkeypatch.setenv("DATABASE_URL", "")
 
 
+@pytest.fixture(autouse=True)
+def admin_desligado(request, monkeypatch):
+    """Isola os testes que não pedem admin explicitamente."""
+    if "admin" not in request.fixturenames and request.node.get_closest_marker("auth") is None:
+        monkeypatch.setenv("ADMIN_USUARIO", "")
+        monkeypatch.setenv("ADMIN_SENHA", "")
+
+
 def banco_de_teste(monkeypatch, prefixo: str):
     """Aponta o app para o banco real e devolve (url, nome da comunidade de teste).
 
@@ -73,3 +81,4 @@ def banco_real_painel(monkeypatch):
     url, comunidade = banco_de_teste(monkeypatch, "Teste_Painel_")
     yield comunidade
     limpar_comunidade(url, comunidade)
+    limpar_comunidade(url, f"Discord · {comunidade}")  # o painel salva como "<fonte> · <canal>"

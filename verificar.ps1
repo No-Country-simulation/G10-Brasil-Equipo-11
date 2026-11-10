@@ -58,9 +58,11 @@ if ($Real) { $argumentos += "--real" }
 $codigoSaida = $LASTEXITCODE
 
 if ($codigoSaida -eq 0) {
-    Write-Host "Comandos para iniciar as interfaces:" -ForegroundColor Green
-    Write-Host "  * Painel Streamlit: & `"$venvPython`" -m streamlit run ui/painel.py" -ForegroundColor Cyan
-    Write-Host "  * Servidor API & Web: & `"$venvPython`" -m uvicorn app.main:app --host 127.0.0.1 --port 8000" -ForegroundColor Cyan
+    Write-Host "Para abrir o Sender AI:" -ForegroundColor Green
+    Write-Host "  * Site (oficial): de dois cliques em iniciar_web_vanilla.bat, ou rode:" -ForegroundColor Cyan
+    Write-Host "      & `"$venvPython`" -m uvicorn app.main:app --host 127.0.0.1 --port 8000" -ForegroundColor Cyan
+    Write-Host "    e abra http://127.0.0.1:8000" -ForegroundColor Cyan
+    Write-Host "  * Painel Streamlit (alternativo): & `"$venvPython`" -m streamlit run ui/painel.py" -ForegroundColor Cyan
 }
 
 exit $codigoSaida

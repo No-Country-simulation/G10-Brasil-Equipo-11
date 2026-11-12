@@ -9,6 +9,10 @@ env/
 .env.*
 !.env.example
 
+# Wallet do Oracle Autonomous DB (credenciais; nunca versionar)
+wallet/
+wallet*.zip
+
 # Python
 __pycache__/
 *.py[cod]

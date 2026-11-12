@@ -21,7 +21,31 @@ export const api = {
     return res.json();
   },
 
-  async processarLote(corpo, isMultipart = false) {
+  // Pergunta ao backend se estas mensagens já foram processadas. Qualquer falha vira "não".
+  async verificarLote(interacoes) {
+    try {
+      const res = await fetch('/api/lotes/verificar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interacoes }),
+      });
+      if (!res.ok) return null;
+      return (await res.json()).existente || null;
+    } catch {
+      return null;
+    }
+  },
+
+  async abrirLote(loteId) {
+    const res = await fetch(`/api/lotes/${encodeURIComponent(loteId)}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Falha ao abrir o lote (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async processarLote(corpo, isMultipart = false, reprocessar = false) {
     const options = {
       method: 'POST',
       body: isMultipart ? corpo : JSON.stringify(corpo),
@@ -29,7 +53,7 @@ export const api = {
     if (!isMultipart) {
       options.headers = { 'Content-Type': 'application/json' };
     }
-    const res = await fetch('/processar', options);
+    const res = await fetch(reprocessar ? '/processar?reprocessar=true' : '/processar', options);
     if (!res.ok) {
       const detalhe = await res.text();
       try {

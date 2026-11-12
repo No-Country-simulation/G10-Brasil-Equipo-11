@@ -205,8 +205,9 @@ def test_processar_grava_com_o_modo_atual(lote_exemplo, monkeypatch):
     chamadas = []
     monkeypatch.setattr(repositorio, "gravar_lote", lambda l, r, m: chamadas.append(m) or 42)
     assert grafo.processar_com_registro(lote_exemplo)[1] == {"lote_id": 42, "erro": None}
+    # processar() sozinho não grava: com Oracle, quem persiste é a API (app.main).
     assert grafo.processar(lote_exemplo)["status"] == "sucesso"
-    assert chamadas == ["mock", "mock"]
+    assert chamadas == ["mock"]
 
 
 @pytest.mark.real

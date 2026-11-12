@@ -11,6 +11,8 @@ import { renderImportView } from './views/import-view.js';
 import { renderOverviewView } from './views/overview-view.js';
 import { renderCurationView, extrairItensCuradoria } from './views/curation-view.js';
 import { renderInsightsView } from './views/insights-view.js';
+import { initInsightsEvents } from './insights-controller.js';
+import { abrirLoteSalvo } from './lotes.js';
 
 let lastRenderedView = null;
 
@@ -111,18 +113,7 @@ function initEventHandlers() {
       return;
     }
 
-    // 0.1 Insights / Histórico
-    if (e.target.closest('#btn-insights-load-demo') || e.target.closest('#btn-insights-refresh')) {
-      store.setState({ insightsCarregando: true });
-      try {
-        const dados = await api.obterInsights({ demo: true });
-        store.setState({ insightsData: dados, insightsCarregando: false, insightsModoDemo: true });
-      } catch (err) {
-        alert('Erro ao carregar insights: ' + err.message);
-        store.setState({ insightsCarregando: false });
-      }
-      return;
-    }
+    // 0.1 Insights / Histórico: tratado em insights-controller.js
 
     // 1. Navegação rápida
     if (e.target.closest('#btn-go-importar')) {
@@ -189,18 +180,41 @@ function initEventHandlers() {
       return;
     }
 
-    // 3. Processar Lote
-    if (e.target.closest('#btn-processar-lote')) {
+    // 3a. Lote já processado: abrir o resultado guardado no banco
+    if (e.target.closest('#btn-abrir-existente')) {
+      const { duplicado } = store.getState();
+      if (!duplicado) return;
+      store.setState({ isProcessing: true });
+      try {
+        await abrirLoteSalvo(duplicado.lote_id);
+      } catch (err) {
+        alert('Falha ao abrir o resultado existente: ' + err.message);
+        store.setState({ isProcessing: false });
+      }
+      return;
+    }
+
+    // 3. Processar Lote (o botão "processar de novo" pula o aviso de duplicado)
+    const processarDeNovo = Boolean(e.target.closest('#btn-processar-de-novo'));
+    if (processarDeNovo || e.target.closest('#btn-processar-lote')) {
       const { leitura, origem, periodo } = store.getState();
       if (!leitura || !leitura.lote) return;
       store.setState({ isProcessing: true });
       try {
+        if (!processarDeNovo) {
+          const existente = await api.verificarLote(leitura.lote.interacoes || []);
+          if (existente) {
+            // Guarda para qual arquivo o aviso vale: trocar o arquivo descarta o aviso.
+            store.setState({ duplicado: { ...existente, lote: leitura.lote }, isProcessing: false });
+            return;
+          }
+        }
         const payload = {
           ...leitura.lote,
           origem_comunidade: origem.trim() || leitura.lote.origem_comunidade,
           periodo_referencia: periodo.trim() || leitura.lote.periodo_referencia,
         };
-        const resultado = await api.processarLote(payload);
+        const resultado = await api.processarLote(payload, false, processarDeNovo);
         const itens = extrairItensCuradoria(resultado);
         const defaultDecisoes = {};
         itens.forEach(it => { defaultDecisoes[it.id] = 'p'; });
@@ -211,9 +225,14 @@ function initEventHandlers() {
           processadoEm: new Date().toISOString(),
           decisoes: defaultDecisoes,
           activeItem: itens[0] ? itens[0].id : null,
+          textosEditados: {},
+          autorizado: false,
+          alertas: {},
           activeTab: 'visao',
           isProcessing: false,
+          duplicado: null,
           exportResult: null,
+          exportErro: null,
         });
       } catch (err) {
         alert('Falha ao processar: ' + err.message);
@@ -248,8 +267,11 @@ function initEventHandlers() {
 
     // 6. Exportar Aprovados
     if (e.target.closest('#btn-exportar-aprovados')) {
-      const { resultado, decisoes, textosEditados, origem, periodo, autorizado } = store.getState();
+      const { resultado, decisoes, textosEditados, origem, periodo, autorizado, loteId, isExporting } = store.getState();
+      // Um clique por vez: o envio ao bucket leva alguns segundos.
+      if (isExporting) return;
       const payload = {
+        lote_id: loteId,
         resultado,
         origem_comunidade: origem,
         periodo_referencia: periodo,
@@ -258,11 +280,12 @@ function initEventHandlers() {
         textos: textosEditados,
         autorizado,
       };
+      store.setState({ isExporting: true, exportResult: null, exportErro: null });
       try {
         const res = await api.exportarAprovados(payload);
-        store.setState({ exportResult: res });
+        store.setState({ exportResult: res, isExporting: false });
       } catch (err) {
-        alert('Erro ao exportar: ' + err.message);
+        store.setState({ exportErro: err.message || 'Falha ao exportar.', isExporting: false });
       }
       return;
     }
@@ -452,6 +475,9 @@ function decidirAtivo(decisao) {
   store.setState({
     decisoes: nextDecisoes,
     activeItem: proximo || activeItem,
+    // A decisão mudou: a mensagem da exportação anterior deixa de valer.
+    exportResult: null,
+    exportErro: null,
   });
 
   if (loteId) {
@@ -464,6 +490,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.documentElement.setAttribute('data-theme', store.getState().theme);
   store.subscribe(renderApp);
   initEventHandlers();
+  initInsightsEvents();
 
   // 1. Verifica saúde da API e autenticação de admin
   try {

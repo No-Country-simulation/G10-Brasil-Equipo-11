@@ -138,7 +138,7 @@ def test_api_insights_sem_banco(monkeypatch):
     assert resposta.status_code == 200
     dados = resposta.json()
     assert dados["banco_configurado"] is False
-    assert "DATABASE_URL" in dados["mensagem"]
+    assert "COMMUNITYLAB_DB_MODE=oracle" in dados["mensagem"]
 
 
 def test_api_insights_demo_mode():

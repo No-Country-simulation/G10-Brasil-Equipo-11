@@ -110,3 +110,185 @@ def aproveitamento_ativos(ativos: pd.DataFrame) -> dict:
         "descartados": int((status == "descartado").sum()),
         "pendentes": int((status == "pendente").sum()),
     }
+
+
+# ---------------------------------------------------------------------------
+# Painel web: agregações prontas para os gráficos (JSON simples, sem DataFrame)
+# ---------------------------------------------------------------------------
+NOMES_TIPO_ATIVO = {"post_linkedin": "Post LinkedIn", "newsletter": "Newsletter", "faq": "FAQ"}
+ESTADOS_ALERTA = ("PENDENTE", "ENCAMINHADO", "RESOLVIDO")
+ANONIMOS = {"", "anônimo", "anonimo", "anonymous", "desconhecido"}
+LIMITE_DIAS_POR_DIA = 45  # a partir disso o eixo do tempo passa a ser por semana
+MAX_CANAIS_HEATMAP = 8
+
+
+def _datas(df: pd.DataFrame) -> pd.Series:
+    return pd.to_datetime(df["data"]).dt.normalize()
+
+
+def granularidade(df: pd.DataFrame) -> str:
+    if df.empty:
+        return "dia"
+    d = _datas(df)
+    return "dia" if (d.max() - d.min()).days < LIMITE_DIAS_POR_DIA else "semana"
+
+
+def _baldes(df: pd.DataFrame, grao: str) -> tuple[pd.Series, list[pd.Timestamp]]:
+    """Início do balde (dia ou segunda-feira da semana) de cada linha e a lista contínua de baldes,
+    incluindo os vazios, para o eixo do tempo não esconder dias sem mensagem."""
+    d = _datas(df)
+    if grao == "semana":
+        d = d - pd.to_timedelta(d.dt.weekday, unit="D")
+    passo = "7D" if grao == "semana" else "D"
+    return d, list(pd.date_range(d.min(), d.max(), freq=passo))
+
+
+def _rotulo(inicio: pd.Timestamp, grao: str) -> str:
+    return ("sem. " if grao == "semana" else "") + inicio.strftime("%d/%m")
+
+
+def resumo(df: pd.DataFrame, ativos: pd.DataFrame, alertas: list[dict]) -> dict:
+    total = len(df)
+    pos = int(df["sentimento"].isin(POSITIVOS).sum()) if total else 0
+    neg = int(df["sentimento"].isin(NEGATIVOS).sum()) if total else 0
+    status = ativos["status"] if len(ativos) else pd.Series(dtype=object)
+    gerados, aprovados = len(ativos), int((status == "aprovado").sum())
+    return {
+        "interacoes": total,
+        "lotes": int(df["lote_id"].nunique()) if total else 0,
+        "canais": int(df["canal"].nunique()) if total else 0,
+        "pct_positivas": round(100 * pos / total, 1) if total else 0.0,
+        "pct_negativas": round(100 * neg / total, 1) if total else 0.0,
+        "saldo": round(100 * (pos - neg) / total, 1) if total else 0.0,
+        "alertas_total": len(alertas),
+        "alertas_abertos": sum(1 for a in alertas if a.get("status") == "PENDENTE"),
+        "ativos_gerados": gerados,
+        "ativos_aprovados": aprovados,
+        "ativos_pendentes": int((status == "pendente").sum()),
+        "taxa_aprovacao": round(100 * aprovados / gerados, 1) if gerados else 0.0,
+    }
+
+
+def _contagens(serie: pd.Series) -> dict:
+    vc = serie.value_counts()
+    return {nivel: int(vc.get(nivel, 0)) for nivel in ESCALA_SENTIMENTO}
+
+
+def sentimento_no_tempo(df: pd.DataFrame) -> dict:
+    grao = granularidade(df)
+    if df.empty:
+        return {"granularidade": grao, "pontos": []}
+    baldes, eixo = _baldes(df, grao)
+    grupos = df.assign(_balde=baldes.values).groupby("_balde")["sentimento"]
+    por_balde = {k: _contagens(v) for k, v in grupos}
+    vazio = {nivel: 0 for nivel in ESCALA_SENTIMENTO}
+    pontos = []
+    for inicio in eixo:
+        c = por_balde.get(inicio, vazio)
+        pontos.append({"inicio": inicio.date().isoformat(), "rotulo": _rotulo(inicio, grao),
+                       "total": sum(c.values()), "contagens": c})
+    return {"granularidade": grao, "pontos": pontos}
+
+
+def canais_sentimento(df: pd.DataFrame) -> list[dict]:
+    """Por canal: contagens e % de cada nível e o saldo (positivas menos negativas). Do mais crítico ao melhor."""
+    if df.empty:
+        return []
+    linhas = []
+    for canal, grupo in df.groupby("canal"):
+        c = _contagens(grupo["sentimento"])
+        total = len(grupo)
+        pct = {k: round(100 * v / total, 1) for k, v in c.items()}
+        saldo = round(pct["Positivo"] + pct["Altamente Positivo"] - pct["Negativo"] - pct["Altamente Negativo"], 1)
+        linhas.append({"canal": canal, "total": total, "contagens": c, "percentuais": pct, "saldo": saldo})
+    return sorted(linhas, key=lambda x: (x["saldo"], -x["total"], x["canal"]))
+
+
+def topicos_tom(df: pd.DataFrame, n: int = 10) -> list[dict]:
+    """Os tópicos mais falados com a divisão negativas / neutras / positivas de cada um."""
+    if df.empty:
+        return []
+    linhas = []
+    for topico, grupo in df.groupby("topico"):
+        s = grupo["sentimento"]
+        linhas.append({"topico": topico, "total": len(grupo),
+                       "negativos": int(s.isin(NEGATIVOS).sum()),
+                       "neutros": int((s == "Neutro").sum()),
+                       "positivos": int(s.isin(POSITIVOS).sum())})
+    return sorted(linhas, key=lambda x: (-x["total"], x["topico"]))[:n]
+
+
+def atividade_canal_tempo(df: pd.DataFrame) -> dict:
+    """Mensagens por canal em cada dia (ou semana). Canais além do limite somam em "Outros"."""
+    grao = granularidade(df)
+    if df.empty:
+        return {"granularidade": grao, "colunas": [], "linhas": [], "maximo": 0}
+    baldes, eixo = _baldes(df, grao)
+    d = df.assign(_balde=baldes.values)
+    ordem = d["canal"].value_counts()
+    excede = len(ordem) > MAX_CANAIS_HEATMAP
+    principais = list(ordem.index[:MAX_CANAIS_HEATMAP - 1]) if excede else list(ordem.index)
+    d["_canal"] = d["canal"].where(d["canal"].isin(principais), "Outros")
+    tabela = d.groupby(["_canal", "_balde"]).size()
+    nomes = principais + (["Outros"] if excede else [])
+    linhas = []
+    for nome in nomes:
+        valores = [int(tabela.get((nome, b), 0)) for b in eixo]
+        linhas.append({"canal": nome, "total": sum(valores), "valores": valores})
+    return {
+        "granularidade": grao,
+        "colunas": [{"inicio": b.date().isoformat(), "rotulo": _rotulo(b, grao)} for b in eixo],
+        "linhas": linhas,
+        "maximo": max((v for linha in linhas for v in linha["valores"]), default=0),
+    }
+
+
+def aproveitamento_por_tipo(ativos: pd.DataFrame) -> list[dict]:
+    if ativos.empty:
+        return []
+    a = ativos.assign(_tipo=ativos["tipo"].astype(str).str.lower())
+    linhas = []
+    for tipo, nome in NOMES_TIPO_ATIVO.items():
+        grupo = a[a["_tipo"] == tipo]
+        if grupo.empty:
+            continue
+        status = grupo["status"]
+        linhas.append({"tipo": tipo, "nome": nome, "total": len(grupo),
+                       "aprovados": int((status == "aprovado").sum()),
+                       "pendentes": int((status == "pendente").sum()),
+                       "descartados": int((status == "descartado").sum())})
+    return linhas
+
+
+def alertas_triagem(alertas: list[dict], limite: int = 8) -> dict:
+    """Quantos alertas há em cada estado e os abertos mais antigos (a fila de cuidado)."""
+    contagem = {estado: sum(1 for a in alertas if a.get("status") == estado) for estado in ESTADOS_ALERTA}
+    abertos = sorted((a for a in alertas if a.get("status") == "PENDENTE"),
+                     key=lambda a: (str(a.get("data") or ""), str(a.get("criado_em") or "")))
+    return {
+        "total": len(alertas),
+        "por_estado": contagem,
+        "abertos": [{
+            "lote_id": a.get("lote_id"),
+            "data": str(a.get("data"))[:10] if a.get("data") else None,
+            "canal": a.get("canal"),
+            "autor": a.get("autor"),
+            "motivo": (a.get("motivo") or "")[:180],
+        } for a in abertos[:limite]],
+        "abertos_restantes": max(0, len(abertos) - limite),
+    }
+
+
+def membros_engajados(df: pd.DataFrame, n: int = 8) -> list[dict]:
+    """Quem mais escreveu no período, com quantas mensagens positivas, negativas e cases de sucesso."""
+    if df.empty or "autor" not in df.columns:
+        return []
+    d = df[~df["autor"].fillna("").astype(str).str.strip().str.lower().isin(ANONIMOS)]
+    linhas = []
+    for autor, grupo in d.groupby("autor"):
+        s = grupo["sentimento"]
+        linhas.append({"autor": autor, "total": len(grupo),
+                       "positivos": int(s.isin(POSITIVOS).sum()),
+                       "negativos": int(s.isin(NEGATIVOS).sum()),
+                       "cases": int((grupo["rota"] == "case_sucesso").sum())})
+    return sorted(linhas, key=lambda x: (-x["total"], -x["positivos"], x["autor"]))[:n]

@@ -34,6 +34,10 @@ export class Store {
       alertas: {},
       filtroRota: 'Todas',
       isProcessing: false,
+      duplicado: null,
+      isExporting: false,
+      exportResult: null,
+      exportErro: null,
       aviso: null,
       publicView: 'landing',
       saudeInfo: null,
@@ -45,7 +49,8 @@ export class Store {
       insightsData: null,
       insightsCarregando: false,
       insightsModoDemo: false,
-      insightsFiltros: { modo: 'mock', inicio: '', fim: '', comunidade: '', canal: '' },
+      insightsErro: null,
+      insightsFiltros: null, // definidos na primeira abertura (insights-controller.js)
       ...initialState,
     };
     this.listeners = new Set();
@@ -69,6 +74,8 @@ export class Store {
       autorizado: false,
       alertas: {},
       exportResult: null,
+      exportErro: null,
+      isExporting: false,
     });
   }
 

@@ -7,7 +7,12 @@ import { renderDropzone } from '../organisms/dropzone.js';
 import { store } from '../store.js';
 
 export function renderImportView() {
-  const { leitura, fonte, canal, mes, ano, fontesData, isProcessing } = store.getState();
+  const { leitura, fonte, canal, mes, ano, fontesData, isProcessing, duplicado } = store.getState();
+  // O aviso só vale para o arquivo em que foi dado.
+  const repetido = duplicado && leitura && duplicado.lote === leitura.lote ? duplicado : null;
+  const quando = repetido && repetido.processado_em
+    ? new Date(repetido.processado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : null;
   const pronto = Boolean(leitura && fonte && canal);
   const total = leitura ? leitura.total : 0;
   const rotulo = isProcessing
@@ -81,7 +86,16 @@ export function renderImportView() {
               O pacote será salvo em <code>ativos/${periodoFmt}/</code>
             </div>
 
-            ${renderButton({
+            ${repetido ? `
+              <div id="aviso-duplicado" style="border:1px solid var(--accent-amber); background:var(--accent-amber-bg); border-radius:var(--radius-md); padding:12px 14px; margin-bottom:12px; font-size:13px; line-height:1.5; color:var(--text);">
+                <strong>Este conteúdo já foi processado${quando ? ` em ${esc(quando)}` : ''}.</strong><br>
+                ${esc(String(repetido.total))} interações · ${esc(repetido.origem || '')} · ${esc(repetido.periodo || '')}
+                <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+                  ${renderButton({ id: 'btn-abrir-existente', text: 'Abrir resultado existente', variant: 'primary', disabled: isProcessing })}
+                  ${renderButton({ id: 'btn-processar-de-novo', text: isProcessing ? 'Processando com IA...' : 'Processar de novo', variant: 'secondary', disabled: isProcessing })}
+                </div>
+              </div>
+            ` : renderButton({
               id: 'btn-processar-lote',
               text: rotulo,
               variant: 'primary',

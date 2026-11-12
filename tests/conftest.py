@@ -37,6 +37,19 @@ def banco_desligado(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def oracle_desligado(request, monkeypatch):
+    """Sem o marcador `real`, nenhum teste enxerga o Oracle nem o bucket da OCI.
+
+    O `.env` da máquina pode apontar para o banco de verdade (COMMUNITYLAB_DB_MODE=oracle);
+    sem isto, a suíte gravaria lotes de teste nele.
+    """
+    if request.node.get_closest_marker("real") is None:
+        monkeypatch.setenv("COMMUNITYLAB_DB_MODE", "disabled")
+        monkeypatch.setenv("OCI_STORAGE_MODE", "local")
+        monkeypatch.setenv("APP_ENV", "development")
+
+
+@pytest.fixture(autouse=True)
 def admin_desligado(request, monkeypatch):
     """Isola os testes que não pedem admin explicitamente."""
     if "admin" not in request.fixturenames and request.node.get_closest_marker("auth") is None:

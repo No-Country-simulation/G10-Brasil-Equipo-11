@@ -1,0 +1,29 @@
+# Sobe o Sender AI na VPS:  docker compose up -d --build
+#
+# Na pasta do projeto, ao lado deste arquivo, devem existir (fora do git):
+#   .env              variáveis do app (copie do seu .env local)
+#   wallet/           wallet do Oracle Autonomous DB, descompactada
+#   oci/config        config da OCI com key_file=/app/oci/<sua-chave>.pem
+#   oci/<sua-chave>.pem
+# Passo a passo em docs/deploy-vps.md.
+services:
+  sender-ai:
+    build: .
+    image: sender-ai:latest
+    container_name: sender-ai
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Caminhos de dentro do container (sobrepõem os do .env, que são da sua máquina)
+      COMMUNITYLAB_DB_CONFIG_DIR: /app/wallet
+      COMMUNITYLAB_DB_WALLET_LOCATION: /app/wallet
+      OCI_CONFIG_FILE: /app/oci/config
+      # Histórico antigo (Supabase local) não existe no servidor
+      DATABASE_URL: ""
+    volumes:
+      - ./wallet:/app/wallet:ro
+      - ./oci:/app/oci:ro
+    ports:
+      # Só localhost: o proxy da VPS (nginx/Caddy/Traefik) publica com HTTPS.
+      # Sem proxy, troque por "8000:8000" (sem HTTPS, só para testes).
+      - "127.0.0.1:${PORTA:-8000}:8000"

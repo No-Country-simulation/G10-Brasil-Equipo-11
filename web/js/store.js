@@ -36,6 +36,7 @@ export class Store {
       isProcessing: false,
       duplicado: null,
       isExporting: false,
+      baixando: null,
       exportResult: null,
       exportErro: null,
       aviso: null,

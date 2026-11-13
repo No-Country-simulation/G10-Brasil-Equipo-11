@@ -267,25 +267,34 @@ function initEventHandlers() {
 
     // 6. Exportar Aprovados
     if (e.target.closest('#btn-exportar-aprovados')) {
-      const { resultado, decisoes, textosEditados, origem, periodo, autorizado, loteId, isExporting } = store.getState();
       // Um clique por vez: o envio ao bucket leva alguns segundos.
-      if (isExporting) return;
-      const payload = {
-        lote_id: loteId,
-        resultado,
-        origem_comunidade: origem,
-        periodo_referencia: periodo,
-        aprovado_em: new Date().toISOString(),
-        decisoes,
-        textos: textosEditados,
-        autorizado,
-      };
+      if (store.getState().isExporting) return;
+      salvarTextosAtivos();
+      const payload = montarPacoteDeAprovados();
       store.setState({ isExporting: true, exportResult: null, exportErro: null });
       try {
         const res = await api.exportarAprovados(payload);
         store.setState({ exportResult: res, isExporting: false });
       } catch (err) {
         store.setState({ exportErro: err.message || 'Falha ao exportar.', isExporting: false });
+      }
+      return;
+    }
+
+    // 6b. Baixar os aprovados para o computador (PDF, CSV ou JSON)
+    const btnBaixar = e.target.closest('.btn-baixar-aprovados');
+    if (btnBaixar) {
+      if (store.getState().baixando) return;
+      const formato = btnBaixar.dataset.formato;
+      salvarTextosAtivos();
+      store.setState({ baixando: formato });
+      try {
+        const { blob, nome } = await api.baixarAprovados(montarPacoteDeAprovados(), formato);
+        salvarNoComputador(blob, nome);
+      } catch (err) {
+        alert('Não foi possível baixar: ' + (err.message || 'falha ao gerar o arquivo.'));
+      } finally {
+        store.setState({ baixando: null });
       }
       return;
     }
@@ -337,6 +346,8 @@ function initEventHandlers() {
       store.setState({ periodo: e.target.value });
     }
     if (e.target.id === 'chk_autorizado') {
+      // Guarda antes o texto que a pessoa já editou: marcar a caixa redesenha a tela.
+      salvarTextosAtivos();
       store.setState({ autorizado: e.target.checked });
     }
   });
@@ -464,6 +475,33 @@ async function importarArquivo(file) {
   } catch (err) {
     alert(`Não foi possível ler "${file.name}": ${err.message}`);
   }
+}
+
+// O que a exportação e o download enviam ao backend: o lote na tela, as decisões e os textos editados.
+function montarPacoteDeAprovados() {
+  const { resultado, decisoes, textosEditados, origem, periodo, autorizado, loteId } = store.getState();
+  return {
+    lote_id: loteId,
+    resultado,
+    origem_comunidade: origem,
+    periodo_referencia: periodo,
+    aprovado_em: new Date().toISOString(),
+    decisoes,
+    textos: textosEditados,
+    autorizado,
+  };
+}
+
+// Entrega o arquivo ao navegador, que salva na pasta de downloads da pessoa.
+function salvarNoComputador(blob, nome) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = nome;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function salvarTextosAtivos() {

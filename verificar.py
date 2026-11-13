@@ -119,7 +119,7 @@ def etapa_python():
 
 def etapa_dependencias():
     faltando = []
-    for modulo in ("fastapi", "uvicorn", "langgraph", "pydantic", "streamlit", "pandas", "dotenv", "pytest"):
+    for modulo in ("fastapi", "uvicorn", "langgraph", "pydantic", "streamlit", "pandas", "dotenv", "pytest", "reportlab"):
         try:
             __import__(modulo)
         except ImportError:

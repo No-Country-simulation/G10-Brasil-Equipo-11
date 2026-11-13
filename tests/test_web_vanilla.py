@@ -379,3 +379,84 @@ def test_tela_importar_usa_o_backend_para_ler_o_arquivo_e_trata_o_soltar():
     assert "addEventListener('drop'" in app_js and "addEventListener('dragover'" in app_js
     assert "JSON.parse(evt.target.result)" not in app_js  # leitura antiga, que recusava CSV
     assert "/api/importar/arquivo" in cliente.get("/js/api.js").text
+
+
+# ---------------------------------------------------------------------------
+# Curadoria: baixar os aprovados em PDF, CSV ou JSON
+# ---------------------------------------------------------------------------
+def _pedido_de_download(autorizado=True, decisoes=None):
+    lote = json.loads(cliente.get("/api/exemplo").text)
+    resultado = cliente.post("/processar", json=lote).json()
+    faqs = len(resultado["ativos_distribuicao_gerados"]["sugestao_conteudo_faq"])
+    if decisoes is None:
+        decisoes = {"post": "a", "newsletter": "a", **{f"faq_{i}": "a" for i in range(faqs)}}
+    return {
+        "resultado": resultado, "origem_comunidade": "Discord_Grupo_ONE_G10", "periodo_referencia": "2026-11",
+        "decisoes": decisoes, "autorizado": autorizado,
+        "textos": {"post_copy": "Texto editado pela curadoria: ação, coração — “aspas” 🚀", "faq_0_conteudo": "=SOMA(A1:A9)"},
+    }, faqs
+
+
+def test_baixar_aprovados_em_csv_abre_no_excel_e_neutraliza_formulas():
+    import csv, io
+    pedido, faqs = _pedido_de_download()
+    resposta = cliente.post("/api/curadoria/baixar?formato=csv", json=pedido)
+    assert resposta.status_code == 200, resposta.text
+    assert resposta.headers["content-type"].startswith("text/csv")
+    assert 'filename="aprovados_2026-11.csv"' in resposta.headers["content-disposition"]
+    assert resposta.content.startswith(b"\xef\xbb\xbf")  # BOM: o Excel reconhece os acentos
+    linhas = list(csv.DictReader(io.StringIO(resposta.content.decode("utf-8-sig")), delimiter=";"))
+    assert [l["tipo"] for l in linhas] == ["Post LinkedIn", "Newsletter"] + ["FAQ"] * faqs
+    assert linhas[0]["conteudo"].startswith("Texto editado pela curadoria: ação")
+    assert linhas[0]["autorizacao_do_membro"] == "sim"
+    assert linhas[2]["conteudo"] == "'=SOMA(A1:A9)"  # não vira fórmula na planilha
+
+
+def test_baixar_aprovados_em_pdf_devolve_um_pdf():
+    from app.exportacao_arquivos import _texto_pdf
+    pedido, _ = _pedido_de_download()
+    resposta = cliente.post("/api/curadoria/baixar?formato=pdf", json=pedido)
+    assert resposta.status_code == 200, resposta.text
+    assert resposta.headers["content-type"] == "application/pdf"
+    assert 'filename="aprovados_2026-11.pdf"' in resposta.headers["content-disposition"]
+    assert resposta.content.startswith(b"%PDF") and len(resposta.content) > 1500
+    # Acentos e aspas ficam; emoji sai (as fontes padrão do PDF não têm); < e & não quebram o PDF.
+    assert _texto_pdf("ação — “ok” 🚀 <b> & fim\nlinha") == "ação — “ok” &lt;b&gt; &amp; fim<br/>linha"
+
+
+def test_baixar_aprovados_em_pdf_tem_os_textos_com_acentos():
+    PdfReader = pytest.importorskip("pypdf").PdfReader  # só confere o texto se o leitor de PDF estiver instalado
+    import io
+    pedido, faqs = _pedido_de_download()
+    resposta = cliente.post("/api/curadoria/baixar?formato=pdf", json=pedido)
+    assert resposta.status_code == 200, resposta.text
+    texto = " ".join(pagina.extract_text() for pagina in PdfReader(io.BytesIO(resposta.content)).pages)
+    for trecho in ("Conteúdos aprovados", "2026-11", "ação, coração", "Autorização do membro: sim", f"FAQ {faqs}"):
+        assert trecho in texto, trecho
+
+
+def test_baixar_aprovados_em_json_traz_so_o_que_foi_aprovado():
+    pedido, _ = _pedido_de_download(decisoes={"newsletter": "a", "faq_0": "d", "post": "p"})
+    resposta = cliente.post("/api/curadoria/baixar?formato=json", json=pedido)
+    assert resposta.status_code == 200, resposta.text
+    pacote = resposta.json()
+    assert pacote["post_linkedin"] is None and pacote["sugestao_conteudo_faq"] == []
+    assert pacote["destaque_newsletter_semanal"]["chamada"]
+    assert pacote["descartados"] == ["faq_0"]
+
+
+def test_baixar_aprovados_respeita_as_regras_da_exportacao(monkeypatch):
+    pedido, _ = _pedido_de_download(autorizado=False)
+    sem_autorizacao = cliente.post("/api/curadoria/baixar?formato=pdf", json=pedido)
+    assert sem_autorizacao.status_code == 422 and "autorização do membro" in sem_autorizacao.json()["detail"]
+
+    nada, _ = _pedido_de_download(decisoes={})
+    assert cliente.post("/api/curadoria/baixar?formato=csv", json=nada).status_code == 422
+
+    pedido["autorizado"] = True
+    assert cliente.post("/api/curadoria/baixar?formato=docx", json=pedido).status_code == 400
+    assert cliente.post("/api/curadoria/baixar?formato=pdf", json={**pedido, "periodo_referencia": "../../fora"}).status_code == 400
+
+    monkeypatch.setenv("ADMIN_USUARIO", "admin")
+    monkeypatch.setenv("ADMIN_SENHA", "senha_forte")
+    assert TestClient(app).post("/api/curadoria/baixar?formato=pdf", json=pedido).status_code == 401

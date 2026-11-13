@@ -515,6 +515,49 @@ def exportar_aprovados(dados: ExportarCuradoriaRequisicao):
     return {"status": "ok", "caminho": str(destino)}
 
 
+@router.post("/api/curadoria/baixar", dependencies=[Depends(exigir_admin)])
+def baixar_aprovados(dados: ExportarCuradoriaRequisicao, formato: str = "pdf"):
+    """Devolve os aprovados que estão na tela como arquivo para download: pdf, csv ou json.
+
+    Usa as mesmas regras da exportação (período válido, post só com a autorização do membro)
+    e não grava nada no servidor.
+    """
+    from app import exportacao_arquivos as arquivos
+    from ui import curadoria as cur
+
+    formato = formato.strip().lower()
+    if formato not in arquivos.FORMATOS:
+        raise HTTPException(400, "Formato não suportado. Use pdf, csv ou json.")
+    periodo = dados.periodo_referencia.strip()
+    if not re.fullmatch(r"^[a-zA-Z0-9_\-]+$", periodo):
+        raise HTTPException(400, f"Período de referência inválido: '{periodo}'. Caracteres inválidos detectados.")
+    if not dados.resultado:
+        raise HTTPException(422, "Processe ou abra um lote antes de baixar os aprovados.")
+
+    try:
+        pacote = cur.montar_aprovados(
+            resultado=dados.resultado,
+            decisoes=dados.decisoes,
+            textos=dados.textos,
+            origem=dados.origem_comunidade,
+            periodo=periodo,
+            autorizado=dados.autorizado,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except (KeyError, TypeError) as exc:
+        raise HTTPException(422, "O resultado enviado não tem o formato esperado.") from exc
+
+    if arquivos.total_de_ativos(pacote) == 0:
+        raise HTTPException(422, "Nenhum conteúdo aprovado para baixar.")
+
+    return Response(
+        content=arquivos.gerar(pacote, formato),
+        media_type=arquivos.FORMATOS[formato],
+        headers={"Content-Disposition": f'attachment; filename="{arquivos.nome_do_arquivo(pacote, formato)}"'},
+    )
+
+
 @router.post("/api/curadoria/decidir", dependencies=[Depends(exigir_admin)])
 def salvar_decisao_curadoria(req: DecisaoRequisicao):
     from app import repositorio

@@ -22,7 +22,9 @@ function renderExportStatus(exportResult, exportErro) {
       </div>`;
   }
   if (!exportResult) return '';
-  const caminho = `<code style="word-break:break-all;">${esc(exportResult.caminho || '')}</code>`;
+  // Mostra o caminho a partir de saida_local/: o resto é a pasta interna do servidor.
+  const local = String(exportResult.caminho || '').replace(/^.*[\\/](saida_local[\\/])/, '$1');
+  const caminho = `<code style="word-break:break-all;">${esc(local)}</code>`;
   if (exportResult.ja_exportado) {
     const quando = dataHora(exportResult.exportado_em);
     return `
@@ -33,12 +35,34 @@ function renderExportStatus(exportResult, exportErro) {
   }
   return `
     <div role="status" style="margin-top:8px; font-size:12px; line-height:1.45; color:var(--text); border:1px solid var(--accent-lime); background:var(--accent-lime-bg); border-radius:var(--radius-md); padding:8px 10px;">
-      <strong>✓ Exportado.</strong> ${caminho}
+      <strong>✓ Exportado e guardado no servidor.</strong> ${caminho}<br>
+      Para ter o arquivo no seu computador, use <strong>Baixar</strong> logo abaixo.
+    </div>`;
+}
+
+// Botões de download: o arquivo vai para a pasta de downloads do navegador de quem está usando.
+function renderBaixar(aprovados, baixando) {
+  const formatos = [['pdf', 'PDF'], ['csv', 'CSV'], ['json', 'JSON']];
+  const desligado = aprovados === 0 || Boolean(baixando);
+  return `
+    <div style="margin-top:10px;">
+      <div style="font-size:11px; color:var(--muted); text-transform:uppercase; margin-bottom:6px;">Baixar aprovados</div>
+      <div style="display:flex; gap:6px;">
+        ${formatos.map(([formato, rotulo]) => `
+          <button class="cl-btn cl-btn-secondary btn-baixar-aprovados" data-formato="${formato}" ${desligado ? 'disabled' : ''}
+            title="Baixar os conteúdos aprovados em ${rotulo}"
+            style="flex:1; padding:8px 6px; border-radius:var(--radius-md); font-size:13px; font-weight:600;
+              background:var(--bg-surface-2); color:var(--text); border:1px solid var(--line);
+              cursor:${desligado ? 'not-allowed' : 'pointer'}; opacity:${desligado ? '0.45' : '1'};">
+            ${baixando === formato ? 'Gerando…' : `↓ ${rotulo}`}
+          </button>`).join('')}
+      </div>
+      ${aprovados === 0 ? '<div style="font-size:11px; color:var(--dim); margin-top:6px;">Aprove ao menos um conteúdo para baixar.</div>' : ''}
     </div>`;
 }
 
 export function renderCurationQueue(items = []) {
-  const { decisoes, activeItem, exportResult, exportErro, isExporting } = store.getState();
+  const { decisoes, activeItem, exportResult, exportErro, isExporting, baixando } = store.getState();
   const valores = Object.values(decisoes);
   const total = items.length;
   const aprovados = valores.filter(v => v === 'a').length;
@@ -82,6 +106,7 @@ export function renderCurationQueue(items = []) {
           fullWidth: true,
         })}
         ${renderExportStatus(exportResult, exportErro)}
+        ${renderBaixar(aprovados, baixando)}
       </div>
     </div>
   `.trim();

@@ -94,6 +94,18 @@ export const api = {
     return res.json();
   },
 
+  // Pede ao backend o arquivo dos aprovados (pdf, csv ou json) e devolve o conteúdo e o nome sugerido.
+  async baixarAprovados(pacote, formato) {
+    const res = await fetch(`/api/curadoria/baixar?formato=${encodeURIComponent(formato)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(pacote),
+    });
+    if (!res.ok) throw new Error(await mensagemDeErro(res, 'Falha ao gerar o arquivo.'));
+    const nome = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1];
+    return { blob: await res.blob(), nome: nome || `aprovados.${formato}` };
+  },
+
   async salvarDecisao(loteId, chave, decisao, textos = {}, autorizacao = false) {
     const res = await fetch('/api/curadoria/decidir', {
       method: 'POST',

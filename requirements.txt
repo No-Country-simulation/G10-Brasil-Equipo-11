@@ -12,3 +12,4 @@ httpx>=0.27
 python-multipart>=0.0.9
 psycopg[binary]>=3.2
 oracledb>=2.5
+reportlab>=4.0

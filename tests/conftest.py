@@ -1,6 +1,6 @@
 """Configuração compartilhada dos testes.
 
-Marcador "real": testes que chamam o Gemini, o OCI ou o Supabase de verdade.
+Marcador "real": testes que chamam o Claude, o OCI ou o Supabase de verdade.
 Eles são pulados automaticamente quando as credenciais não existem.
 
 Os demais testes nunca enxergam o banco: a fixture autouse `banco_desligado`
@@ -25,7 +25,7 @@ RAIZ = Path(__file__).resolve().parent.parent
 def pytest_configure(config):
     config.addinivalue_line(
         "markers",
-        "real: chama serviços externos (Gemini, OCI ou Supabase); pulado sem credenciais",
+        "real: chama serviços externos (Claude, OCI ou Supabase); pulado sem credenciais",
     )
 
 

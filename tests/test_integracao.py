@@ -11,7 +11,7 @@ Organização:
   4. Acentos e emojis preservados do começo ao fim
   5. Importação de CSV pelo adaptador (o painel tem testes próprios em tests/test_painel.py)
   6. Garantias de compatibilidade CSV (Excel pt-BR ';', Windows-1252 e upload na API)
-  7. Serviços reais (Gemini e OCI): pulados sem credenciais
+  7. Serviços reais (Claude e OCI): pulados sem credenciais
 
 Rode da raiz do projeto com:  python -m pytest tests/test_integracao.py -v
 """
@@ -248,17 +248,17 @@ def test_api_aceita_upload_de_csv():
 def _config_real() -> dict:
     """Junta o .env da raiz com as variáveis do terminal (o terminal tem prioridade)."""
     arquivo = {k: v for k, v in dotenv_values(RAIZ / ".env").items() if v}
-    terminal = {k: v for k, v in os.environ.items() if k.startswith(("GEMINI_", "OCI_")) and v}
+    terminal = {k: v for k, v in os.environ.items() if k.startswith(("ANTHROPIC_", "CLAUDE_", "LLM_", "OCI_")) and v}
     return {**arquivo, **terminal}
 
 
 @pytest.fixture
-def gemini_real(monkeypatch):
+def claude_real(monkeypatch):
     cfg = _config_real()
-    if not cfg.get("GEMINI_API_KEY"):
-        pytest.skip("GEMINI_API_KEY não configurada no .env")
+    if not cfg.get("ANTHROPIC_API_KEY"):
+        pytest.skip("ANTHROPIC_API_KEY não configurada no .env")
     if dotenv_values(RAIZ / ".env").get("LLM_MODO", "").lower() == "mock":
-        pytest.skip("O .env tem LLM_MODO=mock. Apague essa linha para testar o Gemini.")
+        pytest.skip("O .env tem LLM_MODO=mock. Apague essa linha para testar o Claude.")
     for chave, valor in cfg.items():
         monkeypatch.setenv(chave, valor)
     monkeypatch.delenv("LLM_MODO", raising=False)
@@ -267,7 +267,7 @@ def gemini_real(monkeypatch):
 
 
 @pytest.mark.real
-def test_gemini_real_respeita_contrato(gemini_real):
+def test_claude_real_respeita_contrato(claude_real):
     """O ponto mais frágil com o LLM real: ele precisa devolver JSON no formato combinado."""
     entrada = lote(
         ("Ana Teste", "#vagas", "depoimento", "Fui contratada como analista de dados júnior graças ao projeto do curso!"),
@@ -282,7 +282,7 @@ def test_gemini_real_respeita_contrato(gemini_real):
     RespostaProcessamento(**corpo)
 
     rotas = [a["rota"] for a in corpo["analises"]]
-    print("\nRotas decididas pelo Gemini:", rotas)
+    print("\nRotas decididas pelo Claude:", rotas)
     assert rotas[1] == "faq"
     assert rotas[2] == "alerta"
     assert corpo["analises"][0]["sentimento"] in ("Altamente Positivo", "Positivo")

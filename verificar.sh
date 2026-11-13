@@ -3,7 +3,7 @@
 #
 # Uso, na pasta raiz do projeto:
 #   bash verificar.sh          # modo simulado
-#   bash verificar.sh --real   # Gemini e OCI do .env
+#   bash verificar.sh --real   # Claude e OCI do .env
 set -euo pipefail
 cd "$(dirname "$0")"
 

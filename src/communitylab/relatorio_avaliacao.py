@@ -20,7 +20,8 @@ _ROTULOS = {
     "alerta": "Alerta",
     "nenhuma": "Nenhuma",
     "mock": "Mock · simulação por regras",
-    "gemini": "Gemini · execução via provedor",
+    "gemini": "Modo real · execução via provedor (Gemini ou Claude)",
+    "claude": "Claude · execução via provedor",
     "arquivo": "Arquivo · previsões importadas",
     "avaliacao_local": "Classificador fornecido",
     "tipo_oculto": "Tipo oculto · sem rótulo de entrada",
@@ -501,7 +502,7 @@ def renderizar_html(resultado: dict) -> str:
     )
     total_referencia = resultado["recortes"].get("referencia", {}).get("cobertura", {}).get("total")
     contexto_modo = {
-        "mock": "Modo mock: o classificador usa regras locais. Estes resultados não medem a qualidade do Gemini.",
+        "mock": "Modo mock: o classificador usa regras locais. Estes resultados não medem a qualidade do Claude.",
         "arquivo": "Previsões importadas: a identificação do modelo é declarada no arquivo de origem e não é verificada por este relatório.",
     }.get(metadados["modo"], "")
     if metadados["cenario"] == "tipo_informado":

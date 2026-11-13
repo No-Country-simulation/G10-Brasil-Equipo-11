@@ -24,8 +24,8 @@ from communitylab.avaliacao import (  # noqa: E402
 @contextmanager
 def configurar_modo(modo):
     anterior = os.environ.get("LLM_MODO")
-    if modo == "gemini" and not os.environ.get("GEMINI_API_KEY", "").strip():
-        raise ValueError("Gemini exige GEMINI_API_KEY. Nenhuma chamada foi realizada; use --modo mock para simulação.")
+    if modo == "claude" and not os.environ.get("ANTHROPIC_API_KEY", "").strip():
+        raise ValueError("Claude exige ANTHROPIC_API_KEY. Nenhuma chamada foi realizada; use --modo mock para simulação.")
     os.environ["LLM_MODO"] = modo
     try:
         yield
@@ -40,7 +40,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Avaliação de classificações do Sender AI. Padrão: mock local, sem credenciais.")
     parser.add_argument("--base", type=Path, default=RAIZ / "data/avaliacao_classificacoes.json")
     parser.add_argument("--cenario", choices=CENARIOS, default="tipo_oculto")
-    parser.add_argument("--modo", choices=("mock", "gemini", "arquivo"), default="mock", help="gemini envia os textos ao provedor e usa a cota configurada; arquivo avalia previsões existentes")
+    parser.add_argument("--modo", choices=("mock", "claude", "arquivo"), default="mock", help="claude envia os textos ao provedor e usa a cota configurada; arquivo avalia previsões existentes")
     parser.add_argument("--previsoes", type=Path, help="JSON identificado por IDs; obrigatório em modo arquivo")
     parser.add_argument("--saida", type=Path, default=RAIZ / "data/output/avaliacao", help="Pasta base; cria subpasta com modo e cenário")
     parser.add_argument("--exigir-metas", action="store_true", help="Retorna código 1 se alguma meta não for atendida; consulte o status de revisão dos critérios; não aprova produção")
@@ -61,7 +61,7 @@ def main(argv=None):
                          "src/communitylab/avaliacao.py", "src/communitylab/relatorio_avaliacao.py",
                          "scripts/avaliar_classificacoes.py",
                      )}}
-        if args.modo == "gemini":
+        if args.modo == "claude":
             metadados["inicio_execucao_utc"] = datetime.now(timezone.utc).isoformat()
 
         if args.modo == "arquivo":
@@ -81,18 +81,18 @@ def main(argv=None):
 
             resultado = avaliar(base, classificador, cenario=args.cenario, metadados=metadados)
         else:
-            if args.modo == "gemini":
+            if args.modo == "claude":
                 ia.FALHAS.clear()
 
             with configurar_modo(args.modo):
                 resultado = avaliar(base, ia.classificar, cenario=args.cenario, metadados=metadados)
 
-            if args.modo == "gemini":
-                falhas_gemini = list(ia.FALHAS)
-                resultado["metadados"]["fallback_gemini"] = {
-                    "quantidade": len(falhas_gemini),
-                    "detalhes": falhas_gemini,
-                    "avaliacao_exclusivamente_gemini": len(falhas_gemini) == 0,
+            if args.modo == "claude":
+                falhas_llm = list(ia.FALHAS)
+                resultado["metadados"]["fallback_llm"] = {
+                    "quantidade": len(falhas_llm),
+                    "detalhes": falhas_llm,
+                    "avaliacao_exclusivamente_llm": len(falhas_llm) == 0,
                 }
         destino = args.saida / f"{args.modo}_{args.cenario}"
         # Não permitir que uma pasta de saída substitua a própria base/previsões.
@@ -113,10 +113,10 @@ def main(argv=None):
         if cobertura["falhas"]:
             return 1
 
-        if args.modo == "gemini" and ia.FALHAS:
+        if args.modo == "claude" and ia.FALHAS:
             print(
                 f"ATENÇÃO: {len(ia.FALHAS)} fallback(s) para mock. "
-                "Esta execução não é válida como avaliação exclusivamente Gemini."
+                "Esta execução não é válida como avaliação exclusivamente Claude."
             )
             return 1
 

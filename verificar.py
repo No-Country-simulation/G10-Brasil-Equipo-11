@@ -7,7 +7,7 @@ Normalmente é chamado por verificar.ps1 (Windows) ou verificar.sh (Linux/Mac),
 que antes criam o ambiente virtual e instalam as dependências.
 
     python verificar.py           # tudo em modo simulado (não gasta cota, não sobe nada para a nuvem)
-    python verificar.py --real    # usa o Gemini e o OCI configurados no .env
+    python verificar.py --real    # usa o Claude e o OCI configurados no .env
 
 O relatório também é salvo em saida_local/relatorio_verificacao.txt.
 """
@@ -144,16 +144,16 @@ def etapa_env():
 
     from dotenv import dotenv_values
     cfg = dotenv_values(env)
-    tem_chave = bool(cfg.get("GEMINI_API_KEY"))
+    tem_chave = bool(cfg.get("ANTHROPIC_API_KEY"))
     mock_no_env = (cfg.get("LLM_MODO") or "").lower() == "mock"
     if not REAL:
-        registrar("Modo desta verificação", "OK", "simulado (use --real para Gemini e OCI)")
+        registrar("Modo desta verificação", "OK", "simulado (use --real para Claude e OCI)")
     elif not tem_chave:
-        registrar("Modo desta verificação", "FALHOU", "--real pedido, mas GEMINI_API_KEY está vazia no .env")
+        registrar("Modo desta verificação", "FALHOU", "--real pedido, mas ANTHROPIC_API_KEY está vazia no .env")
     elif mock_no_env:
         registrar("Modo desta verificação", "FALHOU", "--real pedido, mas o .env tem LLM_MODO=mock; apague essa linha")
     else:
-        registrar("Modo desta verificação", "OK", "real: Gemini" + (" + OCI" if cfg.get("OCI_NAMESPACE") else ", OCI não configurado"))
+        registrar("Modo desta verificação", "OK", "real: Claude" + (" + OCI" if cfg.get("OCI_NAMESPACE") else ", OCI não configurado"))
 
 
 def etapa_testes():

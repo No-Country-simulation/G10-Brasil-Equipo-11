@@ -10,13 +10,13 @@ import re
 import unicodedata
 
 from . import prompts
-from .llm import ErroLLM, chamar_llm_json, modo_mock
+from .llm import ErroLLM, chamar_llm_json, esforco_classificacao, esforco_geracao, modo_mock
 from .schemas import Analise, DestaqueNewsletter, Interacao, PostLinkedin, SugestaoFaq
 
 log = logging.getLogger("communitylab.ia")
 
-# Mensagens/ativos em que o Gemini falhou e o modo simulado foi usado no lugar.
-# O teste controlado (scripts/teste_gemini.py) lê esta lista para o relatório.
+# Mensagens/ativos em que o Claude falhou e o modo simulado foi usado no lugar.
+# O teste controlado (scripts/teste_llm.py) lê esta lista para o relatório.
 FALHAS: list[dict] = []
 
 POSITIVOS = ("passei", "contratad", "consegui", "aprovad", "grat", "obrigad", "incrível", "adorei", "vaga")
@@ -60,9 +60,32 @@ def validar_ancoragem_factual(texto_gerado: str, interacao_origem: str, autor: s
     return any(palavra in gerado_lower for palavra in palavras_origem)
 
 
-# ---------- Validação das respostas do Gemini ----------
+# ---------- Validação das respostas do modelo ----------
 TIPOS = ("depoimento", "pergunta_tecnica", "feedback", "reclamacao", "projeto", "outro")
 SENTIMENTOS = ("Altamente Positivo", "Positivo", "Neutro", "Negativo", "Altamente Negativo")
+
+# Schemas da saída estruturada: a API garante JSON neste formato (sem JSON quebrado nem rótulo fora da lista).
+SCHEMA_CLASSIFICACAO = {
+    "type": "object",
+    "properties": {
+        "tipo": {"type": "string", "enum": list(TIPOS)},
+        "sentimento": {"type": "string", "enum": list(SENTIMENTOS)},
+        "topico": {"type": "string"},
+        "relevancia": {"type": "integer"},
+    },
+    "required": ["tipo", "sentimento", "topico", "relevancia"],
+    "additionalProperties": False,
+}
+
+
+def schema_textos(*campos: str) -> dict:
+    """Schema de um objeto só com campos de texto obrigatórios."""
+    return {
+        "type": "object",
+        "properties": {c: {"type": "string"} for c in campos},
+        "required": list(campos),
+        "additionalProperties": False,
+    }
 
 
 def _chave(texto) -> str:
@@ -117,7 +140,7 @@ def _mensagem(texto: str) -> str:
 
 def _registrar_falha(etapa: str, autor: str, erro: Exception):
     FALHAS.append({"etapa": etapa, "autor": autor, "erro": str(erro)})
-    log.warning("Gemini falhou em %s (%s): %s. Usando o modo simulado para este item.", etapa, autor, erro)
+    log.warning("Claude falhou em %s (%s): %s. Usando o modo simulado para este item.", etapa, autor, erro)
 
 
 # ---------- Roteamento (regra de negócio, não depende do LLM) ----------
@@ -151,7 +174,8 @@ def classificar(i: Interacao) -> Analise:
     else:
         try:
             r = chamar_llm_json(prompts.CLASSIFICADOR_SISTEMA, f"Canal: {i.canal}\n{_mensagem(i.texto)}",
-                                validar=validar_classificacao)
+                                validar=validar_classificacao, schema=SCHEMA_CLASSIFICACAO,
+                                esforco=esforco_classificacao(), max_tokens=4000)
         except ErroLLM as erro:
             _registrar_falha("classificação", i.autor, erro)
             r = _classificar_mock(i)
@@ -175,7 +199,8 @@ def gerar_linkedin(a: Analise) -> PostLinkedin:
     else:
         try:
             r = chamar_llm_json(prompts.LINKEDIN_SISTEMA, f"Autor: {a.autor}\n{_mensagem(a.texto)}",
-                                validar=exigir_textos("titulo", "copy"))
+                                validar=exigir_textos("titulo", "copy"), schema=schema_textos("titulo", "copy"),
+                                esforco=esforco_geracao())
         except ErroLLM as erro:
             _registrar_falha("post LinkedIn", a.autor, erro)
             r = _linkedin_mock(a)
@@ -192,7 +217,8 @@ def gerar_faq(a: Analise) -> SugestaoFaq:
     else:
         try:
             r = chamar_llm_json(prompts.FAQ_SISTEMA, f"Dúvida:\n{_mensagem(a.texto)}",
-                                validar=exigir_textos("tema", "conteudo"))
+                                validar=exigir_textos("tema", "conteudo"), schema=schema_textos("tema", "conteudo"),
+                                esforco=esforco_geracao())
         except ErroLLM as erro:
             _registrar_falha("FAQ", a.autor, erro)
             r = simulado
@@ -213,7 +239,8 @@ def gerar_newsletter(analises: list[Analise]) -> DestaqueNewsletter:
     entrada = json.dumps([a.model_dump() for a in analises], ensure_ascii=False)
     try:
         r = chamar_llm_json(prompts.NEWSLETTER_SISTEMA, _mensagem(entrada),
-                            validar=exigir_textos("secao", "chamada", "resumo"))
+                            validar=exigir_textos("secao", "chamada", "resumo"),
+                            schema=schema_textos("secao", "chamada", "resumo"), esforco=esforco_geracao())
     except ErroLLM as erro:
         _registrar_falha("newsletter", "lote", erro)
         return simulado

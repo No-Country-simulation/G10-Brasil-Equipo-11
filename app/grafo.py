@@ -17,6 +17,7 @@ from typing import Annotated, TypedDict
 from langgraph.graph import END, START, StateGraph
 
 from . import ia
+from .llm import mapear
 from .schemas import Alerta, Analise, LoteEntrada
 from .storage import bucket_name, caminho_objeto, salvar_pacote
 
@@ -37,12 +38,8 @@ class Estado(TypedDict, total=False):
 
 
 def no_classificar(e: Estado) -> Estado:
-    return {
-        "analises": [
-            ia.classificar(interacao)
-            for interacao in e["lote"].interacoes
-        ]
-    }
+    # As mensagens são independentes: classifica em paralelo (ordem preservada).
+    return {"analises": mapear(ia.classificar, e["lote"].interacoes)}
 
 
 def roteador(e: Estado) -> list[str]:
@@ -96,8 +93,8 @@ def no_faq(e: Estado) -> Estado:
     ]
 
     faqs = [
-        ia.gerar_faq(e["analises"][index]).model_dump()
-        for index in indices
+        faq.model_dump()
+        for faq in mapear(ia.gerar_faq, [e["analises"][index] for index in indices])
     ]
 
     ids = e.get("interaction_ids", [])

@@ -48,12 +48,6 @@ function renderFiltros(filtros, opcoes, modoDemo) {
           ${(opcoes.canais || []).map(c => opt(c, c, filtros.canal)).join('')}
         </select>
       </label>
-      <label class="ins-filtro"><span>IA</span>
-        <select id="ins-modo" ${modoDemo ? 'disabled' : ''}>
-          ${opt('gemini', 'Gemini', filtros.modo)}
-          ${opt('mock', 'Simulada', filtros.modo)}
-        </select>
-      </label>
     </form>`;
 }
 
@@ -71,7 +65,7 @@ export function renderInsightsView() {
       <div style="display:flex; align-items:center; gap:8px;">
         ${dados ? (insightsModoDemo
           ? renderBadge('Demonstração', 'warning')
-          : renderBadge(`Oracle · ${dados.modo === 'gemini' ? 'Gemini' : 'simulada'}`, 'success')) : ''}
+          : renderBadge('Oracle', 'success')) : ''}
       </div>
     </div>`;
 
@@ -115,7 +109,7 @@ export function renderInsightsView() {
         ${periodo ? `<p class="ins-kpi-nota" style="margin:-4px 0 12px;">Mensagens escritas de ${esc(periodo)}.</p>` : ''}
         ${!dados.resumo || !dados.resumo.interacoes ? `
           <div class="card" style="padding:32px; text-align:center; color:var(--muted);">
-            Nenhuma mensagem processada neste recorte. Amplie o período ou troque o modo de IA.
+            Nenhuma mensagem processada neste recorte. Amplie o período.
           </div>` : `
           ${renderResumo(dados.resumo)}
           ${renderSentimentoTempo(dados.sentimento_no_tempo)}

@@ -335,7 +335,7 @@ def avaliar(base: dict, classificador: Callable, *, cenario="tipo_oculto", metad
             "Metas numéricas usam o recorte referência; desafios permanecem visíveis no resultado total e no recorte próprio.",
             "Tipo informado é avaliação assistida: o mock reutiliza essa anotação. Não comparar esse resultado como inferência autônoma.",
             "Tópicos são contagens de texto exato, sem agrupamento semântico. No mock, derivam do canal; tópicos precisam de avaliação qualitativa.",
-            "Roteamento é uma regra determinística; acerto de rota não valida sentimento, geração de conteúdo, Gemini ou armazenamento OCI.",
+            "Roteamento é uma regra determinística; acerto de rota não valida sentimento, geração de conteúdo, o modelo (Claude) ou armazenamento OCI.",
             "A fila prioriza a conferência deste conjunto de avaliação; não implementa aprovação de conteúdo nem triagem operacional da comunidade.",
         ],
     }

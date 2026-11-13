@@ -14,7 +14,7 @@ from app import llm, repositorio
 from ui import insights as ins
 from ui.estilo import DADO_CIANO, DADO_DESCARTADO, DADO_LIMA, DADO_NEUTRO, DADO_TEXTO, ROTAS, SENTIMENTOS
 
-MODOS = {"Gemini": "gemini", "Simulado": "mock"}
+MODOS = {"Claude": "gemini", "Simulado": "mock"}  # "gemini" = identificador do modo real no banco
 SEMANAS_PADRAO = 8
 MAX_ROTULOS_DIA = 16
 NOMES_SENT = [nome for nome, _ in SENTIMENTOS]

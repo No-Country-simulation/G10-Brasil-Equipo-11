@@ -1,5 +1,5 @@
 langgraph>=0.2
-google-genai>=1.0
+anthropic>=2.8,<3
 fastapi>=0.110
 uvicorn>=0.29
 pydantic>=2.6

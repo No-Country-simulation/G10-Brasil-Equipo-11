@@ -91,7 +91,7 @@ def cabecalho():
     c1, c2, c3, c4 = st.columns([2, 4, 3, 1], vertical_alignment="center")
     c1.markdown(logo_html(), unsafe_allow_html=True)
     c2.container(key="nav").radio("Seção", TELAS, key="pagina", horizontal=True, label_visibility="collapsed")
-    modo = selo("Modo simulado", *SELO_AVISO) if modo_mock() else selo("Gemini", *SELO_INFO)
+    modo = selo("Modo simulado", *SELO_AVISO) if modo_mock() else selo("Claude", *SELO_INFO)
     contexto = ""
     if ss["resultado"]:
         origem_amigavel = esc(ss["lote_origem"]).replace("_", " ")

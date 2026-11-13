@@ -537,7 +537,7 @@ def test_modo_mock_forcado_restaura_ambiente_apos_excecao(cli, monkeypatch, ante
         monkeypatch.delenv("LLM_MODO", raising=False)
     else:
         monkeypatch.setenv("LLM_MODO", anterior)
-    monkeypatch.setenv("GEMINI_API_KEY", "chave-inerte-para-teste")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "chave-inerte-para-teste")
 
     with pytest.raises(RuntimeError, match="falha controlada"):
         with cli.configurar_modo("mock"):
@@ -546,18 +546,18 @@ def test_modo_mock_forcado_restaura_ambiente_apos_excecao(cli, monkeypatch, ante
             raise RuntimeError("falha controlada")
 
     assert os.environ.get("LLM_MODO") == anterior
-    assert os.environ["GEMINI_API_KEY"] == "chave-inerte-para-teste"
+    assert os.environ["ANTHROPIC_API_KEY"] == "chave-inerte-para-teste"
 
 
 @pytest.mark.parametrize("chave", [None, "", "   "])
-def test_gemini_sem_chave_e_rejeitado_sem_alterar_ambiente(cli, monkeypatch, chave):
+def test_claude_sem_chave_e_rejeitado_sem_alterar_ambiente(cli, monkeypatch, chave):
     monkeypatch.setenv("LLM_MODO", "mock")
     if chave is None:
-        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     else:
-        monkeypatch.setenv("GEMINI_API_KEY", chave)
-    with pytest.raises(ValueError, match="GEMINI_API_KEY"):
-        with cli.configurar_modo("gemini"):
+        monkeypatch.setenv("ANTHROPIC_API_KEY", chave)
+    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
+        with cli.configurar_modo("claude"):
             pytest.fail("O contexto não deve ser iniciado sem credencial.")
     assert os.environ["LLM_MODO"] == "mock"
 
@@ -596,7 +596,7 @@ def test_cli_previsao_ausente_conta_como_falha_e_retorna_codigo_um(tmp_path, arq
 def test_cli_mock_e_reprodutivel_e_roda_fora_da_raiz(tmp_path, arquivo_base):
     saida = tmp_path / "resultados"
     comando = [sys.executable, "-X", "utf8", str(RAIZ / "scripts/avaliar_classificacoes.py"), "--base", str(arquivo_base), "--saida", str(saida)]
-    ambiente = {**os.environ, "GEMINI_API_KEY": "", "LLM_MODO": "mock"}
+    ambiente = {**os.environ, "ANTHROPIC_API_KEY": "", "LLM_MODO": "mock"}
     primeira = subprocess.run(comando, cwd=tmp_path, env=ambiente, capture_output=True, text=True, encoding="utf-8", timeout=30)
     assert primeira.returncode == 0, primeira.stderr
     destino = saida / "mock_tipo_oculto"
@@ -710,8 +710,8 @@ def test_exportacao_csv_neutraliza_formulas(tmp_path, dados_base, texto):
     assert linha["evidencia"] == "'" + texto
     assert linha["justificativa"] == "'=FORMULA(1)"
 
-def test_cli_gemini_com_fallback_mock_retorna_codigo_um(tmp_path, arquivo_base, cli, monkeypatch, capsys):
-    monkeypatch.setenv("GEMINI_API_KEY", "chave-inerte-para-teste")
+def test_cli_claude_com_fallback_mock_retorna_codigo_um(tmp_path, arquivo_base, cli, monkeypatch, capsys):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "chave-inerte-para-teste")
     monkeypatch.setenv("LLM_MODO", "mock")
 
     def classificar_com_falha(entrada):
@@ -738,23 +738,23 @@ def test_cli_gemini_com_fallback_mock_retorna_codigo_um(tmp_path, arquivo_base, 
     saida = tmp_path / "resultados"
     codigo = cli.main([
         "--base", str(arquivo_base),
-        "--modo", "gemini",
+        "--modo", "claude",
         "--saida", str(saida),
     ])
 
     resultado = json.loads(
-        (saida / "gemini_tipo_oculto" / "resultado.json").read_text(encoding="utf-8")
+        (saida / "claude_tipo_oculto" / "resultado.json").read_text(encoding="utf-8")
     )
 
-    fallback = resultado["metadados"]["fallback_gemini"]
+    fallback = resultado["metadados"]["fallback_llm"]
 
     assert codigo == 1
     assert fallback["quantidade"] == resultado["cobertura"]["validos"]
     assert fallback["quantidade"] > 0
-    assert fallback["avaliacao_exclusivamente_gemini"] is False
+    assert fallback["avaliacao_exclusivamente_llm"] is False
     assert all(
         falha["etapa"] == "classificação"
         and falha["erro"] == "falha controlada no Gemini"
         for falha in fallback["detalhes"]
     )
-    assert "não é válida como avaliação exclusivamente Gemini" in capsys.readouterr().out
+    assert "não é válida como avaliação exclusivamente Claude" in capsys.readouterr().out

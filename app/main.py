@@ -128,10 +128,10 @@ def _production_config_check() -> None:
             "ou resource_principal."
         )
 
-    if modo_mock() or not os.getenv("GEMINI_API_KEY"):
+    if modo_mock() or not os.getenv("ANTHROPIC_API_KEY"):
         errors.append(
-            "O modo real do Gemini deve estar ativo e "
-            "GEMINI_API_KEY configurada em produção."
+            "O modo real do Claude deve estar ativo e "
+            "ANTHROPIC_API_KEY configurada em produção."
         )
 
     if errors:

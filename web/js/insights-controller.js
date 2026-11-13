@@ -174,7 +174,6 @@ export function initInsightsEvents() {
     else if (id === 'ins-fim') atualizarFiltros({ fim: e.target.value, preset: '' });
     else if (id === 'ins-comunidade') atualizarFiltros({ comunidade: e.target.value });
     else if (id === 'ins-canal') atualizarFiltros({ canal: e.target.value });
-    else if (id === 'ins-modo') atualizarFiltros({ modo: e.target.value });
   });
 
   // Depois de cada render: reabre as tabelas e, ao entrar na aba, carrega os dados.

@@ -6,9 +6,8 @@ import { renderThemeToggle } from '../atoms/theme-toggle.js';
 import { store } from '../store.js';
 
 export function renderHeaderBar() {
-  const { activeTab, resultado, origem, periodo, decisoes, logado, saudeInfo } = store.getState();
+  const { activeTab, resultado, origem, periodo, decisoes, logado } = store.getState();
   // O modo vem do backend (/saude). Sem resposta, nao afirma nenhum dos dois.
-  const modoLlm = saudeInfo?.modo_llm;
   const tabs = [
     { id: 'importar', label: 'Importar' },
     { id: 'visao', label: 'Visão geral' },
@@ -56,7 +55,6 @@ export function renderHeaderBar() {
             </span>
             ${pendentesCount > 0 ? renderBadge(`${pendentesCount} pendentes`, 'success') : ''}
           ` : ''}
-          ${modoLlm === 'gemini' ? renderBadge('Gemini ativo', 'success') : modoLlm === 'mock' ? renderBadge('Modo simulado', 'warning') : ''}
           ${renderThemeToggle()}
           ${logado ? `
             <button id="btn-logout" title="Encerrar sessão de admin" style="

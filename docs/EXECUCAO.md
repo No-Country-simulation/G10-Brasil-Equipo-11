@@ -15,7 +15,7 @@ A interface oficial é o **site**, servido pelo próprio FastAPI em http://127.0
 
 > **Windows:** na primeira tela do instalador do Python, marque **"Add python.exe to PATH"**. Sem isso, o terminal não reconhece o comando `python`.
 
-Chaves do Gemini e da OCI **não são necessárias** para rodar e verificar o projeto. Sem elas, tudo funciona em modo simulado.
+Chaves da Anthropic (Claude) e da OCI **não são necessárias** para rodar e verificar o projeto. Sem elas, tudo funciona em modo simulado.
 
 ## 2. Verificação rápida: um comando
 
@@ -45,7 +45,7 @@ Na primeira vez ele cria o ambiente virtual e instala as dependências, o que le
 [ OK ] Versão do Python — 3.x.x
 [ OK ] Dependências instaladas
 [ OK ] Arquivo .env — criado a partir do .env.example
-[ OK ] Modo desta verificação — simulado (use --real para Gemini e OCI)
+[ OK ] Modo desta verificação — simulado (use --real para Claude e OCI)
 [ OK ] Testes automatizados — 338 passed, 14 deselected
 [ OK ] API sobe e responde /saude — porta ..., modo_llm=mock
 [ OK ] Site abre — http://127.0.0.1:.../
@@ -98,7 +98,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 **Esperado:** `Uvicorn running on http://127.0.0.1:8000`. Deixe esse terminal aberto e acesse http://127.0.0.1:8000 no navegador.
 
-> O servidor lê o `.env` só quando inicia. Se mudar a senha ou a chave do Gemini, pare (`Ctrl+C`) e inicie de novo.
+> O servidor lê o `.env` só quando inicia. Se mudar a senha ou a chave do Claude, pare (`Ctrl+C`) e inicie de novo.
 
 Para conferir o fluxo completo:
 
@@ -109,7 +109,7 @@ Para conferir o fluxo completo:
 5. Marque a autorização, clique em **Aprovar post** e depois em **Exportar aprovados**. Deve aparecer "Salvo em `...saida_local/ativos/<ano>-<mês>/aprovados.json`".
 6. Clique em **Sair**. Você volta para a página inicial, e as telas internas só abrem depois de entrar de novo.
 
-No topo da tela aparecem a fonte, o canal e o mês do lote, o número de ativos pendentes e o selo **Modo simulado** (ou Gemini). O botão ☾ troca entre os temas claro e escuro.
+No topo da tela aparecem a fonte, o canal e o mês do lote, o número de ativos pendentes e o selo **Modo simulado** (ou **Claude ativo**). O botão ☾ troca entre os temas claro e escuro.
 
 ### Usar a API direto
 
@@ -143,14 +143,14 @@ python -m streamlit run ui/painel.py
 
 Abre em http://localhost:8501 com o mesmo login e as mesmas telas (Importar, Visão geral, Curadoria e Insights). No Windows também dá para usar `iniciar_streamlit.bat`.
 
-## 4. Modo real: Gemini e OCI
+## 4. Modo real: Claude e OCI
 
-### Gemini
+### Claude
 
-1. Gere uma chave em [Google AI Studio](https://aistudio.google.com/apikey).
-2. No `.env`, preencha `GEMINI_API_KEY=` com a chave.
+1. Gere uma chave em [platform.claude.com](https://platform.claude.com) > API Keys. Detalhes em [LLM.md](LLM.md).
+2. No `.env`, preencha `ANTHROPIC_API_KEY=` com a chave.
 3. **Apague a linha `LLM_MODO=mock`.** Enquanto ela existir, o sistema continua simulado mesmo com a chave preenchida.
-4. Reinicie a API e abra `/saude`. Deve aparecer `"modo_llm":"gemini"`.
+4. Reinicie a API e abra `/saude`. Deve aparecer `"modo_llm":"gemini"` (identificador do modo real, mantido por compatibilidade com o banco).
 
 ### OCI Object Storage
 
@@ -165,7 +165,7 @@ Opcional. Guarda os lotes processados e liga a aba **Insights** do site.
 3. Copie a string do **Session pooler** (a conexão direta só funciona por IPv6) para `DATABASE_URL` no `.env`.
 4. Reinicie o servidor do site.
 
-**O que muda:** os lotes processados ficam no histórico, as decisões da curadoria e o status dos alertas ("Marcar como resolvido") são gravados, e a aba **Insights** mostra o histórico dia a dia (simulado e Gemini nunca se misturam). Sem `DATABASE_URL`, o resto funciona igual e o Insights avisa que precisa do banco. Se o banco falhar, o processamento continua e o log mostra `[Supabase]`.
+**O que muda:** os lotes processados ficam no histórico, as decisões da curadoria e o status dos alertas ("Marcar como resolvido") são gravados, e a aba **Insights** mostra o histórico dia a dia (simulado e modo real nunca se misturam). Sem `DATABASE_URL`, o resto funciona igual e o Insights avisa que precisa do banco. Se o banco falhar, o processamento continua e o log mostra `[Supabase]`.
 
 O painel Streamlit tem um recurso a mais: ao importar um conteúdo já processado, ele pergunta se você quer **Abrir resultado existente** ou **Processar de novo e substituir**. O site não tem essa pergunta.
 
@@ -187,11 +187,11 @@ python -m pytest -m real -v
 
 | Teste | O que confirma | Custo |
 | --- | --- | --- |
-| `test_gemini_real_respeita_contrato` | O Gemini devolve JSON no formato combinado e decide as rotas de FAQ e alerta corretamente | Cerca de 6 chamadas à API |
+| `test_claude_real_respeita_contrato` | O Claude devolve JSON no formato combinado e decide as rotas de FAQ e alerta corretamente | Cerca de 6 chamadas à API |
 | `test_oci_real_salva_no_bucket` | O upload chega ao bucket | Cria `ativos/<ano>-semana-teste-integracao/` no bucket |
 | Testes do Supabase (`DATABASE_URL` configurada) | Gravação, leitura, substituição de lotes e o painel com banco | Cria e apaga dados com nomes `Teste_Repositorio_*` e `Teste_Painel_*` |
 
-O modo `-Real` processa o lote de exemplo inteiro pelo Gemini. São cerca de 20 chamadas, o que pode esbarrar no limite do plano gratuito. Se aparecer erro `429`, espere um minuto e rode de novo.
+O modo `-Real` processa o lote de exemplo inteiro pelo Claude. São cerca de 20 chamadas, em paralelo. Se aparecerem avisos de `429` no log, reduza `LLM_CONCORRENCIA`.
 
 ## 5. Como ler o resultado dos testes
 
@@ -212,7 +212,7 @@ Para ver o nome de cada teste: `python -m pytest -v`. Para ver o motivo dos pula
 | Upload de CSV direto na API (`POST /processar`) | **Resolvido:** A API agora aceita tanto JSON quanto upload multipart (`arquivo`) | `test_api_aceita_upload_de_csv` (`passed`) | Marcelo |
 | CSV com `;` (Excel em português) | **Resolvido:** O adaptador detecta automaticamente `;`, `,` ou `\t` | `test_csv_com_ponto_e_virgula_do_excel_ptbr` (`passed`) | Marcelo |
 | CSV em Windows-1252 (`cp1252`) | **Resolvido:** O adaptador decodifica UTF-8, UTF-8-BOM e Windows-1252 | `test_csv_em_windows_1252` (`passed`) | Marcelo |
-| O `.env.example` já vem com `LLM_MODO=mock` | Quem só colar a chave continua em modo simulado | `test_gemini_real_respeita_contrato` avisa no motivo do pulo | Todos |
+| O `.env.example` já vem com `LLM_MODO=mock` | Quem só colar a chave continua em modo simulado | `test_claude_real_respeita_contrato` avisa no motivo do pulo | Todos |
 
 ## 7. Problemas comuns
 
@@ -227,7 +227,7 @@ Para ver o nome de cada teste: `python -m pytest -v`. Para ver o motivo dos pula
 | `401 Acesso restrito. Faça login administrativo` | Chamada à API sem login, ou o servidor reiniciou e a sessão foi perdida | No site, entre de novo. Na API, pegue um token novo em `/api/auth/login` (seção 3) |
 | O site abre direto, sem pedir senha | `ADMIN_USUARIO` ou `ADMIN_SENHA` vazio no `.env` | Preencha os dois e reinicie o servidor |
 | `[Errno 10048]` ou `address already in use` | Porta 8000 ou 8501 ocupada por outra execução | Use `iniciar_web_vanilla.bat`, que libera a porta 8000, ou feche o outro terminal, ou use `--port 8001` |
-| Erro `429` ou `RESOURCE_EXHAUSTED` | Limite do plano gratuito do Gemini | Espere um minuto. Durante o desenvolvimento, prefira o modo simulado |
+| Erro `429` ou avisos de "rate limit" | Limite de requisições por minuto da conta da Anthropic | O SDK já espera e repete. Se persistir, reduza `LLM_CONCORRENCIA` ou defina `LLM_RPM` |
 | `armazenamento_oci.status` = `erro` | Namespace, bucket ou `~/.oci/config` incorretos | Veja `saida_local/log_api.txt`. O namespace aparece nos detalhes do bucket, e não é o nome da tenancy |
 | Acentos aparecem como `Ã§` ou `?` no terminal | O terminal do Windows não está em UTF-8 | Rode `chcp 65001` antes. Os arquivos salvos ficam corretos mesmo assim |
 | `UnicodeDecodeError` ao importar um CSV | CSV salvo em Windows-1252 | O adaptador (`communitylab.adapter`) já converte automaticamente; ao salvar no Excel, prefira "CSV UTF-8" |
@@ -246,4 +246,4 @@ Arquivo: `tests/test_integracao.py` e `tests/test_grafo_comunidade.py`.
 | Grafo & Anti-Slop | Mapeamento de nós e arestas (`EXTRACTED` e `INFERRED`) da comunidade e higienização editorial contra clichês de IA (`tests/test_grafo_comunidade.py`) |
 | Site | Fica em `tests/test_web_vanilla.py`: arquivos do site, login e logout, rotas bloqueadas sem login, exportação recusando caminho malicioso e post sem autorização do membro |
 | Painel Streamlit | Fica em `tests/test_painel.py`: importação, filtro, autorização do post e exportação, com cliques simulados |
-| Serviços reais | Gemini e OCI, pulados sem credenciais |
+| Serviços reais | Claude e OCI, pulados sem credenciais |

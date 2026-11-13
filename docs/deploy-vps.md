@@ -11,7 +11,7 @@ copia para a VPS à mão, na pasta do projeto:
 
 | Na VPS | O que é | De onde vem |
 |---|---|---|
-| `.env` | variáveis do app (Gemini, Oracle, OCI, login) | o seu `.env` local |
+| `.env` | variáveis do app (Claude, Oracle, OCI, login) | o seu `.env` local |
 | `wallet/` | wallet do Autonomous DB, descompactada | a pasta `wallet/` local |
 | `oci/config` | config da OCI, com `key_file=/app/oci/<chave>.pem` | o seu `~/.oci/config`, ajustando a linha `key_file` |
 | `oci/<chave>.pem` | chave privada da API da OCI | o `.pem` em `~/.oci/` |
@@ -87,12 +87,12 @@ location / {
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_read_timeout 600s;   # processar um lote com o Gemini leva minutos
+    proxy_read_timeout 600s;   # lotes grandes ainda podem levar alguns minutos
 }
 ```
 
-O `proxy_read_timeout` alto importa: com o Gemini a 12 chamadas por minuto, um lote de
-50 mensagens leva uns 5 minutos.
+O `proxy_read_timeout` alto é uma margem: com o Claude em paralelo (`LLM_CONCORRENCIA`), um lote
+de 50 mensagens leva uma fração do tempo que levava com o Gemini, mas lotes grandes ou contas com limite baixo ainda demoram.
 
 Sem proxy e sem domínio, só para um teste rápido: troque a porta no `docker-compose.yml`
 por `"8000:8000"` e acesse `http://ip-da-vps:8000` (sem HTTPS, a senha trafega aberta).

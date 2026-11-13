@@ -115,4 +115,4 @@ def test_ambiente_de_exemplo_nao_contem_segredos():
     assert "OCI_STORAGE_MODE=local" in env
     assert "COMMUNITYLAB_API_KEY=" in env
     assert "COMMUNITYLAB_DB_PASSWORD=" in env
-    assert "GEMINI_API_KEY=" in env
+    assert "ANTHROPIC_API_KEY=" in env

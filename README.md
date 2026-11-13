@@ -22,7 +22,7 @@ O projeto está em desenvolvimento e possui uma implementação funcional em mod
 * Pydantic
 * Streamlit
 * Pandas
-* Google GenAI
+* Anthropic SDK (Claude)
 * Oracle Cloud Infrastructure SDK
 * Pytest
 
@@ -92,7 +92,7 @@ CommunityLab/
 * Python 3.10 ou superior.
 * Git.
 * Acesso ao terminal.
-* Uma chave Gemini somente se for utilizar o modelo real.
+* Uma chave da Anthropic (`ANTHROPIC_API_KEY`) somente se for utilizar o modelo real.
 * Configuração OCI somente se for utilizar o armazenamento em nuvem.
 
 As dependências e versões disponíveis podem variar conforme o ambiente.
@@ -192,7 +192,7 @@ python scripts/avaliar_classificacoes.py --cenario tipo_informado
 
 Abra `data/output/avaliacao/mock_tipo_oculto/relatorio.html` no navegador. O relatório apresenta precisão, recall e F1 por categoria, matrizes de confusão, relevância por faixa, distribuição da amostra e casos para inspeção. JSON e CSVs ficam na mesma pasta.
 
-O cenário principal oculta o tipo anotado para evitar vazamento da referência. O segundo cenário mede o fluxo com tipo informado. Everson concluiu a revisão individual das propostas em 24/10/2026: os 60 casos, suas classificações, justificativas e os critérios foram aceitos sem alterações. A base 1.1.0 registra essa revisão; as metas da avaliação também foram aprovadas pelo responsável pela frente analítica. Essa conferência não equivale a dupla anotação independente nem a aprovação de toda a equipe. Resultados mock não medem o desempenho do Gemini nem impacto em uma comunidade real.
+O cenário principal oculta o tipo anotado para evitar vazamento da referência. O segundo cenário mede o fluxo com tipo informado. Everson concluiu a revisão individual das propostas em 24/10/2026: os 60 casos, suas classificações, justificativas e os critérios foram aceitos sem alterações. A base 1.1.0 registra essa revisão; as metas da avaliação também foram aprovadas pelo responsável pela frente analítica. Essa conferência não equivale a dupla anotação independente nem a aprovação de toda a equipe. Resultados mock não medem o desempenho do Claude nem impacto em uma comunidade real.
 
 Consulte a [documentação da avaliação](docs/avaliacao_classificacoes.md), os [critérios de qualidade](docs/criterios_qualidade.md) e a [análise dos resultados](docs/analise_resultados.md).
 
@@ -210,11 +210,11 @@ Consulte o [dicionário de indicadores e contrato de entrada](docs/indicadores_c
 
 ### Modo simulado
 
-Permite executar o fluxo sem uma chave Gemini. As respostas são produzidas pelas regras implementadas para simulação e não devem ser interpretadas como resultados de um modelo de linguagem real.
+Permite executar o fluxo sem uma chave da Anthropic. As respostas são produzidas pelas regras implementadas para simulação e não devem ser interpretadas como resultados de um modelo de linguagem real.
 
-### Gemini
+### Claude (modelo real)
 
-O uso do modelo real depende da configuração de `GEMINI_API_KEY` e das demais variáveis documentadas em `.env.example`.
+O uso do modelo real depende da configuração de `ANTHROPIC_API_KEY` e das demais variáveis documentadas em `.env.example`. Modelo, paralelismo e desempenho estão em [docs/LLM.md](docs/LLM.md).
 
 ### Armazenamento
 
@@ -231,9 +231,9 @@ Opcional. Com um banco Postgres do Supabase, os lotes processados ficam guardado
 O que muda no painel:
 
 * Os lotes processados ficam no histórico.
-* Se o mesmo conteúdo (comunidade e interações) for processado de novo no mesmo modo (simulado ou Gemini), o painel avisa e oferece **Abrir resultado existente** ou **Processar de novo e substituir**. A API `/processar` substitui o lote em silêncio.
+* Se o mesmo conteúdo (comunidade e interações) for processado de novo no mesmo modo (simulado ou Claude), o painel avisa e oferece **Abrir resultado existente** ou **Processar de novo e substituir**. A API `/processar` substitui o lote em silêncio.
 * As decisões da curadoria e o status dos alertas são lembrados.
-* A aba **Insights** agrega as mensagens salvas pela data de cada uma, dia a dia, no período escolhido no calendário. Lotes simulados e Gemini nunca se misturam, e a aba começa no modo em que o app está rodando.
+* A aba **Insights** agrega as mensagens salvas pela data de cada uma, dia a dia, no período escolhido no calendário. Lotes simulados e do modelo real nunca se misturam, e a aba começa no modo em que o app está rodando.
 
 Sem `DATABASE_URL`, nada muda. Se o banco falhar, o processamento continua: o painel mostra um aviso e o log registra `[Supabase]`. O tempo limite de conexão é de 5 segundos.
 
@@ -257,7 +257,7 @@ Classificações de sentimento e relevância representam dimensões diferentes e
 
 MVP em desenvolvimento.
 
-A ingestão, os adaptadores, o pipeline, o painel, os testes e a avaliação das classificações possuem implementação. A base sintética de avaliação tem revisão individual de Everson registrada para todos os 60 casos. As métricas disponíveis caracterizam o classificador simulado; a avaliação real do Gemini, a validação ativa da OCI e as integrações operacionais ainda exigem verificações específicas.
+A ingestão, os adaptadores, o pipeline, o painel, os testes e a avaliação das classificações possuem implementação. A base sintética de avaliação tem revisão individual de Everson registrada para todos os 60 casos. As métricas disponíveis caracterizam o classificador simulado; a avaliação real do Claude, a validação ativa da OCI e as integrações operacionais ainda exigem verificações específicas.
 
 ## Contribuição
 

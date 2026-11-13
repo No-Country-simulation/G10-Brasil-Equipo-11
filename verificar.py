@@ -1,11 +1,13 @@
-"""Verificação completa do CommunityLab. Responsável: Renato.
+"""Verificação completa do Sender AI. Responsável: Renato.
 
-Roda as etapas na ordem e mostra OK ou FALHOU em cada uma.
+Roda as etapas na ordem e mostra OK, AVISO ou FALHOU em cada uma.
+Confere a API, o site (interface oficial, servida pelo FastAPI), o login
+e o painel Streamlit (interface alternativa).
 Normalmente é chamado por verificar.ps1 (Windows) ou verificar.sh (Linux/Mac),
 que antes criam o ambiente virtual e instalam as dependências.
 
     python verificar.py           # tudo em modo simulado (não gasta cota, não sobe nada para a nuvem)
-    python verificar.py --real    # usa o Gemini e o OCI configurados no .env
+    python verificar.py --real    # usa o Claude e o OCI configurados no .env
 
 O relatório também é salvo em saida_local/relatorio_verificacao.txt.
 """
@@ -62,6 +64,27 @@ def esperar(url: str, segundos: int = 40) -> str | None:
         except Exception:
             time.sleep(0.5)
     return None
+
+
+def pedir(url: str, corpo: dict | None = None, headers: dict | None = None) -> tuple[int, str]:
+    """Faz GET (sem corpo) ou POST JSON e devolve (código HTTP, texto), sem levantar erro para 4xx/5xx."""
+    dados = json.dumps(corpo).encode("utf-8") if corpo is not None else None
+    cab = {"Content-Type": "application/json", **(headers or {})}
+    pedido = urllib.request.Request(url, data=dados, headers=cab, method="POST" if dados else "GET")
+    try:
+        with urllib.request.urlopen(pedido, timeout=300) as r:
+            return r.status, r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", "replace")
+
+
+def credenciais_admin() -> tuple[str, str]:
+    """Mesma ordem do servidor: variável de ambiente primeiro, depois o .env."""
+    from dotenv import dotenv_values
+    cfg = dotenv_values(RAIZ / ".env")
+    usuario = os.environ.get("ADMIN_USUARIO") or cfg.get("ADMIN_USUARIO") or ""
+    senha = os.environ.get("ADMIN_SENHA") or cfg.get("ADMIN_SENHA") or ""
+    return usuario.strip(), senha
 
 
 def iniciar(cmd: list[str], log: Path) -> subprocess.Popen:
@@ -121,16 +144,16 @@ def etapa_env():
 
     from dotenv import dotenv_values
     cfg = dotenv_values(env)
-    tem_chave = bool(cfg.get("GEMINI_API_KEY"))
+    tem_chave = bool(cfg.get("ANTHROPIC_API_KEY"))
     mock_no_env = (cfg.get("LLM_MODO") or "").lower() == "mock"
     if not REAL:
-        registrar("Modo desta verificação", "OK", "simulado (use --real para Gemini e OCI)")
+        registrar("Modo desta verificação", "OK", "simulado (use --real para Claude e OCI)")
     elif not tem_chave:
-        registrar("Modo desta verificação", "FALHOU", "--real pedido, mas GEMINI_API_KEY está vazia no .env")
+        registrar("Modo desta verificação", "FALHOU", "--real pedido, mas ANTHROPIC_API_KEY está vazia no .env")
     elif mock_no_env:
         registrar("Modo desta verificação", "FALHOU", "--real pedido, mas o .env tem LLM_MODO=mock; apague essa linha")
     else:
-        registrar("Modo desta verificação", "OK", "real: Gemini" + (" + OCI" if cfg.get("OCI_NAMESPACE") else ", OCI não configurado"))
+        registrar("Modo desta verificação", "OK", "real: Claude" + (" + OCI" if cfg.get("OCI_NAMESPACE") else ", OCI não configurado"))
 
 
 def etapa_testes():
@@ -161,10 +184,43 @@ def etapa_api():
         modo = json.loads(saude).get("modo_llm")
         registrar("API sobe e responde /saude", "OK", f"porta {porta}, modo_llm={modo}")
 
+        # Site (interface oficial): página inicial e um arquivo de script
+        codigo, html = pedir(f"{base}/")
+        codigo_js, _ = pedir(f"{base}/js/app.js")
+        if codigo == 200 and "Sender AI" in html and codigo_js == 200:
+            registrar("Site abre", "OK", f"{base}/")
+        else:
+            registrar("Site abre", "FALHOU", f"página inicial HTTP {codigo}, js/app.js HTTP {codigo_js}")
+
         lote = json.loads((RAIZ / "data" / "interacoes_exemplo.json").read_text(encoding="utf-8"))
+        headers = {}
+
+        # Login: sem sessão a API precisa recusar; com o usuário do .env precisa liberar
+        usuario, senha = credenciais_admin()
+        if not (usuario and senha):
+            registrar("Login do site", "AVISO",
+                      "ADMIN_USUARIO ou ADMIN_SENHA vazio no .env: o site e a API ficam abertos sem login. "
+                      "Preencha os dois antes de apresentar")
+        else:
+            codigo, _ = pedir(f"{base}/processar", lote)
+            if codigo == 401:
+                registrar("Login protege a API", "OK", "/processar sem login respondeu 401")
+            else:
+                registrar("Login protege a API", "FALHOU", f"/processar sem login respondeu {codigo}, esperado 401")
+            codigo, corpo_login = pedir(f"{base}/api/auth/login", {"usuario": usuario, "senha": senha})
+            token = json.loads(corpo_login).get("token") if codigo == 200 else None
+            if token:
+                headers["X-Sender-Token"] = token
+                registrar("Login do site", "OK", f"usuário '{usuario}' entrou")
+            else:
+                registrar("Login do site", "FALHOU",
+                          f"HTTP {codigo}: o servidor recusou o usuário e a senha do .env. "
+                          "Confira ADMIN_USUARIO e ADMIN_SENHA (variáveis de ambiente com o mesmo nome têm prioridade)")
+                return
+
         pedido = urllib.request.Request(
             f"{base}/processar", data=json.dumps(lote).encode("utf-8"),
-            headers={"Content-Type": "application/json"}, method="POST")
+            headers={"Content-Type": "application/json", **headers}, method="POST")
         inicio = time.time()
         try:
             with urllib.request.urlopen(pedido, timeout=300) as r:
@@ -201,6 +257,8 @@ def etapa_api():
 
 
 def etapa_painel():
+    if not (RAIZ / "ui" / "painel.py").exists():
+        return  # painel removido do projeto: nada a conferir
     porta = porta_livre()
     log = RAIZ / "saida_local" / "log_painel.txt"
     proc = iniciar([sys.executable, "-m", "streamlit", "run", "ui/painel.py", "--server.headless", "true",
@@ -208,9 +266,9 @@ def etapa_painel():
     try:
         saude = esperar(f"http://127.0.0.1:{porta}/_stcore/health", segundos=60)
         if saude and saude.strip() == "ok":
-            registrar("Painel Streamlit inicia", "OK", f"porta {porta}")
+            registrar("Painel Streamlit (alternativo) inicia", "OK", f"porta {porta}")
         else:
-            registrar("Painel Streamlit inicia", "FALHOU", ultimas_linhas(log) or "não respondeu em 60 s")
+            registrar("Painel Streamlit (alternativo) inicia", "FALHOU", ultimas_linhas(log) or "não respondeu em 60 s")
     finally:
         parar(proc)
 
@@ -219,7 +277,7 @@ def salvar_relatorio():
     destino = RAIZ / "saida_local" / "relatorio_verificacao.txt"
     destino.parent.mkdir(parents=True, exist_ok=True)
     linhas = [
-        f"CommunityLab — relatório de verificação ({'real' if REAL else 'simulado'})",
+        f"Sender AI — relatório de verificação ({'real' if REAL else 'simulado'})",
         f"Data: {datetime.now():%Y-%m-%d %H:%M}",
         f"Python: {sys.version.split()[0]} em {sys.platform}",
         "",
@@ -229,7 +287,7 @@ def salvar_relatorio():
 
 
 def main():
-    print(f"\nCommunityLab — verificação {'com serviços reais' if REAL else 'em modo simulado'}\n")
+    print(f"\nSender AI — verificação {'com serviços reais' if REAL else 'em modo simulado'}\n")
     etapa_python()
     etapa_dependencias()
     if RESULTADOS[-1][1] == "FALHOU":
@@ -244,6 +302,11 @@ def main():
     relatorio = salvar_relatorio()
     print("\n" + ("TUDO OK" if not falhas else f"{len(falhas)} ETAPA(S) FALHARAM") +
           f" — relatório em {relatorio.relative_to(RAIZ)}\n")
+    if not falhas:
+        print("Como iniciar o Sender AI:")
+        print("  • Site (oficial):  python -m uvicorn app.main:app --host 127.0.0.1 --port 8000")
+        print("                     e abra http://127.0.0.1:8000 (no Windows, também dá para usar iniciar_web_vanilla.bat)")
+        print("  • Painel Streamlit (alternativo):  python -m streamlit run ui/painel.py\n")
     return 1 if falhas else 0
 
 

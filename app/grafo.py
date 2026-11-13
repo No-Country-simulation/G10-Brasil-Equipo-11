@@ -6,6 +6,10 @@
 
 O roteador só abre os ramos que têm interações daquela rota no lote.
 Os ramos rodam em paralelo e se juntam na newsletter.
+
+Com Oracle ligado, quem coordena banco e Object Storage é `app.main`:
+o grafo recebe `persistir_pacote=False` e os IDs das interações para registrar
+de qual mensagem cada ativo saiu (`fontes_ativos`).
 """
 from collections import Counter
 from typing import Annotated, TypedDict
@@ -13,8 +17,9 @@ from typing import Annotated, TypedDict
 from langgraph.graph import END, START, StateGraph
 
 from . import ia
+from .llm import mapear
 from .schemas import Alerta, Analise, LoteEntrada
-from .storage import salvar_pacote
+from .storage import bucket_name, caminho_objeto, salvar_pacote
 
 
 def mesclar(a: dict, b: dict) -> dict:
@@ -26,42 +31,163 @@ class Estado(TypedDict, total=False):
     analises: list[Analise]
     ativos: Annotated[dict, mesclar]
     armazenamento: dict
+    persistir_pacote: bool
+    processamento_id: str | None
+    interaction_ids: list[str]
+    fontes_ativos: Annotated[dict, mesclar]
 
 
 def no_classificar(e: Estado) -> Estado:
-    return {"analises": [ia.classificar(i) for i in e["lote"].interacoes]}
+    # As mensagens são independentes: classifica em paralelo (ordem preservada).
+    return {"analises": mapear(ia.classificar, e["lote"].interacoes)}
 
 
 def roteador(e: Estado) -> list[str]:
-    rotas = {a.rota for a in e["analises"]}
-    ramos = [nome for rota, nome in [("case_sucesso", "gerar_case"), ("faq", "gerar_faq"), ("alerta", "gerar_alerta")] if rota in rotas]
+    rotas = {analise.rota for analise in e["analises"]}
+
+    ramos = [
+        nome
+        for rota, nome in [
+            ("case_sucesso", "gerar_case"),
+            ("faq", "gerar_faq"),
+            ("alerta", "gerar_alerta"),
+        ]
+        if rota in rotas
+    ]
+
     return ramos or ["gerar_newsletter"]
 
 
 def no_case(e: Estado) -> Estado:
-    melhor = max((a for a in e["analises"] if a.rota == "case_sucesso"), key=lambda a: a.relevancia)
-    return {"ativos": {"post_linkedin": ia.gerar_linkedin(melhor).model_dump()}}
+    candidatos = [
+        (index, analysis)
+        for index, analysis in enumerate(e["analises"])
+        if analysis.rota == "case_sucesso"
+    ]
+
+    indice, melhor = max(
+        candidatos,
+        key=lambda item: item[1].relevancia,
+    )
+
+    ids = e.get("interaction_ids", [])
+    fontes = [ids[indice]] if indice < len(ids) else []
+
+    return {
+        "ativos": {
+            "post_linkedin": ia.gerar_linkedin(
+                melhor
+            ).model_dump()
+        },
+        "fontes_ativos": {
+            "post": fontes,
+        },
+    }
 
 
 def no_faq(e: Estado) -> Estado:
-    faqs = [ia.gerar_faq(a).model_dump() for a in e["analises"] if a.rota == "faq"]
-    return {"ativos": {"sugestao_conteudo_faq": faqs}}
+    indices = [
+        index
+        for index, analysis in enumerate(e["analises"])
+        if analysis.rota == "faq"
+    ]
+
+    faqs = [
+        faq.model_dump()
+        for faq in mapear(ia.gerar_faq, [e["analises"][index] for index in indices])
+    ]
+
+    ids = e.get("interaction_ids", [])
+
+    fontes = {
+        f"faq_{numero}": (
+            [ids[indice]]
+            if indice < len(ids)
+            else []
+        )
+        for numero, indice in enumerate(indices)
+    }
+
+    return {
+        "ativos": {
+            "sugestao_conteudo_faq": faqs,
+        },
+        "fontes_ativos": fontes,
+    }
 
 
 def no_alerta(e: Estado) -> Estado:
-    alertas = [Alerta(autor=a.autor, motivo=f"{a.sentimento} em {a.canal}: {a.texto[:100]}").model_dump()
-               for a in e["analises"] if a.rota == "alerta"]
-    return {"ativos": {"alertas_comunidade": alertas}}
+    indices = [
+        index
+        for index, analysis in enumerate(e["analises"])
+        if analysis.rota == "alerta"
+    ]
+
+    alertas = [
+        Alerta(
+            autor=e["analises"][index].autor,
+            motivo=(
+                f"{e['analises'][index].sentimento} em "
+                f"{e['analises'][index].canal}: "
+                f"{e['analises'][index].texto[:100]}"
+            ),
+        ).model_dump()
+        for index in indices
+    ]
+
+    ids = e.get("interaction_ids", [])
+
+    fontes = {
+        f"alerta_{numero}": (
+            [ids[indice]]
+            if indice < len(ids)
+            else []
+        )
+        for numero, indice in enumerate(indices)
+    }
+
+    return {
+        "ativos": {
+            "alertas_comunidade": alertas,
+        },
+        "fontes_ativos": fontes,
+    }
 
 
 def no_newsletter(e: Estado) -> Estado:
-    return {"ativos": {"destaque_newsletter_semanal": ia.gerar_newsletter(e["analises"]).model_dump()}}
+    ids = list(e.get("interaction_ids", []))
+
+    return {
+        "ativos": {
+            "destaque_newsletter_semanal": (
+                ia.gerar_newsletter(
+                    e["analises"]
+                ).model_dump()
+            )
+        },
+        "fontes_ativos": {
+            "newsletter": ids,
+        },
+    }
 
 
-def montar_resposta(e: Estado, armazenamento: dict) -> dict:
+def montar_resposta(
+    e: Estado,
+    armazenamento: dict,
+) -> dict:
     analises = e["analises"]
-    sentimento = Counter(a.sentimento for a in analises).most_common(1)[0][0]
-    topicos = [t for t, _ in Counter(a.topico for a in analises).most_common(5)]
+
+    sentimento = Counter(
+        a.sentimento for a in analises
+    ).most_common(1)[0][0]
+
+    topicos = [
+        topico
+        for topico, _ in Counter(
+            a.topico for a in analises
+        ).most_common(5)
+    ]
+
     return {
         "status": "sucesso",
         "resumo_comunidade": {
@@ -69,39 +195,134 @@ def montar_resposta(e: Estado, armazenamento: dict) -> dict:
             "sentimento_predominante": sentimento,
             "topicos_principais": topicos,
         },
-        "analises": [a.model_dump() for a in analises],
-        "ativos_distribuicao_gerados": e.get("ativos", {}),
+        "analises": [
+            analysis.model_dump()
+            for analysis in analises
+        ],
+        "ativos_distribuicao_gerados": e.get(
+            "ativos", {}
+        ),
+        "fontes_ativos": e.get(
+            "fontes_ativos", {}
+        ),
         "armazenamento_oci": armazenamento,
     }
 
 
 def no_salvar(e: Estado) -> Estado:
+    # O backend coordena Oracle e OCI separadamente.
+    if not e.get("persistir_pacote", True):
+        return {
+            "armazenamento": {
+                "bucket": "",
+                "caminho_objeto": "",
+                "status": "pendente",
+            }
+        }
+
     pacote = montar_resposta(e, armazenamento={})
-    return {"armazenamento": salvar_pacote(pacote, e["lote"].periodo_referencia)}
+
+    periodo = e["lote"].periodo_referencia
+    processamento_id = e.get("processamento_id")
+
+    try:
+        armazenamento = salvar_pacote(
+            pacote,
+            periodo,
+            processamento_id=processamento_id,
+        )
+    except Exception as exc:
+        # Falha de armazenamento não derruba o processamento: volta como "erro".
+        print(f"[OCI] falha ao salvar o pacote: {type(exc).__name__}")
+        armazenamento = {
+            "bucket": bucket_name(),
+            "caminho_objeto": caminho_objeto(periodo, processamento_id),
+            "status": "erro",
+        }
+
+    return {"armazenamento": armazenamento}
 
 
 def construir_grafo():
-    g = StateGraph(Estado)
-    g.add_node("classificar", no_classificar)
-    g.add_node("gerar_case", no_case)
-    g.add_node("gerar_faq", no_faq)
-    g.add_node("gerar_alerta", no_alerta)
-    g.add_node("gerar_newsletter", no_newsletter)
-    g.add_node("salvar_oci", no_salvar)
+    grafo = StateGraph(Estado)
 
-    g.add_edge(START, "classificar")
-    g.add_conditional_edges("classificar", roteador,
-                            ["gerar_case", "gerar_faq", "gerar_alerta", "gerar_newsletter"])
-    for ramo in ("gerar_case", "gerar_faq", "gerar_alerta"):
-        g.add_edge(ramo, "gerar_newsletter")
-    g.add_edge("gerar_newsletter", "salvar_oci")
-    g.add_edge("salvar_oci", END)
-    return g.compile()
+    grafo.add_node("classificar", no_classificar)
+    grafo.add_node("gerar_case", no_case)
+    grafo.add_node("gerar_faq", no_faq)
+    grafo.add_node("gerar_alerta", no_alerta)
+    grafo.add_node("gerar_newsletter", no_newsletter)
+    grafo.add_node("salvar_oci", no_salvar)
+
+    grafo.add_edge(START, "classificar")
+
+    grafo.add_conditional_edges(
+        "classificar",
+        roteador,
+        [
+            "gerar_case",
+            "gerar_faq",
+            "gerar_alerta",
+            "gerar_newsletter",
+        ],
+    )
+
+    for ramo in (
+        "gerar_case",
+        "gerar_faq",
+        "gerar_alerta",
+    ):
+        grafo.add_edge(ramo, "gerar_newsletter")
+
+    grafo.add_edge("gerar_newsletter", "salvar_oci")
+    grafo.add_edge("salvar_oci", END)
+
+    return grafo.compile()
 
 
 GRAFO = construir_grafo()
 
 
-def processar(lote: LoteEntrada) -> dict:
-    estado = GRAFO.invoke({"lote": lote, "ativos": {}})
-    return montar_resposta(estado, estado["armazenamento"])
+def processar(
+    lote: LoteEntrada,
+    *,
+    persistir_pacote: bool = True,
+    processamento_id: str | None = None,
+    interaction_ids: list[str] | None = None,
+) -> dict:
+    """Executa o pipeline e retorna os resultados estruturados."""
+    estado = GRAFO.invoke(
+        {
+            "lote": lote,
+            "ativos": {},
+            "persistir_pacote": persistir_pacote,
+            "processamento_id": processamento_id,
+            "interaction_ids": list(
+                interaction_ids or []
+            ),
+            "fontes_ativos": {},
+        }
+    )
+
+    return montar_resposta(
+        estado,
+        estado["armazenamento"],
+    )
+
+
+def processar_com_registro(lote: LoteEntrada) -> tuple[dict, dict]:
+    """Caminho do painel Streamlit (plano B): processa e grava no histórico antigo (Supabase).
+
+    Só grava se DATABASE_URL estiver configurada. Falha ao gravar não derruba o
+    processamento: o erro volta no registro. O painel web grava no Oracle por `app.main`.
+    """
+    from . import repositorio
+
+    resposta = processar(lote)
+    registro = {"lote_id": None, "erro": None}
+    if repositorio.banco_configurado():
+        try:
+            registro["lote_id"] = repositorio.gravar_lote(lote, resposta, repositorio.modo_atual())
+        except Exception as e:
+            registro["erro"] = str(e) or type(e).__name__
+            print(f"[Supabase] falha ao gravar: {registro['erro']}")
+    return resposta, registro

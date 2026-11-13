@@ -9,6 +9,14 @@ env/
 .env.*
 !.env.example
 
+# Wallet do Oracle Autonomous DB (credenciais; nunca versionar)
+wallet/
+wallet*.zip
+# Chave e config da OCI usadas no deploy (docker-compose)
+oci/
+*.pem
+deploy-easypanel/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -43,3 +51,7 @@ saida_local/
 requirements.txt.backup
 
 *.egg-info/
+
+# Artefatos locais do Superpowers (brainstorm, specs e planos)
+.superpowers/
+docs/superpowers/

@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# CommunityLab — verificação completa no Linux/Mac. Responsável: Renato.
+# Sender AI — verificação completa no Linux/Mac. Responsável: Renato.
 #
 # Uso, na pasta raiz do projeto:
 #   bash verificar.sh          # modo simulado
-#   bash verificar.sh --real   # Gemini e OCI do .env
+#   bash verificar.sh --real   # Claude e OCI do .env
 set -euo pipefail
 cd "$(dirname "$0")"
 
 falhar() { echo "[FALHOU] $1"; echo "Veja a seção 'Problemas comuns' em docs/EXECUCAO.md"; exit 1; }
 
 echo ""
-echo "CommunityLab — preparando o ambiente"
+echo "Sender AI — preparando o ambiente"
 
 PY=""
 for c in python3 python; do

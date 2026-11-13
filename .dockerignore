@@ -1,0 +1,33 @@
+# Credenciais: nunca dentro da imagem (chegam por volume e env_file)
+.env
+.env.*
+!.env.example
+wallet/
+wallet*.zip
+oci/
+deploy-easypanel/
+*.pem
+*.p12
+*.sso
+*.jks
+
+# Coisas que o container não usa
+.git/
+.github/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+tests/
+docs/
+supabase/
+scripts/
+saida_local/
+.superpowers/
+.agents/
+.streamlit/
+*.bat
+*.ps1
+*.sh
+verificar.py

@@ -20,7 +20,8 @@ _ROTULOS = {
     "alerta": "Alerta",
     "nenhuma": "Nenhuma",
     "mock": "Mock · simulação por regras",
-    "gemini": "Gemini · execução via provedor",
+    "gemini": "Modo real · execução via provedor (Gemini ou Claude)",
+    "claude": "Claude · execução via provedor",
     "arquivo": "Arquivo · previsões importadas",
     "avaliacao_local": "Classificador fornecido",
     "tipo_oculto": "Tipo oculto · sem rótulo de entrada",
@@ -501,7 +502,7 @@ def renderizar_html(resultado: dict) -> str:
     )
     total_referencia = resultado["recortes"].get("referencia", {}).get("cobertura", {}).get("total")
     contexto_modo = {
-        "mock": "Modo mock: o classificador usa regras locais. Estes resultados não medem a qualidade do Gemini.",
+        "mock": "Modo mock: o classificador usa regras locais. Estes resultados não medem a qualidade do Claude.",
         "arquivo": "Previsões importadas: a identificação do modelo é declarada no arquivo de origem e não é verificada por este relatório.",
     }.get(metadados["modo"], "")
     if metadados["cenario"] == "tipo_informado":
@@ -540,7 +541,7 @@ def renderizar_html(resultado: dict) -> str:
         '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; '
         'style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'">',
         '<meta name="color-scheme" content="light">',
-        '<title>CommunityLab · Avaliação sintética do pipeline</title>',
+        '<title>Sender AI · Avaliação sintética do pipeline</title>',
         f'<style>{_ESTILOS}</style></head><body>',
         '<a class="skip" href="#conteudo">Ir para o conteúdo</a><div class="shell">',
         '<header><div class="brand"><div class="wordmark">Community<span>Lab</span></div>',
@@ -549,7 +550,7 @@ def renderizar_html(resultado: dict) -> str:
         _badge("Avaliação sintética", "warning"),
         '<h1>Qualidade do pipeline,<br>caso a caso.</h1>',
         '<p class="lead">Classificação, relevância e roteamento comparados com uma base '
-        'de referência. Resultados verificáveis para orientar a evolução do CommunityLab.</p></div>',
+        'de referência. Resultados verificáveis para orientar a evolução do Sender AI.</p></div>',
         '<aside class="snapshot" aria-label="Contexto da execução"><div class="eyebrow">Esta execução</div><dl>',
         f'<div class="meta-row"><dt>Modo</dt><dd>{_rotulo(metadados["modo"])}</dd></div>',
         f'<div class="meta-row"><dt>Cenário</dt><dd>{_rotulo(metadados["cenario"])}</dd></div>',
@@ -612,7 +613,7 @@ def renderizar_html(resultado: dict) -> str:
         f'<p class="helper space-top">{_texto(contexto_revisao)}</p>',
         '</div><div class="panel space-top"><h3>Identificação da execução</h3>',
         f'<dl class="trace">{rastreabilidade}</dl></div></section></main>',
-        '<footer><span>CommunityLab · avaliação sintética do pipeline</span>',
+        '<footer><span>Sender AI · avaliação sintética do pipeline</span>',
         '<span>Relatório autossuficiente · leitura local e impressão</span></footer></div></body></html>',
     ]
     return ''.join(html)

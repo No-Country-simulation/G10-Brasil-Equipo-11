@@ -78,3 +78,37 @@ def test_rejeitar_lista_vazia(tmp_path):
 
     with pytest.raises(ValueError, match="não contém interações"):
         carregar_lote(arquivo)
+
+
+def _json_com(tmp_path, interacoes):
+    arquivo = tmp_path / "interacoes.json"
+    arquivo.write_text(json.dumps({"interacoes": interacoes}, ensure_ascii=False), encoding="utf-8")
+    return arquivo
+
+
+def test_ler_data_da_mensagem(tmp_path):
+    from datetime import date
+    arquivo = _json_com(tmp_path, [
+        {"canal": "#geral", "texto": "a", "data": "2026-10-05"},
+        {"canal": "#geral", "texto": "b", "date": "07/10/2026"},
+        {"canal": "#geral", "texto": "c"},
+    ])
+
+    datas = [i.data for i in carregar_lote(arquivo).interacoes]
+
+    assert datas == [date(2026, 10, 5), date(2026, 10, 7), None]
+
+
+def test_ler_data_no_csv(tmp_path):
+    from datetime import date
+    arquivo = tmp_path / "interacoes.csv"
+    arquivo.write_text("autor,canal,tipo,texto,data\nAna,#geral,outro,Oi,12/10/2026\n", encoding="utf-8")
+
+    assert carregar_lote(arquivo).interacoes[0].data == date(2026, 10, 12)
+
+
+def test_rejeitar_data_invalida(tmp_path):
+    arquivo = _json_com(tmp_path, [{"canal": "#geral", "texto": "a", "data": "31/02/2026"}])
+
+    with pytest.raises(ValueError, match="interação 1.*data"):
+        carregar_lote(arquivo)

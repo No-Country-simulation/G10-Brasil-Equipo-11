@@ -1,4 +1,4 @@
-"""Testes de integração do CommunityLab. Responsável: Renato.
+"""Testes de integração do Sender AI. Responsável: Renato.
 
 Verificam o sistema como um todo, do arquivo de entrada até o pacote salvo:
 
@@ -10,8 +10,8 @@ Organização:
   3. Entradas inválidas são recusadas sem travar
   4. Acentos e emojis preservados do começo ao fim
   5. Importação de CSV pelo adaptador (o painel tem testes próprios em tests/test_painel.py)
-  6. Limitações conhecidas (xfail): passam a "XPASS" quando forem resolvidas
-  7. Serviços reais (Gemini e OCI): pulados sem credenciais
+  6. Garantias de compatibilidade CSV (Excel pt-BR ';', Windows-1252 e upload na API)
+  7. Serviços reais (Claude e OCI): pulados sem credenciais
 
 Rode da raiz do projeto com:  python -m pytest tests/test_integracao.py -v
 """
@@ -220,11 +220,9 @@ def test_csv_sem_coluna_obrigatoria_da_erro_claro(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# 6. Limitações conhecidas
-#    xfail = "sabemos que ainda falha". Quando alguém corrigir, o pytest mostra XPASS:
-#    aí basta apagar o @pytest.mark.xfail e o teste vira uma garantia permanente.
+# 6. Compatibilidade CSV (Excel pt-BR ';', Windows-1252 e upload na API)
+#    Implementado por Marcelo Sales (devmarcelosales).
 # ---------------------------------------------------------------------------
-@pytest.mark.xfail(reason="Excel em português salva CSV com ';'. O adaptador só aceita ','.", strict=False)
 def test_csv_com_ponto_e_virgula_do_excel_ptbr(tmp_path):
     """Excel: Salvar como > 'CSV (separado por vírgulas)' em Windows pt-BR."""
     arquivo = tmp_path / "excel_ptbr.csv"
@@ -232,16 +230,14 @@ def test_csv_com_ponto_e_virgula_do_excel_ptbr(tmp_path):
     assert len(carregar_lote(arquivo).interacoes) == 2
 
 
-@pytest.mark.xfail(reason="Excel antigo salva em Windows-1252. O adaptador só lê UTF-8.", strict=False)
 def test_csv_em_windows_1252(tmp_path):
     arquivo = tmp_path / "excel_cp1252.csv"
     arquivo.write_text(CSV_PT, encoding="cp1252")
     assert carregar_lote(arquivo).interacoes[0].texto.endswith("Muito grata")
 
 
-@pytest.mark.xfail(reason="A API ainda não aceita CSV: o adaptador não está ligado ao /processar.", strict=False)
 def test_api_aceita_upload_de_csv():
-    """Combinar com Marcelo o nome final do endpoint. Ajuste aqui quando estiver pronto."""
+    """Upload direto de CSV via multipart/form-data no endpoint /processar."""
     r = cliente.post("/processar", files={"arquivo": ("lote.csv", CSV_PT.encode("utf-8"), "text/csv")})
     assert r.status_code == 200
 
@@ -252,25 +248,26 @@ def test_api_aceita_upload_de_csv():
 def _config_real() -> dict:
     """Junta o .env da raiz com as variáveis do terminal (o terminal tem prioridade)."""
     arquivo = {k: v for k, v in dotenv_values(RAIZ / ".env").items() if v}
-    terminal = {k: v for k, v in os.environ.items() if k.startswith(("GEMINI_", "OCI_")) and v}
+    terminal = {k: v for k, v in os.environ.items() if k.startswith(("ANTHROPIC_", "CLAUDE_", "LLM_", "OCI_")) and v}
     return {**arquivo, **terminal}
 
 
 @pytest.fixture
-def gemini_real(monkeypatch):
+def claude_real(monkeypatch):
     cfg = _config_real()
-    if not cfg.get("GEMINI_API_KEY"):
-        pytest.skip("GEMINI_API_KEY não configurada no .env")
+    if not cfg.get("ANTHROPIC_API_KEY"):
+        pytest.skip("ANTHROPIC_API_KEY não configurada no .env")
     if dotenv_values(RAIZ / ".env").get("LLM_MODO", "").lower() == "mock":
-        pytest.skip("O .env tem LLM_MODO=mock. Apague essa linha para testar o Gemini.")
+        pytest.skip("O .env tem LLM_MODO=mock. Apague essa linha para testar o Claude.")
     for chave, valor in cfg.items():
         monkeypatch.setenv(chave, valor)
     monkeypatch.delenv("LLM_MODO", raising=False)
     monkeypatch.delenv("OCI_NAMESPACE", raising=False)  # este teste não sobe nada para a nuvem
+    monkeypatch.setenv("DATABASE_URL", "")  # este teste não grava no banco
 
 
 @pytest.mark.real
-def test_gemini_real_respeita_contrato(gemini_real):
+def test_claude_real_respeita_contrato(claude_real):
     """O ponto mais frágil com o LLM real: ele precisa devolver JSON no formato combinado."""
     entrada = lote(
         ("Ana Teste", "#vagas", "depoimento", "Fui contratada como analista de dados júnior graças ao projeto do curso!"),
@@ -285,7 +282,7 @@ def test_gemini_real_respeita_contrato(gemini_real):
     RespostaProcessamento(**corpo)
 
     rotas = [a["rota"] for a in corpo["analises"]]
-    print("\nRotas decididas pelo Gemini:", rotas)
+    print("\nRotas decididas pelo Claude:", rotas)
     assert rotas[1] == "faq"
     assert rotas[2] == "alerta"
     assert corpo["analises"][0]["sentimento"] in ("Altamente Positivo", "Positivo")

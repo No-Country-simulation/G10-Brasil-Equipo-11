@@ -1,10 +1,10 @@
-"""Teste controlado com o Gemini real: poucas mensagens fictícias, resultado comparado ao esperado.
+"""Teste controlado com o Claude real: poucas mensagens fictícias, resultado comparado ao esperado.
 
 Uso, na raiz do projeto (com o .venv):
-    python scripts/teste_gemini.py            # só classificação: 7 chamadas
-    python scripts/teste_gemini.py --gerar    # + post, FAQ e newsletter: cerca de 10 chamadas
+    python scripts/teste_llm.py            # só classificação: 7 chamadas
+    python scripts/teste_llm.py --gerar    # + post, FAQ e newsletter: cerca de 10 chamadas
 
-Gera em saida_local/teste_gemini/ (pasta ignorada pelo git):
+Gera em saida_local/teste_llm/ (pasta ignorada pelo git):
     relatorio_<data>.md    para compartilhar com a equipe
     resultado_<data>.json  com todos os detalhes
 
@@ -69,10 +69,10 @@ def verificar_configuracao() -> None:
     env = dotenv_values(RAIZ / ".env")
     if not (RAIZ / ".env").exists():
         sys.exit("[FALHOU] Arquivo .env não encontrado. Rode: Copy-Item .env.example .env")
-    if not env.get("GEMINI_API_KEY"):
-        sys.exit("[FALHOU] GEMINI_API_KEY está vazia no .env.")
+    if not env.get("ANTHROPIC_API_KEY"):
+        sys.exit("[FALHOU] ANTHROPIC_API_KEY está vazia no .env.")
     if (env.get("LLM_MODO") or "").lower() == "mock":
-        sys.exit("[FALHOU] O .env tem LLM_MODO=mock. Apague essa linha para usar o Gemini.")
+        sys.exit("[FALHOU] O .env tem LLM_MODO=mock. Apague essa linha para usar o Claude.")
     if llm.modo_mock():
         sys.exit("[FALHOU] O sistema continua em modo simulado. Confira o .env e o terminal (LLM_MODO).")
 
@@ -80,7 +80,7 @@ def verificar_configuracao() -> None:
 def main() -> int:
     gerar = "--gerar" in sys.argv
     verificar_configuracao()
-    print(f"\nTeste controlado com o Gemini · modelo {llm.modelo()} · chave encontrada no .env (não exibida)\n")
+    print(f"\nTeste controlado com o Claude · modelo {llm.modelo()} · chave encontrada no .env (não exibida)\n")
 
     resultados, inicio_total = [], time.time()
     for c in CASOS:
@@ -125,7 +125,7 @@ def main() -> int:
         "itens_que_cairam_no_simulado": len(ia.FALHAS), **llm.ESTATISTICAS, "tempo_total_s": round(total_s, 1),
     }
 
-    pasta = RAIZ / "saida_local" / "teste_gemini"
+    pasta = RAIZ / "saida_local" / "teste_llm"
     pasta.mkdir(parents=True, exist_ok=True)
     carimbo = datetime.now().strftime("%Y%m%d_%H%M")
     (pasta / f"resultado_{carimbo}.json").write_text(
@@ -133,12 +133,14 @@ def main() -> int:
                    ensure_ascii=False, indent=2), encoding="utf-8")
 
     linhas = [
-        f"# Teste controlado com o Gemini — {datetime.now():%d/%m/%Y %H:%M}", "",
+        f"# Teste controlado com o Claude — {datetime.now():%d/%m/%Y %H:%M}", "",
         f"- Modelo: `{llm.modelo()}`",
         f"- Acertos de rota: **{acertos} de {len(resultados)}**",
         f"- Itens que caíram no modo simulado por erro: {len(ia.FALHAS)}",
-        f"- Chamadas à API: {llm.ESTATISTICAS['chamadas']} · novas tentativas: {llm.ESTATISTICAS['novas_tentativas']}"
+        f"- Chamadas à API: {llm.ESTATISTICAS['chamadas']}"
         f" · respostas fora do formato: {llm.ESTATISTICAS['respostas_invalidas']}",
+        f"- Tokens: entrada {llm.ESTATISTICAS['tokens_entrada']} · lidos do cache {llm.ESTATISTICAS['tokens_cache_lidos']}"
+        f" · saída {llm.ESTATISTICAS['tokens_saida']}",
         f"- Tempo total: {total_s:.1f} s", "",
         "| # | Caso | Esperado | Obtido | Sentimento | Relevância | Tempo |",
         "| --- | --- | --- | --- | --- | --- | --- |",

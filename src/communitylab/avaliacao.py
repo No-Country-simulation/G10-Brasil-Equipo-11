@@ -23,6 +23,22 @@ ROTAS = get_args(Analise.model_fields["rota"].annotation)
 CENARIOS = ("tipo_oculto", "tipo_informado")
 
 
+class EntradaAvaliacao(Interacao):
+    """Interação da base de avaliação: exatamente autor, canal, tipo e texto.
+
+    Campos opcionais acrescentados ao contrato compartilhado (como "data", usado no histórico)
+    ficam fora da base. Assim a base revisada e o hash da revisão não mudam quando o contrato cresce.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+
+# Remove do modelo de avaliação os campos opcionais do contrato que não fazem parte da base.
+for _campo in [n for n, f in Interacao.model_fields.items() if not f.is_required() and n != "tipo"]:
+    EntradaAvaliacao.model_fields.pop(_campo, None)
+EntradaAvaliacao.model_rebuild(force=True)
+
+
 def hash_casos(casos: list[dict]) -> str:
     """Identifica o conteúdo revisado, independentemente da formatação do JSON."""
     conteudo = json.dumps(casos, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
@@ -78,7 +94,7 @@ class CasoAvaliacao(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     id: str = Field(pattern=r"^AV[0-9]{3,}$")
     grupo: Literal["referencia", "desafio"]
-    entrada: Interacao
+    entrada: EntradaAvaliacao
     referencia: Referencia
     justificativa: str = Field(min_length=10)
     evidencia: str = Field(min_length=3)
@@ -155,9 +171,9 @@ def _validar_base(base: dict) -> dict:
     # Interacao é um contrato compartilhado permissivo; a base de avaliação é estrita.
     for caso in dados.get("casos", []):
         entrada = caso.get("entrada", {}) if isinstance(caso, dict) else {}
-        if not isinstance(entrada, dict) or set(entrada) != set(Interacao.model_fields):
+        if not isinstance(entrada, dict) or set(entrada) != set(EntradaAvaliacao.model_fields):
             raise ValueError("A entrada de avaliação deve conter exatamente autor, canal, tipo e texto.")
-        Interacao.model_validate(entrada, strict=True)
+        EntradaAvaliacao.model_validate(entrada, strict=True)
     return BaseAvaliacao.model_validate(dados).model_dump()
 
 
@@ -245,7 +261,7 @@ def avaliar(base: dict, classificador: Callable, *, cenario="tipo_oculto", metad
     dados = _validar_base(base)
     casos = []
     for caso in dados["casos"]:
-        entrada = Interacao.model_validate(caso["entrada"], strict=True)
+        entrada = EntradaAvaliacao.model_validate(caso["entrada"], strict=True)
         if cenario == "tipo_oculto":
             entrada = entrada.model_copy(update={"tipo": "outro"})
         previsto, erro = None, None
@@ -319,7 +335,7 @@ def avaliar(base: dict, classificador: Callable, *, cenario="tipo_oculto", metad
             "Metas numéricas usam o recorte referência; desafios permanecem visíveis no resultado total e no recorte próprio.",
             "Tipo informado é avaliação assistida: o mock reutiliza essa anotação. Não comparar esse resultado como inferência autônoma.",
             "Tópicos são contagens de texto exato, sem agrupamento semântico. No mock, derivam do canal; tópicos precisam de avaliação qualitativa.",
-            "Roteamento é uma regra determinística; acerto de rota não valida sentimento, geração de conteúdo, Gemini ou armazenamento OCI.",
+            "Roteamento é uma regra determinística; acerto de rota não valida sentimento, geração de conteúdo, o modelo (Claude) ou armazenamento OCI.",
             "A fila prioriza a conferência deste conjunto de avaliação; não implementa aprovação de conteúdo nem triagem operacional da comunidade.",
         ],
     }

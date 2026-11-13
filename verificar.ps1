@@ -1,4 +1,4 @@
-# CommunityLab - verificacao completa no Windows. Responsavel: Renato.
+# Sender AI - verificacao completa no Windows. Responsavel: Renato.
 #
 # Uso, na pasta raiz do projeto:
 #   powershell -ExecutionPolicy Bypass -File .\verificar.ps1
@@ -20,7 +20,7 @@ function Falhar($mensagem) {
 }
 
 Write-Host ""
-Write-Host "CommunityLab - preparando o ambiente" -ForegroundColor Cyan
+Write-Host "Sender AI - preparando o ambiente" -ForegroundColor Cyan
 
 # 1. Python 3.10+ (tenta o lancador 'py' e depois 'python')
 $python = $null
@@ -55,4 +55,14 @@ Write-Host "[ OK ] Dependencias instaladas"
 $argumentos = @("verificar.py")
 if ($Real) { $argumentos += "--real" }
 & $venvPython @argumentos
-exit $LASTEXITCODE
+$codigoSaida = $LASTEXITCODE
+
+if ($codigoSaida -eq 0) {
+    Write-Host "Para abrir o Sender AI:" -ForegroundColor Green
+    Write-Host "  * Site (oficial): de dois cliques em iniciar_web_vanilla.bat, ou rode:" -ForegroundColor Cyan
+    Write-Host "      & `"$venvPython`" -m uvicorn app.main:app --host 127.0.0.1 --port 8000" -ForegroundColor Cyan
+    Write-Host "    e abra http://127.0.0.1:8000" -ForegroundColor Cyan
+    Write-Host "  * Painel Streamlit (alternativo): & `"$venvPython`" -m streamlit run ui/painel.py" -ForegroundColor Cyan
+}
+
+exit $codigoSaida

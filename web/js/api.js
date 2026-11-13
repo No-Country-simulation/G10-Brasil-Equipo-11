@@ -1,6 +1,20 @@
 // web/js/api.js
 // Cliente HTTP REST para comunicação direta com o backend FastAPI (< 60 linhas)
 
+// Tira a frase legível da resposta de erro do backend ({"detail": "..."} ou a lista do validador).
+async function mensagemDeErro(res, padrao) {
+  const texto = await res.text();
+  try {
+    const { detail } = JSON.parse(texto);
+    if (typeof detail === 'string' && detail) return detail;
+    if (Array.isArray(detail) && detail.length) {
+      return detail.map(d => `${(d.loc || []).join(' > ')}: ${d.msg}`).join('; ');
+    }
+  } catch { /* resposta sem JSON: usa o texto abaixo */ }
+  if (res.status === 401) return 'Sua sessão expirou. Entre de novo.';
+  return texto && texto.length < 300 ? texto : `${padrao} (HTTP ${res.status})`;
+}
+
 export const api = {
   async verificarSaude() {
     const res = await fetch('/saude');
@@ -18,6 +32,15 @@ export const api = {
   async obterFontes() {
     const res = await fetch('/api/fontes');
     if (!res.ok) throw new Error(`Falha ao obter fontes (${res.status})`);
+    return res.json();
+  },
+
+  // Envia o arquivo (CSV ou JSON) para o backend ler e devolver o lote pronto para processar.
+  async lerArquivo(file) {
+    const corpo = new FormData();
+    corpo.append('arquivo', file, file.name);
+    const res = await fetch('/api/importar/arquivo', { method: 'POST', body: corpo });
+    if (!res.ok) throw new Error(await mensagemDeErro(res, 'Não foi possível ler o arquivo.'));
     return res.json();
   },
 
@@ -54,15 +77,7 @@ export const api = {
       options.headers = { 'Content-Type': 'application/json' };
     }
     const res = await fetch(reprocessar ? '/processar?reprocessar=true' : '/processar', options);
-    if (!res.ok) {
-      const detalhe = await res.text();
-      try {
-        const json = JSON.parse(detalhe);
-        throw new Error(json.detail || 'Erro ao processar lote.');
-      } catch {
-        throw new Error(detalhe || 'Erro desconhecido ao processar lote.');
-      }
-    }
+    if (!res.ok) throw new Error(await mensagemDeErro(res, 'Erro ao processar lote.'));
     return res.json();
   },
 

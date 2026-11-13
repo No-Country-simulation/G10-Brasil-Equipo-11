@@ -580,7 +580,12 @@ async def _ler_lote(request: Request) -> LoteEntrada:
         ) from exc
 
     try:
-        return LoteEntrada.model_validate(dados)
+        lote = LoteEntrada.model_validate(dados)
+        # Mesma regra do CSV: mensagem sem autor entra como anônima, em vez de derrubar o lote.
+        for posicao, interacao in enumerate(lote.interacoes, 1):
+            if not interacao.autor.strip():
+                interacao.autor = f"anônimo_{posicao:03d}"
+        return lote
     except ValidationError as exc:
         raise HTTPException(
             422,

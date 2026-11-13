@@ -299,3 +299,83 @@ def test_landing_page_ponytail_limite_linhas_e_humanizer():
 
 
 
+
+
+# ---------------------------------------------------------------------------
+# Tela Importar: leitura do arquivo (CSV e JSON) e mensagens sem autor
+# ---------------------------------------------------------------------------
+CSV_PONTO_E_VIRGULA = (
+    "autor;canal;tipo;data;texto\n"
+    'Camila Rocha;#conquistas;depoimento;2026-11-09;Consegui minha primeira vaga!\n'
+    ';#geral;outro;2026-11-12;bom dia pessoal\n'
+    'Paulo Henrique;#duvidas-java;pergunta_tecnica;2026-11-12;"Lista; com ""aspas"" e acentuação: ção"\n'
+)
+
+
+def _enviar_arquivo(nome, conteudo):
+    return cliente.post("/api/importar/arquivo", files={"arquivo": (nome, conteudo, "application/octet-stream")})
+
+
+def test_importar_arquivo_le_csv_com_ponto_e_virgula_acentos_e_autor_vazio():
+    resposta = _enviar_arquivo("mensagens.csv", ("﻿" + CSV_PONTO_E_VIRGULA).encode("utf-8"))
+    assert resposta.status_code == 200, resposta.text
+    dados = resposta.json()
+    assert (dados["formato"], dados["total"], dados["anonimas"]) == ("CSV", 3, 1)
+    assert dados["origem_do_arquivo"] is False and dados["periodo_do_arquivo"] is False
+    interacoes = dados["lote"]["interacoes"]
+    assert interacoes[1]["autor"] == "anônimo_002"
+    assert interacoes[2]["texto"] == 'Lista; com "aspas" e acentuação: ção'
+    assert interacoes[0]["data"] == "2026-11-09"
+
+
+def test_importar_arquivo_le_json_e_preenche_autor_anonimo():
+    lote = {"origem_comunidade": "Discord_Teste", "periodo_referencia": "2026-11", "interacoes": [
+        {"autor": "Ana", "canal": "#geral", "tipo": "outro", "texto": "oi"},
+        {"autor": "", "canal": "#geral", "tipo": "outro", "texto": "bom dia"},
+    ]}
+    resposta = _enviar_arquivo("lote.json", json.dumps(lote).encode("utf-8"))
+    assert resposta.status_code == 200, resposta.text
+    dados = resposta.json()
+    assert (dados["formato"], dados["total"], dados["anonimas"]) == ("JSON", 2, 1)
+    assert dados["origem_do_arquivo"] is True and dados["lote"]["origem_comunidade"] == "Discord_Teste"
+    assert dados["lote"]["interacoes"][1]["autor"] == "anônimo_002"
+
+
+@pytest.mark.parametrize("nome, conteudo, trecho", [
+    ("notas.txt", b"qualquer coisa", "Formato não suportado"),
+    ("quebrado.json", b"{isto nao e json", "JSON inválido"),
+    ("vazio.csv", b"autor;canal;tipo;texto\n", "não contém interações"),
+    ("sem_texto.csv", b"autor;canal;tipo;texto\nAna;#geral;outro;\n", "texto"),
+])
+def test_importar_arquivo_recusa_com_mensagem_clara(nome, conteudo, trecho):
+    resposta = _enviar_arquivo(nome, conteudo)
+    assert resposta.status_code == 422
+    assert isinstance(resposta.json()["detail"], str)
+    assert trecho in resposta.json()["detail"]
+
+
+def test_importar_arquivo_exige_login_quando_admin_configurado(monkeypatch):
+    monkeypatch.setenv("ADMIN_USUARIO", "admin")
+    monkeypatch.setenv("ADMIN_SENHA", "senha_forte")
+    sem_sessao = TestClient(app)
+    resposta = sem_sessao.post("/api/importar/arquivo", files={"arquivo": ("a.csv", CSV_PONTO_E_VIRGULA.encode("utf-8"))})
+    assert resposta.status_code == 401
+
+
+def test_processar_json_sem_autor_vira_anonimo_em_vez_de_derrubar_o_lote():
+    lote = {"origem_comunidade": "Discord_Teste", "periodo_referencia": "2026-11", "interacoes": [
+        {"autor": "Ana", "canal": "#duvidas", "tipo": "pergunta_tecnica", "texto": "Como instalo o Python?"},
+        {"autor": "   ", "canal": "#geral", "tipo": "outro", "texto": "bom dia"},
+    ]}
+    resposta = cliente.post("/processar", json=lote)
+    assert resposta.status_code == 200, resposta.text
+    assert resposta.json()["resumo_comunidade"]["total_interacoes_processadas"] == 2
+    assert [a["autor"] for a in resposta.json()["analises"]] == ["Ana", "anônimo_002"]
+
+
+def test_tela_importar_usa_o_backend_para_ler_o_arquivo_e_trata_o_soltar():
+    app_js = cliente.get("/js/app.js").text
+    assert "api.lerArquivo(file)" in app_js
+    assert "addEventListener('drop'" in app_js and "addEventListener('dragover'" in app_js
+    assert "JSON.parse(evt.target.result)" not in app_js  # leitura antiga, que recusava CSV
+    assert "/api/importar/arquivo" in cliente.get("/js/api.js").text

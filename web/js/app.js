@@ -342,7 +342,7 @@ function initEventHandlers() {
   });
 
   // Change events para selects e input de arquivo
-  document.addEventListener('change', (e) => {
+  document.addEventListener('change', async (e) => {
     if (e.target.id === 'select-fonte') {
       const novaFonte = e.target.value;
       const { fontesData, mes, ano } = store.getState();
@@ -385,29 +385,34 @@ function initEventHandlers() {
       return;
     }
     if (e.target.id === 'file-input' && e.target.files?.[0]) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        try {
-          const json = JSON.parse(evt.target.result);
-          store.setState({
-            arquivo: file,
-            leitura: {
-              nome: file.name,
-              detalhe: `${Math.round(file.size / 1024)} KB · JSON`,
-              total: json.interacoes?.length || 0,
-              anonimas: json.interacoes?.filter(i => !i.autor).length || 0,
-              lote: json,
-            },
-            origem: json.origem_comunidade || store.getState().origem,
-            periodo: json.periodo_referencia || store.getState().periodo,
-          });
-        } catch {
-          alert('Por favor envie um arquivo JSON ou CSV válido.');
-        }
-      };
-      reader.readAsText(file);
+      await importarArquivo(e.target.files[0]);
+      e.target.value = ''; // permite escolher o mesmo arquivo de novo depois de corrigi-lo
     }
+  });
+
+  // Arrastar e soltar: delegado no documento porque a área é redesenhada a cada mudança de estado.
+  const sobreDropzone = (e) => e.target instanceof Element && e.target.closest('#dropzone-area');
+  const realcarDropzone = (ligado) => {
+    const area = document.getElementById('dropzone-area');
+    if (!area) return;
+    area.style.borderColor = ligado ? 'var(--accent-lime)' : '';
+    area.style.backgroundColor = ligado ? 'var(--bg-surface-2)' : '';
+  };
+  document.addEventListener('dragover', (e) => {
+    if (!e.dataTransfer?.types?.includes('Files')) return;
+    e.preventDefault(); // sem isso o navegador abre o arquivo em vez de entregá-lo à página
+    e.dataTransfer.dropEffect = sobreDropzone(e) ? 'copy' : 'none';
+    realcarDropzone(Boolean(sobreDropzone(e)));
+  });
+  document.addEventListener('dragleave', (e) => {
+    if (!e.relatedTarget) realcarDropzone(false);
+  });
+  document.addEventListener('drop', async (e) => {
+    if (!e.dataTransfer?.types?.includes('Files')) return;
+    e.preventDefault();
+    realcarDropzone(false);
+    const file = e.dataTransfer.files?.[0];
+    if (sobreDropzone(e) && file) await importarArquivo(file);
   });
 
   // Envio de formulário (ex: Enter no Login)
@@ -430,6 +435,35 @@ function initEventHandlers() {
       }
     }
   });
+}
+
+// Lê o arquivo escolhido ou solto na tela Importar. O backend faz a leitura, para o CSV e o
+// JSON seguirem as mesmas regras (separador, acentos, colunas alternativas, autor anônimo).
+async function importarArquivo(file) {
+  const extensao = (file.name.split('.').pop() || '').toLowerCase();
+  if (!['csv', 'json'].includes(extensao)) {
+    alert(`O arquivo "${file.name}" não é CSV nem JSON.`);
+    return;
+  }
+  try {
+    const lido = await api.lerArquivo(file);
+    const atual = store.getState();
+    store.setState({
+      arquivo: file,
+      leitura: {
+        nome: lido.nome,
+        detalhe: `${Math.max(1, Math.round(file.size / 1024))} KB · ${lido.formato} (${lido.total} msgs)`,
+        total: lido.total,
+        anonimas: lido.anonimas,
+        lote: lido.lote,
+      },
+      origem: lido.origem_do_arquivo ? lido.lote.origem_comunidade : atual.origem,
+      periodo: lido.periodo_do_arquivo ? lido.lote.periodo_referencia : atual.periodo,
+      duplicado: null,
+    });
+  } catch (err) {
+    alert(`Não foi possível ler "${file.name}": ${err.message}`);
+  }
 }
 
 function salvarTextosAtivos() {

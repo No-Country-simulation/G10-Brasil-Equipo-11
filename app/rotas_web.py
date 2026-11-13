@@ -377,6 +377,55 @@ def obter_fontes():
 
 
 # ---------------------------------------------------------------------------
+# Leitura do arquivo enviado na tela Importar (CSV ou JSON)
+# ---------------------------------------------------------------------------
+_ORIGEM_PADRAO = "comunidade_importada"
+_PERIODO_PADRAO = "periodo_nao_informado"
+_AUTOR_ANONIMO = re.compile(r"^anônimo_\d{3,}$")
+
+
+@router.post("/api/importar/arquivo", dependencies=[Depends(exigir_admin)])
+async def ler_arquivo_importado(request: Request):
+    """Lê um CSV ou JSON e devolve o lote já no formato do pipeline, sem processar.
+
+    Usa o mesmo adaptador do /processar: detecta o separador e a codificação do CSV,
+    aceita os nomes alternativos de coluna e dá um autor "anônimo_NNN" a quem veio sem.
+    """
+    from pydantic import ValidationError
+
+    from communitylab.adapter import carregar_lote_bytes
+
+    form = await request.form()
+    upload = form.get("arquivo") or form.get("file")
+    if upload is None or not hasattr(upload, "read"):
+        raise HTTPException(422, "Arquivo ausente. Envie o campo 'arquivo'.")
+
+    nome = str(getattr(upload, "filename", None) or "lote.csv")
+    try:
+        lote = carregar_lote_bytes(conteudo=await upload.read(), nome_arquivo=nome)
+    except ValidationError as exc:
+        primeiro = exc.errors(include_url=False)[0]
+        campo = " > ".join(str(parte) for parte in primeiro.get("loc", ()))
+        raise HTTPException(422, f"Arquivo inválido ({campo}): {primeiro.get('msg')}") from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+    dados = lote.model_dump(mode="json")
+    # Sem origem ou período no arquivo, a tela usa o que está escolhido em "Dados do lote".
+    origem_do_arquivo = lote.origem_comunidade != _ORIGEM_PADRAO
+    periodo_do_arquivo = lote.periodo_referencia != _PERIODO_PADRAO
+    return {
+        "nome": nome,
+        "formato": "CSV" if nome.lower().endswith(".csv") else "JSON",
+        "total": len(lote.interacoes),
+        "anonimas": sum(1 for i in lote.interacoes if _AUTOR_ANONIMO.match(i.autor)),
+        "origem_do_arquivo": origem_do_arquivo,
+        "periodo_do_arquivo": periodo_do_arquivo,
+        "lote": dados,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Lotes já processados (aviso de duplicado e reabertura)
 # ---------------------------------------------------------------------------
 @router.post("/api/lotes/verificar", dependencies=[Depends(exigir_admin)])

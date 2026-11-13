@@ -243,9 +243,11 @@ def etapa_api():
 
         armaz = corpo["armazenamento_oci"]
         if armaz["status"] == "salvo_localmente":
-            arquivo = RAIZ / armaz["caminho_objeto"]
+            # O caminho pode vir com ou sem o prefixo saida_local/ (mudou na integração com o Oracle)
+            candidatos = [RAIZ / armaz["caminho_objeto"], RAIZ / "saida_local" / armaz["caminho_objeto"]]
+            arquivo = next((c for c in candidatos if c.exists()), candidatos[-1])
             if arquivo.exists():
-                registrar("Pacote salvo", "OK", f"local: {armaz['caminho_objeto']}")
+                registrar("Pacote salvo", "OK", f"local: {arquivo.relative_to(RAIZ).as_posix()}")
             else:
                 registrar("Pacote salvo", "FALHOU", f"arquivo não encontrado: {arquivo}")
         elif armaz["status"] == "salvo_com_sucesso":

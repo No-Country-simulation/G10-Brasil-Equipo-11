@@ -690,6 +690,33 @@ def obter_visao_geral():
     }
 
 
+@router.get("/api/curadoria/fila", dependencies=[Depends(exigir_admin)])
+def obter_fila_curadoria():
+    """Todos os lotes com ativos pendentes, do mais antigo ao mais novo, prontos para a Curadoria."""
+    if not oracle_ativo():
+        return {
+            "oracle_configurado": False,
+            "mensagem": "A fila de curadoria precisa do banco Oracle configurado (COMMUNITYLAB_DB_MODE=oracle no .env).",
+        }
+
+    from app import repository
+
+    try:
+        ids = [l["id"] for l in repository.listar_lotes_com_pendencias(_modo_atual())
+               if sum(l["ativos_pendentes"].values()) > 0]
+        estados = repository.carregar_estados_dos_lotes(ids)
+    except Exception as exc:
+        logger.exception("Falha ao carregar a fila de curadoria (%s)", type(exc).__name__)
+        raise HTTPException(503, "Não foi possível carregar a fila de curadoria no Oracle.") from exc
+
+    lotes = []
+    for lote_id in ids:
+        item = estados.get(lote_id)
+        if item and item.get("resultado"):
+            lotes.append(_estado_do_lote(item))
+    return {"oracle_configurado": True, "lotes": lotes}
+
+
 # ---------------------------------------------------------------------------
 # Histórico e Insights
 # ---------------------------------------------------------------------------

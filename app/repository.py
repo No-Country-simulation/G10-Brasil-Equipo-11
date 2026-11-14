@@ -943,6 +943,38 @@ def atualizar_status_upload(
         conn.commit()
 
 
+def _ativo_da_linha(asset) -> dict:
+    return {
+        "id": asset[0],
+        "chave": asset[1],
+        "tipo": asset[2],
+        "titulo": asset[3],
+        "payload": json_loads(asset[4]),
+        "status_curadoria": asset[5],
+        "versao": asset[6],
+        "consentimento_status": asset[7],
+        "consentimento_autor": asset[8],
+        "consentimento_em": asset[9].isoformat() if asset[9] else None,
+        "consentimento_referencia": asset[10],
+    }
+
+
+def _alerta_da_linha(item) -> dict:
+    return {
+        "id": item[0],
+        "interacao_id": item[1],
+        "autor": item[2],
+        "canal": item[3],
+        "texto": _text_value(item[4]),
+        "motivo": item[5],
+        "status": item[6],
+        "versao": int(item[7]),
+        "acao": item[8],
+        "responsavel": item[9],
+        "justificativa": item[10],
+    }
+
+
 def obter_processamento(
     process_id: str,
 ) -> dict | None:
@@ -996,24 +1028,7 @@ def obter_processamento(
                 {"id": process_id},
             )
 
-            result["ativos"] = [
-                {
-                    "id": asset[0],
-                    "chave": asset[1],
-                    "tipo": asset[2],
-                    "titulo": asset[3],
-                    "payload": json_loads(asset[4]),
-                    "status_curadoria": asset[5],
-                    "versao": asset[6],
-                    "consentimento_status": asset[7],
-                    "consentimento_autor": asset[8],
-                    "consentimento_em": (
-                        asset[9].isoformat() if asset[9] else None
-                    ),
-                    "consentimento_referencia": asset[10],
-                }
-                for asset in cursor.fetchall()
-            ]
+            result["ativos"] = [_ativo_da_linha(asset) for asset in cursor.fetchall()]
 
             cursor.execute(
                 """
@@ -1029,22 +1044,7 @@ def obter_processamento(
                 {"id": process_id},
             )
 
-            result["alertas"] = [
-                {
-                    "id": item[0],
-                    "interacao_id": item[1],
-                    "autor": item[2],
-                    "canal": item[3],
-                    "texto": _text_value(item[4]),
-                    "motivo": item[5],
-                    "status": item[6],
-                    "versao": int(item[7]),
-                    "acao": item[8],
-                    "responsavel": item[9],
-                    "justificativa": item[10],
-                }
-                for item in cursor.fetchall()
-            ]
+            result["alertas"] = [_alerta_da_linha(item) for item in cursor.fetchall()]
 
             return result
 
@@ -2957,3 +2957,75 @@ def contar_alertas_tratados(inicio: date, fim: date, modo: str) -> int:
         with conn.cursor() as cursor:
             cursor.execute(sql, params)
             return int(cursor.fetchone()[0])
+
+
+def carregar_estados_dos_lotes(ids: list[str]) -> dict[str, dict]:
+    """Vários lotes no formato de `obter_processamento`, em três consultas (sem ir lote a lote)."""
+    ids = list(dict.fromkeys(ids))
+    if not ids:
+        return {}
+    params = {f"id{n}": valor for n, valor in enumerate(ids)}
+    em = ", ".join(f":{chave}" for chave in params)
+
+    with database.connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.outputtypehandler = _clob_como_texto
+            cursor.execute(
+                f"""
+                SELECT ID, ORIGEM_COMUNIDADE, PERIODO_REFERENCIA, STATUS, MODO_IA,
+                       TOTAL_INTERACOES, RESULTADO_JSON, CRIADO_EM, FINALIZADO_EM
+                FROM CL_PROCESSAMENTOS
+                WHERE ID IN ({em})
+                """,
+                params,
+            )
+            lotes = {
+                row[0]: {
+                    "id": row[0],
+                    "origem_comunidade": row[1],
+                    "periodo_referencia": row[2],
+                    "status": row[3],
+                    "modo_ia": row[4],
+                    "total_interacoes": row[5],
+                    "resultado": json_loads(row[6]),
+                    "criado_em": row[7].isoformat() if row[7] else None,
+                    "finalizado_em": row[8].isoformat() if row[8] else None,
+                    "ativos": [],
+                    "alertas": [],
+                }
+                for row in cursor.fetchall()
+            }
+
+            cursor.execute(
+                f"""
+                SELECT PROCESSAMENTO_ID, ID, CHAVE_ATIVO, TIPO_ATIVO, TITULO,
+                       PAYLOAD_JSON, STATUS_CURADORIA, VERSAO,
+                       CONSENTIMENTO_STATUS, CONSENTIMENTO_AUTOR,
+                       CONSENTIMENTO_EM, CONSENTIMENTO_REFERENCIA
+                FROM CL_ATIVOS
+                WHERE PROCESSAMENTO_ID IN ({em})
+                ORDER BY PROCESSAMENTO_ID, CRIADO_EM, CHAVE_ATIVO
+                """,
+                params,
+            )
+            for row in cursor.fetchall():
+                if row[0] in lotes:
+                    lotes[row[0]]["ativos"].append(_ativo_da_linha(row[1:]))
+
+            cursor.execute(
+                f"""
+                SELECT a.PROCESSAMENTO_ID, a.ID, a.INTERACAO_ID, i.AUTOR, i.CANAL,
+                       i.TEXTO, a.MOTIVO, a.STATUS_TRIAGEM,
+                       a.VERSAO, a.ACAO, a.RESPONSAVEL,
+                       a.JUSTIFICATIVA
+                FROM CL_ALERTAS a
+                JOIN CL_INTERACOES i ON i.ID = a.INTERACAO_ID
+                WHERE a.PROCESSAMENTO_ID IN ({em})
+                ORDER BY a.PROCESSAMENTO_ID, i.POSICAO
+                """,
+                params,
+            )
+            for row in cursor.fetchall():
+                if row[0] in lotes:
+                    lotes[row[0]]["alertas"].append(_alerta_da_linha(row[1:]))
+    return lotes

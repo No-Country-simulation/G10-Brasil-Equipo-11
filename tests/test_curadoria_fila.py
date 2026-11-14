@@ -177,8 +177,9 @@ def _resultado():
     return cliente.post("/processar", json=lote).json()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def resultado():
+    # escopo de função: os fixtures do conftest que desligam Oracle, IA real e admin valem por teste
     return _resultado()
 
 

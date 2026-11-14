@@ -253,7 +253,8 @@ def test_servir_landing_page_modulos_e_css():
 
     r_css2 = cliente.get("/css/04-landing-sections.css")
     assert r_css2.status_code == 200
-    assert ".lp-dashboard" in r_css2.text
+    assert ".lp-dashboard" not in r_css2.text  # o painel antigo deu lugar ao app real (07-landing-demo.css)
+    assert ".lp-app-demo" in cliente.get("/css/07-landing-demo.css").text
     assert ".lp-cta-box" in r_css2.text
 
     arquivos_js = [
@@ -536,3 +537,19 @@ def test_tema_claro_usa_verde_da_marca():
     sobras = [str(p) for p in list(web.rglob("*.js")) + list(web.rglob("*.css"))
               if re.search(r"(?<![-\w])color:\s*var\(--accent-lime\)", p.read_text(encoding="utf-8"))]
     assert sobras == []
+
+
+def test_landing_demo_usa_o_painel_real():
+    from pathlib import Path
+    demo = cliente.get("/js/organisms/landing-demo.js").text
+    assert "renderAppDemo" in demo
+    for antigo in ("PERIOD", "lp-dash-body", "ENDPOINT PYTHON"):
+        assert antigo not in demo
+    app = cliente.get("/js/demo/app-demo.js").text
+    assert "lp-app-demo" in app
+    for nome in ("renderOverviewView", "renderCurationView", "renderSidebar", "stopPropagation"):
+        assert nome in app
+    assert ", true)" in app or "capture: true" in app  # ouvinte em captura: o app real nunca recebe o clique
+    pasta = Path(__file__).resolve().parent.parent / "web" / "js" / "demo"
+    assert not [p.name for p in pasta.glob("*.js") if "api." in p.read_text(encoding="utf-8")]
+    assert "PERIOD_DATA" not in cliente.get("/js/organisms/landing-events.js").text

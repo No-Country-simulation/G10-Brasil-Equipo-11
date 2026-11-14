@@ -40,7 +40,12 @@ export function tratarAlertaVisaoGeral(loteId, ordem, status) {
     return patch;
   });
 
+  const falhou = async (detalhe) => {
+    await carregarVisaoGeral(); // devolve o alerta à tela, como está no banco
+    store.setState(s => ({ visaoGeral: { ...s.visaoGeral,
+      erro: `O alerta não foi salvo${detalhe ? `: ${detalhe}` : ''}. Tente de novo.` } }));
+  };
   api.tratarAlerta(loteId, ordem, status)
-    .then(res => { if (res && res.salvo_no_banco === false) carregarVisaoGeral(); })
-    .catch(() => carregarVisaoGeral());
+    .then(res => { if (res?.salvo_no_banco !== true) falhou(res?.detalhe); })
+    .catch(() => falhou());
 }

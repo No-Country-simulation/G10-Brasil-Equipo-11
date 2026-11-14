@@ -119,3 +119,12 @@
   font-size: 12px;
   color: var(--dim);
 }
+
+.cl-visao-erro {
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  border-left: 3px solid var(--accent-coral);
+  background: var(--accent-coral-bg);
+  color: var(--text);
+  font-size: 14px;
+}

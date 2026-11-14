@@ -492,3 +492,15 @@ def test_menu_lateral_substitui_o_header_na_ordem_certa():
 def test_lotes_iguais_se_distinguem_pela_data_de_processamento():
     lotes = cliente.get("/js/organisms/pending-batches.js").text
     assert "processado_em" in lotes and "processado " in lotes
+
+
+def test_erros_da_visao_geral_aparecem_mesmo_com_dados_na_tela():
+    view = cliente.get("/js/views/overview-view.js").text
+    assert "cl-visao-erro" in view
+    carga = cliente.get("/js/visao-geral.js").text
+    assert "salvo_no_banco !== true" in carga  # 401/409/503 não somem em silêncio
+
+
+def test_abrir_lote_salvo_vai_para_a_curadoria():
+    assert "abaDestino = 'curadoria'" in cliente.get("/js/lotes.js").text
+    assert "'visao')" not in cliente.get("/js/insights-controller.js").text

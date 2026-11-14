@@ -4,7 +4,7 @@ import { store } from './store.js';
 import { api } from './api.js';
 import { extrairItensCuradoria } from './views/curation-view.js';
 
-export async function abrirLoteSalvo(loteId, abaDestino = 'visao') {
+export async function abrirLoteSalvo(loteId, abaDestino = 'curadoria') {
   const salvo = await api.abrirLote(loteId);
   const itens = extrairItensCuradoria(salvo.resultado);
   const decisoes = {};

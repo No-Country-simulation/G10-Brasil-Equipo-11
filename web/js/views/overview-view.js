@@ -68,8 +68,13 @@ export function renderOverviewView() {
   const lotesTxt = `${lotes.length} ${lotes.length === 1 ? 'lote' : 'lotes'} com pendências`;
   const tratados = dados.alertas_tratados_janela || 0;
 
+  const avisoErro = erro
+    ? `<div class="card cl-visao-erro" role="alert">${esc(erro)}</div>`
+    : '';
+
   return `
     <div class="view-visao">
+      ${avisoErro}
       <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:12px;">
         <div>
           ${renderKicker('01', 'TELEMETRIA DA COMUNIDADE')}

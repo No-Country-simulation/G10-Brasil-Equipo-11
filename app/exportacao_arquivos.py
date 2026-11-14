@@ -9,6 +9,7 @@ import csv
 import io
 import json
 import re
+from datetime import date
 from xml.sax.saxutils import escape
 
 FORMATOS = {
@@ -23,6 +24,10 @@ COLUNAS_CSV = ["tipo", "titulo", "conteudo", "membro", "autorizacao_do_membro", 
 def nome_do_arquivo(pacote: dict, formato: str) -> str:
     periodo = re.sub(r"[^A-Za-z0-9_-]+", "-", str(pacote.get("periodo_referencia") or "")).strip("-") or "periodo"
     return f"aprovados_{periodo}.{formato}"
+
+
+def nome_do_arquivo_varios(formato: str, hoje: date) -> str:
+    return f"aprovados_{hoje.isoformat()}.{formato}"
 
 
 def total_de_ativos(pacote: dict) -> int:
@@ -41,6 +46,21 @@ def gerar(pacote: dict, formato: str) -> bytes:
     if formato == "json":
         return json.dumps(pacote, ensure_ascii=False, indent=2).encode("utf-8")
     raise ValueError(f"Formato não suportado: {formato}. Use pdf, csv ou json.")
+
+
+def gerar_varios(pacotes: list[dict], formato: str) -> bytes:
+    """Um arquivo só com os aprovados de vários lotes (a fila única da Curadoria)."""
+    if formato == "pdf":
+        return gerar_pdf_varios(pacotes)
+    if formato == "csv":
+        return gerar_csv_varios(pacotes)
+    if formato == "json":
+        return json.dumps(pacotes, ensure_ascii=False, indent=2).encode("utf-8")
+    raise ValueError(f"Formato não suportado: {formato}. Use pdf, csv ou json.")
+
+
+def rotulo_do_lote(pacote: dict) -> str:
+    return f"{pacote.get('origem_comunidade') or '-'} · {pacote.get('periodo_referencia') or '-'}"
 
 
 # ---------------------------------------------------------------------------
@@ -92,6 +112,17 @@ def gerar_csv(pacote: dict) -> bytes:
     return saida.getvalue().encode("utf-8-sig")
 
 
+def gerar_csv_varios(pacotes: list[dict]) -> bytes:
+    colunas = ["lote"] + COLUNAS_CSV
+    saida = io.StringIO(newline="")
+    escritor = csv.DictWriter(saida, fieldnames=colunas, delimiter=";", lineterminator="\r\n")
+    escritor.writeheader()
+    for pacote in pacotes:
+        for linha in linhas_csv(pacote):
+            escritor.writerow({coluna: _celula({**linha, "lote": rotulo_do_lote(pacote)}.get(coluna)) for coluna in colunas})
+    return saida.getvalue().encode("utf-8-sig")
+
+
 # ---------------------------------------------------------------------------
 # PDF
 # ---------------------------------------------------------------------------
@@ -108,47 +139,41 @@ def _texto_pdf(valor) -> str:
     return escape(texto).replace("\n", "<br/>")
 
 
-def gerar_pdf(pacote: dict) -> bytes:
+def _estilos_pdf():
     from reportlab.lib import colors
     from reportlab.lib.enums import TA_LEFT
-    from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
-    from reportlab.lib.units import mm
-    from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer
 
     tinta, cinza, verde = colors.HexColor("#15171C"), colors.HexColor("#5A6270"), colors.HexColor("#3F6B12")
-    titulo = ParagraphStyle("titulo", fontName="Helvetica-Bold", fontSize=18, leading=22, textColor=tinta)
-    meta = ParagraphStyle("meta", fontName="Helvetica", fontSize=9.5, leading=13, textColor=cinza)
-    rotulo = ParagraphStyle("rotulo", fontName="Helvetica-Bold", fontSize=8.5, leading=11, textColor=verde,
-                            spaceBefore=14, spaceAfter=3)
-    subtitulo = ParagraphStyle("subtitulo", fontName="Helvetica-Bold", fontSize=12.5, leading=16, textColor=tinta,
-                               spaceAfter=4)
-    corpo = ParagraphStyle("corpo", fontName="Helvetica", fontSize=10.5, leading=15, textColor=tinta,
-                           alignment=TA_LEFT, spaceAfter=4)
+    return {
+        "cinza": cinza,
+        "titulo": ParagraphStyle("titulo", fontName="Helvetica-Bold", fontSize=18, leading=22, textColor=tinta),
+        "lote": ParagraphStyle("lote", fontName="Helvetica-Bold", fontSize=14, leading=18, textColor=tinta,
+                               spaceBefore=18, spaceAfter=2),
+        "meta": ParagraphStyle("meta", fontName="Helvetica", fontSize=9.5, leading=13, textColor=cinza),
+        "rotulo": ParagraphStyle("rotulo", fontName="Helvetica-Bold", fontSize=8.5, leading=11, textColor=verde,
+                                 spaceBefore=14, spaceAfter=3),
+        "subtitulo": ParagraphStyle("subtitulo", fontName="Helvetica-Bold", fontSize=12.5, leading=16, textColor=tinta,
+                                    spaceAfter=4),
+        "corpo": ParagraphStyle("corpo", fontName="Helvetica", fontSize=10.5, leading=15, textColor=tinta,
+                                alignment=TA_LEFT, spaceAfter=4),
+    }
+
+
+def _blocos_pdf(pacote: dict, e: dict) -> list:
+    from reportlab.platypus import Paragraph
 
     def bloco(tipo, cabecalho, texto, detalhes=()):
-        partes = [Paragraph(_texto_pdf(tipo).upper(), rotulo)]
+        partes = [Paragraph(_texto_pdf(tipo).upper(), e["rotulo"])]
         if cabecalho:
-            partes.append(Paragraph(_texto_pdf(cabecalho), subtitulo))
-        partes.append(Paragraph(_texto_pdf(texto), corpo))
+            partes.append(Paragraph(_texto_pdf(cabecalho), e["subtitulo"]))
+        partes.append(Paragraph(_texto_pdf(texto), e["corpo"]))
         linha = " · ".join(f"{nome}: {valor}" for nome, valor in detalhes if valor)
         if linha:
-            partes.append(Paragraph(_texto_pdf(linha), meta))
+            partes.append(Paragraph(_texto_pdf(linha), e["meta"]))
         return partes
 
-    historia = [
-        Paragraph("Sender AI · Conteúdos aprovados", titulo),
-        Spacer(1, 3 * mm),
-        Paragraph(_texto_pdf(
-            f"Comunidade: {pacote.get('origem_comunidade') or '-'}   |   "
-            f"Período: {pacote.get('periodo_referencia') or '-'}   |   "
-            f"Aprovado em: {str(pacote.get('aprovado_em') or '-')[:16].replace('T', ' ')}   |   "
-            f"{total_de_ativos(pacote)} conteúdo(s)"
-        ), meta),
-        Spacer(1, 3 * mm),
-        HRFlowable(width="100%", thickness=0.6, color=colors.HexColor("#D5D9E0")),
-    ]
-
+    historia = []
     post = pacote.get("post_linkedin")
     if post:
         historia += bloco("Post para o LinkedIn", post.get("titulo"), post.get("copy"), [
@@ -161,9 +186,15 @@ def gerar_pdf(pacote: dict) -> bytes:
         historia += bloco("Destaque da newsletter", news.get("chamada"), news.get("resumo"), [("Seção", news.get("secao"))])
     for numero, faq in enumerate(pacote.get("sugestao_conteudo_faq") or [], 1):
         historia += bloco(f"FAQ {numero}", faq.get("tema"), faq.get("conteudo"), [("Origem", faq.get("origem"))])
-
     if total_de_ativos(pacote) == 0:
-        historia.append(Paragraph("Nenhum conteúdo aprovado neste lote.", corpo))
+        historia.append(Paragraph("Nenhum conteúdo aprovado neste lote.", e["corpo"]))
+    return historia
+
+
+def _documento_pdf(historia: list, cinza) -> bytes:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate
 
     def rodape(canvas, doc):
         canvas.saveState()
@@ -180,3 +211,40 @@ def gerar_pdf(pacote: dict) -> bytes:
     )
     documento.build(historia, onFirstPage=rodape, onLaterPages=rodape)
     return saida.getvalue()
+
+
+def _cabecalho_pdf(e: dict, meta: str) -> list:
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.platypus import HRFlowable, Paragraph, Spacer
+
+    return [
+        Paragraph("Sender AI · Conteúdos aprovados", e["titulo"]),
+        Spacer(1, 3 * mm),
+        Paragraph(_texto_pdf(meta), e["meta"]),
+        Spacer(1, 3 * mm),
+        HRFlowable(width="100%", thickness=0.6, color=colors.HexColor("#D5D9E0")),
+    ]
+
+
+def gerar_pdf(pacote: dict) -> bytes:
+    e = _estilos_pdf()
+    historia = _cabecalho_pdf(e, (
+        f"Comunidade: {pacote.get('origem_comunidade') or '-'}   |   "
+        f"Período: {pacote.get('periodo_referencia') or '-'}   |   "
+        f"Aprovado em: {str(pacote.get('aprovado_em') or '-')[:16].replace('T', ' ')}   |   "
+        f"{total_de_ativos(pacote)} conteúdo(s)"
+    ))
+    return _documento_pdf(historia + _blocos_pdf(pacote, e), e["cinza"])
+
+
+def gerar_pdf_varios(pacotes: list[dict]) -> bytes:
+    from reportlab.platypus import Paragraph
+
+    e = _estilos_pdf()
+    total = sum(total_de_ativos(p) for p in pacotes)
+    historia = _cabecalho_pdf(e, f"{len(pacotes)} lote(s)   |   {total} conteúdo(s)")
+    for pacote in pacotes:
+        historia.append(Paragraph(_texto_pdf(rotulo_do_lote(pacote)), e["lote"]))
+        historia += _blocos_pdf(pacote, e)
+    return _documento_pdf(historia, e["cinza"])

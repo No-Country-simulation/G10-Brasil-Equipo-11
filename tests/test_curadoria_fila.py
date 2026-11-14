@@ -183,8 +183,11 @@ def resultado():
 
 
 def pedido(resultado, origem, decisoes):
+    # o painel sempre manda uma decisão por ativo; o que não foi decidido vai como pendente
+    faqs = len(resultado["ativos_distribuicao_gerados"]["sugestao_conteudo_faq"])
+    todas = {"post": "p", "newsletter": "p", **{f"faq_{i}": "p" for i in range(faqs)}, **decisoes}
     return {"resultado": resultado, "origem_comunidade": origem, "periodo_referencia": "2026-11",
-            "decisoes": decisoes, "autorizado": True, "textos": {}}
+            "decisoes": todas, "autorizado": True, "textos": {}}
 
 
 def test_csv_varios_tem_coluna_lote():

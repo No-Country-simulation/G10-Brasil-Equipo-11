@@ -559,6 +559,51 @@ def baixar_aprovados(dados: ExportarCuradoriaRequisicao, formato: str = "pdf"):
     )
 
 
+class BaixarVariosRequisicao(BaseModel):
+    pacotes: list[ExportarCuradoriaRequisicao]
+
+
+@router.post("/api/curadoria/baixar-varios", dependencies=[Depends(exigir_admin)])
+def baixar_aprovados_de_varios_lotes(dados: BaixarVariosRequisicao, formato: str = "pdf"):
+    """Um arquivo com os aprovados de todos os lotes da fila. Lotes sem aprovados ficam de fora."""
+    from datetime import date
+    from app import exportacao_arquivos as arquivos
+    from ui import curadoria as cur
+
+    formato = formato.strip().lower()
+    if formato not in arquivos.FORMATOS:
+        raise HTTPException(400, "Formato não suportado. Use pdf, csv ou json.")
+
+    pacotes = []
+    for pedido in dados.pacotes:
+        periodo = pedido.periodo_referencia.strip()
+        if not re.fullmatch(r"^[a-zA-Z0-9_\-]+$", periodo):
+            raise HTTPException(400, f"Período de referência inválido: '{periodo}'. Caracteres inválidos detectados.")
+        if not pedido.resultado:
+            continue
+        try:
+            pacote = cur.montar_aprovados(
+                resultado=pedido.resultado, decisoes=pedido.decisoes, textos=pedido.textos,
+                origem=pedido.origem_comunidade, periodo=periodo, autorizado=pedido.autorizado,
+            )
+        except ValueError as exc:
+            raise HTTPException(422, f"{pedido.origem_comunidade}: {exc}") from exc
+        except (KeyError, TypeError) as exc:
+            raise HTTPException(422, "Um dos lotes enviados não tem o formato esperado.") from exc
+        if arquivos.total_de_ativos(pacote) > 0:
+            pacotes.append(pacote)
+
+    if not pacotes:
+        raise HTTPException(422, "Nenhum conteúdo aprovado para baixar.")
+
+    nome = arquivos.nome_do_arquivo_varios(formato, date.today())
+    return Response(
+        content=arquivos.gerar_varios(pacotes, formato),
+        media_type=arquivos.FORMATOS[formato],
+        headers={"Content-Disposition": f'attachment; filename="{nome}"'},
+    )
+
+
 @router.post("/api/curadoria/decidir", dependencies=[Depends(exigir_admin)])
 def salvar_decisao_curadoria(req: DecisaoRequisicao):
     from app import repositorio

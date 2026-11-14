@@ -521,3 +521,18 @@ def test_fila_recarregada_mantem_edicoes_e_funciona_sem_oracle():
     fila = cliente.get("/js/fila.js").text
     assert "function mesclarEdicoes" in fila  # textos e autorização não decididos sobrevivem ao recarregar
     assert "function filaDoLoteLocal" in fila  # sem Oracle, o lote processado na sessão vira a fila
+
+
+def test_tema_claro_usa_verde_da_marca():
+    import re
+    from pathlib import Path
+    tokens = cliente.get("/css/00-tokens.css").text
+    escuro, claro = tokens.split('[data-theme="light"]', 1)
+    for bloco in (escuro, claro):
+        assert "--accent-lime-text:" in bloco and "--accent-lime-borda:" in bloco
+    assert "--accent-lime: #b5e04a;" in claro and "--bg-surface: #f7f9fa;" in claro
+    # verde como texto/borda usa o tom legível; o lima puro fica só para preenchimento
+    web = Path(__file__).resolve().parent.parent / "web"
+    sobras = [str(p) for p in list(web.rglob("*.js")) + list(web.rglob("*.css"))
+              if re.search(r"(?<![-\w])color:\s*var\(--accent-lime\)", p.read_text(encoding="utf-8"))]
+    assert sobras == []

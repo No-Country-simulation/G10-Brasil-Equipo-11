@@ -428,7 +428,7 @@ function initEventHandlers() {
   const realcarDropzone = (ligado) => {
     const area = document.getElementById('dropzone-area');
     if (!area) return;
-    area.style.borderColor = ligado ? 'var(--accent-lime)' : '';
+    area.style.borderColor = ligado ? 'var(--accent-lime-text)' : '';
     area.style.backgroundColor = ligado ? 'var(--bg-surface-2)' : '';
   };
   document.addEventListener('dragover', (e) => {

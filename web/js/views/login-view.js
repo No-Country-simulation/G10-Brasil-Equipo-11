@@ -15,7 +15,7 @@ export function renderLoginView() {
         </button>
       </div>
 
-      <div class="card" style="width: 100%; max-width: 420px; padding: 2.25rem 2rem; border-top: 3px solid var(--accent-lime); box-shadow: var(--shadow-card);">
+      <div class="card" style="width: 100%; max-width: 420px; padding: 2.25rem 2rem; border-top: 3px solid var(--accent-lime-text); box-shadow: var(--shadow-card);">
         
         <!-- Logo e Título Limpos -->
         <div style="text-align: center; margin-bottom: 1.5rem;">
@@ -30,7 +30,7 @@ export function renderLoginView() {
         ` : `
           ${!authConfigurado ? `
             <div style="background: var(--accent-amber-bg); border: 1px solid var(--accent-amber); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.25rem; font-size: 13px; color: var(--text); line-height: 1.4;">
-              <strong>⚠️ Login não configurado:</strong> defina <code style="font-family: var(--font-mono); color: var(--accent-lime);">ADMIN_USUARIO</code> e <code style="font-family: var(--font-mono); color: var(--accent-lime);">ADMIN_SENHA</code> no <code>.env</code> e reinicie o app.
+              <strong>⚠️ Login não configurado:</strong> defina <code style="font-family: var(--font-mono); color: var(--accent-lime-text);">ADMIN_USUARIO</code> e <code style="font-family: var(--font-mono); color: var(--accent-lime-text);">ADMIN_SENHA</code> no <code>.env</code> e reinicie o app.
             </div>
           ` : ''}
 

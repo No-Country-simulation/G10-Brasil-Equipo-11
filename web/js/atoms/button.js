@@ -21,7 +21,7 @@ export function renderButton({
   `;
 
   const variantStyles = {
-    primary: `background: var(--accent-lime); color: var(--accent-lime-ink); border: 1px solid transparent;`,
+    primary: `background: var(--accent-lime); color: var(--accent-lime-ink); border: 1px solid var(--accent-lime-borda);`,
     secondary: `background: var(--bg-surface-2); color: var(--text); border: 1px solid var(--line);`,
     danger: `background: var(--accent-coral-bg); color: var(--accent-coral); border: 1px solid var(--accent-coral);`,
     ghost: `background: transparent; color: var(--muted); border: 1px solid transparent;`,

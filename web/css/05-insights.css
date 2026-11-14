@@ -42,7 +42,7 @@
   --chart-grid: #e6ebef;
   --chart-axis: #c7d0d8;
 
-  --estado-bom: #4d7c0f;
+  --estado-bom: var(--accent-lime-text);
   --estado-atencao: #b45309;
   --estado-neutro: #5a6b7c;
   --tinta-estado: #ffffff;   /* as cores de estado são escuras no tema claro */

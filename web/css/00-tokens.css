@@ -14,6 +14,8 @@
   --accent-lime: #c9f36a;
   --accent-lime-bg: rgba(201, 243, 106, 0.12);
   --accent-lime-ink: #071204;
+  --accent-lime-text: #c9f36a;     /* verde como texto, ícone ou borda */
+  --accent-lime-borda: transparent; /* borda do botão primário */
   --accent-cyan: #00e5ff;
   --accent-cyan-bg: rgba(0, 229, 255, 0.12);
   --accent-amber: #ffb84d;
@@ -40,17 +42,21 @@
 }
 
 [data-theme="light"] {
-  --bg: #f5f7f8;
-  --bg-surface: #ffffff;
+  /* Claro confortável: sem branco puro, fundo um tom abaixo dos cartões, texto menos duro que preto */
+  --bg: #e9eef2;
+  --bg-surface: #f7f9fa;
   --bg-surface-2: #eef2f5;
-  --line: #dde3e8;
-  --text: #0b1520;
-  --muted: #5a6b7c;
-  --dim: #a9b4bf;
+  --line: #d5dde4;
+  --text: #17222d;
+  --muted: #4f5d6b;
+  --dim: #6f7d8b;
 
-  --accent-lime: #4d7c0f;
-  --accent-lime-bg: rgba(181, 232, 71, 0.3);
-  --accent-lime-ink: #0d1705;
+  /* Verde da marca: preenchimento na mesma família do escuro; texto/borda num tom fechado e legível */
+  --accent-lime: #b5e04a;
+  --accent-lime-bg: rgba(132, 180, 30, 0.14);
+  --accent-lime-ink: #1a2e05;
+  --accent-lime-text: #3f6212;
+  --accent-lime-borda: #8fb83a;
   --accent-cyan: #00708c;
   --accent-cyan-bg: rgba(0, 136, 170, 0.12);
   --accent-amber: #b45309;
@@ -58,5 +64,5 @@
   --accent-coral: #c81e47;
   --accent-coral-bg: rgba(200, 30, 71, 0.14);
 
-  --shadow-card: 0 4px 18px rgba(11, 21, 32, 0.06);
+  --shadow-card: 0 1px 2px rgba(23, 34, 45, 0.06), 0 4px 14px rgba(23, 34, 45, 0.05);
 }

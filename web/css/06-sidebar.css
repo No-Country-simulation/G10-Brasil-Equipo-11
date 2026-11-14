@@ -89,14 +89,14 @@
 
 .cl-sidebar-item.ativo {
   background: var(--accent-lime-bg);
-  color: var(--accent-lime);
-  border-color: var(--accent-lime);
+  color: var(--accent-lime-text);
+  border-color: var(--accent-lime-text);
   font-weight: 600;
 }
 
 .cl-sidebar-item:focus-visible,
 .cl-icon-btn:focus-visible {
-  outline: 2px solid var(--accent-lime);
+  outline: 2px solid var(--accent-lime-text);
   outline-offset: 2px;
 }
 

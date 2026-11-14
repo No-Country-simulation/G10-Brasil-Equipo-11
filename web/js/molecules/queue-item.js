@@ -5,12 +5,12 @@ import { esc } from '../atoms/escape.js';
 export function renderQueueItem(id, title, status = 'p', isActive = false, loteId = '') {
   const icons = {
     p: '<span style="color:var(--muted); font-size:14px;">○</span>',
-    a: '<span style="color:var(--accent-lime); font-size:14px; font-weight:bold;">✓</span>',
+    a: '<span style="color:var(--accent-lime-text); font-size:14px; font-weight:bold;">✓</span>',
     d: '<span style="color:var(--dim); font-size:14px;">✕</span>',
   };
 
   const activeStyle = isActive
-    ? 'background: var(--accent-lime-bg); border-color: var(--accent-lime); color: var(--accent-lime); font-weight:600;'
+    ? 'background: var(--accent-lime-bg); border-color: var(--accent-lime-text); color: var(--accent-lime-text); font-weight:600;'
     : 'background: var(--bg-surface); border-color: var(--line); color: var(--text);';
 
   return `

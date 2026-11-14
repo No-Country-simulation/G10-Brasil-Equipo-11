@@ -21,7 +21,7 @@ function renderExportStatus(exportResult, exportErro) {
   const novos = lotes.filter(l => l.ok && !l.ja_exportado).length;
   const repetidos = lotes.filter(l => l.ok && l.ja_exportado).length;
   const falhas = lotes.filter(l => !l.ok);
-  const cor = falhas.length ? 'var(--accent-coral)' : 'var(--accent-lime)';
+  const cor = falhas.length ? 'var(--accent-coral)' : 'var(--accent-lime-text)';
   const fundo = falhas.length ? 'var(--accent-coral-bg)' : 'var(--accent-lime-bg)';
   return `
     <div role="${falhas.length ? 'alert' : 'status'}" style="margin-top:8px; font-size:12px; line-height:1.45; color:var(--text); border:1px solid ${cor}; background:${fundo}; border-radius:var(--radius-md); padding:8px 10px;">
@@ -89,7 +89,7 @@ export function renderCurationQueue() {
       <div class="grid-3" style="text-align:center; padding:8px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); margin-bottom:4px;">
         <div>
           <div style="font-size:11px; color:var(--muted); text-transform:uppercase;">Aprovados</div>
-          <div class="tabular-nums" style="font-size:18px; font-weight:700; color:var(--accent-lime);">${aprovados}</div>
+          <div class="tabular-nums" style="font-size:18px; font-weight:700; color:var(--accent-lime-text);">${aprovados}</div>
         </div>
         <div>
           <div style="font-size:11px; color:var(--muted); text-transform:uppercase;">Descartados</div>

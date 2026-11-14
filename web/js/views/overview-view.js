@@ -90,7 +90,7 @@ export function renderOverviewView() {
       <div class="grid-3" style="margin-bottom:20px;">
         ${renderKpiCard({ label: 'Interações (7 dias)', value: interacoes.length,
           caption: `de ${new Set(interacoes.map(i => i.autor)).size} pessoas · ${new Set(interacoes.map(i => i.canal)).size} canais` })}
-        ${renderKpiCard({ label: 'Ativos para aprovar', value: ativosTotal, caption: legendaAtivos, accentColor: 'var(--accent-lime)' })}
+        ${renderKpiCard({ label: 'Ativos para aprovar', value: ativosTotal, caption: legendaAtivos, accentColor: 'var(--accent-lime-text)' })}
         ${renderKpiCard({ label: 'Membros que precisam de apoio', value: alertas.length,
           caption: `${tratados} já tratados nos últimos 7 dias`, accentColor: 'var(--accent-amber)' })}
       </div>

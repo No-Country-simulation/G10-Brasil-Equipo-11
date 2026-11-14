@@ -44,7 +44,7 @@ export function renderAssetEditor(resultado, activeId) {
 
         <div style="margin-bottom:16px;">
           <label style="display:inline-flex; align-items:center; gap:8px; font-size:13.5px; cursor:pointer;">
-            <input type="checkbox" id="chk_autorizado" ${autorizado ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--accent-lime);" />
+            <input type="checkbox" id="chk_autorizado" ${autorizado ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--accent-lime-text);" />
             <span>${esc(nomeMembro)} autorizou o uso do nome e do depoimento</span>
           </label>
         </div>

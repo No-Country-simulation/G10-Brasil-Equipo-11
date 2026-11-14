@@ -27,7 +27,7 @@ export function renderTelemetryTable(analises = [], titulo = 'Interações anali
           ${opcoes.map(opt => {
             const isSelected = filtroRota === opt;
             const style = isSelected
-              ? 'background: var(--accent-lime-bg); color: var(--accent-lime); border-color: var(--accent-lime); font-weight:600;'
+              ? 'background: var(--accent-lime-bg); color: var(--accent-lime-text); border-color: var(--accent-lime-text); font-weight:600;'
               : 'background: var(--bg-surface-2); color: var(--muted); border-color: var(--line);';
             return `
               <button class="btn-filter-route" data-filter="${opt}" style="

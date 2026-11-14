@@ -15,14 +15,7 @@ import { initInsightsEvents } from './insights-controller.js';
 import { abrirLoteSalvo } from './lotes.js';
 import { carregarVisaoGeral, tratarAlertaVisaoGeral } from './visao-geral.js';
 import { primeiroLoteComAtivos } from './organisms/pending-batches.js';
-
-async function abrirLoteNaCuradoria(loteId) {
-  try {
-    await abrirLoteSalvo(loteId, 'curadoria');
-  } catch (err) {
-    store.setState(s => ({ visaoGeral: { ...s.visaoGeral, erro: err.message || 'Não foi possível abrir o lote.' } }));
-  }
-}
+import { abrirCuradoria, carregarFila, focar, proximoPendente, pacotesDosLotes } from './fila.js';
 
 let lastRenderedView = null;
 
@@ -134,8 +127,7 @@ function initEventHandlers() {
     if (e.target.closest('#btn-ir-curadoria')) {
       // Revisar do topo: o lote mais antigo com ativo pendente (a lista já vem nessa ordem)
       const lote = primeiroLoteComAtivos(store.getState().visaoGeral.dados?.lotes_pendentes);
-      if (lote) await abrirLoteNaCuradoria(lote.lote_id);
-      else store.setState({ activeTab: 'curadoria' });
+      await abrirCuradoria({ focoLoteId: lote ? lote.lote_id : null });
       return;
     }
     if (e.target.closest('#btn-ir-visao')) {
@@ -143,12 +135,20 @@ function initEventHandlers() {
       carregarVisaoGeral();
       return;
     }
+    if (e.target.closest('#btn-atualizar-fila')) {
+      carregarFila({ focoLoteId: store.getState().loteId });
+      return;
+    }
+    if (e.target.closest('#btn-ver-todos-pendentes')) {
+      carregarFila();
+      return;
+    }
     const btnRevisarLote = e.target.closest('.btn-revisar-lote');
     if (btnRevisarLote) {
       if (btnRevisarLote.dataset.destino === 'alertas') {
         document.getElementById('bloco-alertas')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } else {
-        await abrirLoteNaCuradoria(btnRevisarLote.dataset.loteId);
+        await abrirCuradoria({ focoLoteId: btnRevisarLote.dataset.loteId });
       }
       return;
     }
@@ -278,7 +278,7 @@ function initEventHandlers() {
     const queueBtn = e.target.closest('.btn-queue-item');
     if (queueBtn) {
       salvarTextosAtivos();
-      store.setState({ activeItem: queueBtn.dataset.id });
+      focar(queueBtn.dataset.loteId || store.getState().loteId, queueBtn.dataset.id);
       return;
     }
 
@@ -298,20 +298,25 @@ function initEventHandlers() {
       return;
     }
 
-    // 6. Exportar Aprovados
+    // 6. Exportar Aprovados: um lote por vez (cada lote tem o seu pacote no bucket)
     if (e.target.closest('#btn-exportar-aprovados')) {
       // Um clique por vez: o envio ao bucket leva alguns segundos.
       if (store.getState().isExporting) return;
       salvarTextosAtivos();
-      const payload = montarPacoteDeAprovados();
+      const pacotes = pacotesDosLotes().filter(p => Object.values(p.decisoes).includes('a'));
       store.setState({ isExporting: true, exportResult: null, exportErro: null });
-      try {
-        const res = await api.exportarAprovados(payload);
-        store.setState({ exportResult: res, isExporting: false });
-        carregarVisaoGeral();
-      } catch (err) {
-        store.setState({ exportErro: err.message || 'Falha ao exportar.', isExporting: false });
+      const lotes = [];
+      for (const pacote of pacotes) {
+        const rotulo = `${(pacote.origem_comunidade || '').replace(/_/g, ' ')} · ${pacote.periodo_referencia || ''}`;
+        try {
+          const res = await api.exportarAprovados(pacote);
+          lotes.push({ rotulo, ok: true, ja_exportado: Boolean(res.ja_exportado) });
+        } catch (err) {
+          lotes.push({ rotulo, ok: false, erro: err.message || 'Falha ao exportar.' });
+        }
       }
+      store.setState({ exportResult: { lotes }, isExporting: false });
+      carregarVisaoGeral();
       return;
     }
 
@@ -323,7 +328,7 @@ function initEventHandlers() {
       salvarTextosAtivos();
       store.setState({ baixando: formato });
       try {
-        const { blob, nome } = await api.baixarAprovados(montarPacoteDeAprovados(), formato);
+        const { blob, nome } = await api.baixarVarios(pacotesDosLotes(), formato);
         salvarNoComputador(blob, nome);
       } catch (err) {
         alert('Não foi possível baixar: ' + (err.message || 'falha ao gerar o arquivo.'));
@@ -494,21 +499,6 @@ async function importarArquivo(file) {
   }
 }
 
-// O que a exportação e o download enviam ao backend: o lote na tela, as decisões e os textos editados.
-function montarPacoteDeAprovados() {
-  const { resultado, decisoes, textosEditados, origem, periodo, autorizado, loteId } = store.getState();
-  return {
-    lote_id: loteId,
-    resultado,
-    origem_comunidade: origem,
-    periodo_referencia: periodo,
-    aprovado_em: new Date().toISOString(),
-    decisoes,
-    textos: textosEditados,
-    autorizado,
-  };
-}
-
 // Entrega o arquivo ao navegador, que salva na pasta de downloads da pessoa.
 function salvarNoComputador(blob, nome) {
   const url = URL.createObjectURL(blob);
@@ -543,34 +533,24 @@ function salvarTextosAtivos() {
 }
 
 function decidirAtivo(decisao) {
-  const { activeItem, decisoes, resultado, loteId, textosEditados, autorizado } = store.getState();
+  const { activeItem, decisoes, loteId, textosEditados, autorizado } = store.getState();
   if (!activeItem) return;
 
-  const nextDecisoes = { ...decisoes, [activeItem]: decisao };
-  const itens = extrairItensCuradoria(resultado);
-  const ids = itens.map(i => i.id);
-
-  // Avança para o próximo pendente
-  let proximo = null;
-  const currIndex = ids.indexOf(activeItem);
-  for (let offset = 1; offset <= ids.length; offset++) {
-    const candidate = ids[(currIndex + offset) % ids.length];
-    if (nextDecisoes[candidate] === 'p') {
-      proximo = candidate;
-      break;
-    }
-  }
-
   store.setState({
-    decisoes: nextDecisoes,
-    activeItem: proximo || activeItem,
+    decisoes: { ...decisoes, [activeItem]: decisao },
     // A decisão mudou: a mensagem da exportação anterior deixa de valer.
     exportResult: null,
     exportErro: null,
   });
-
+  // Grava no lote do item, com os textos e a autorização dele, antes de trocar o foco.
   if (loteId) {
     api.salvarDecisao(loteId, activeItem, decisao, textosEditados, autorizado);
+  }
+
+  // Avança para o próximo pendente: no mesmo lote e depois nos seguintes.
+  if (decisao !== 'p') {
+    const proximo = proximoPendente();
+    if (proximo) focar(proximo.loteId, proximo.itemId);
   }
 }
 

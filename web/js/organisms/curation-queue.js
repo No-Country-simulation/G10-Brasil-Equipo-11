@@ -5,14 +5,9 @@ import { renderQueueItem } from '../molecules/queue-item.js';
 import { renderButton } from '../atoms/button.js';
 import { esc } from '../atoms/escape.js';
 import { store } from '../store.js';
-
-function dataHora(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? ''
-    : d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
+import { lotesSincronizados, totaisDaFila } from '../fila.js';
+import { extrairItensCuradoria } from '../views/curation-view.js';
+import { periodoCurto } from './pending-batches.js';
 
 function renderExportStatus(exportResult, exportErro) {
   if (exportErro) {
@@ -21,22 +16,18 @@ function renderExportStatus(exportResult, exportErro) {
         <strong>✕ Não exportado.</strong> ${esc(exportErro)}
       </div>`;
   }
-  if (!exportResult) return '';
-  // Mostra o caminho a partir de saida_local/: o resto é a pasta interna do servidor.
-  const local = String(exportResult.caminho || '').replace(/^.*[\\/](saida_local[\\/])/, '$1');
-  const caminho = `<code style="word-break:break-all;">${esc(local)}</code>`;
-  if (exportResult.ja_exportado) {
-    const quando = dataHora(exportResult.exportado_em);
-    return `
-      <div role="status" style="margin-top:8px; font-size:12px; line-height:1.45; color:var(--text); border:1px solid var(--accent-amber); background:var(--accent-amber-bg); border-radius:var(--radius-md); padding:8px 10px;">
-        <strong>ⓘ Já exportado${quando ? ` em ${esc(quando)}` : ''}.</strong>
-        Os aprovados não mudaram desde então, então nada foi enviado de novo.<br>${caminho}
-      </div>`;
-  }
+  const lotes = exportResult?.lotes;
+  if (!lotes || !lotes.length) return '';
+  const novos = lotes.filter(l => l.ok && !l.ja_exportado).length;
+  const repetidos = lotes.filter(l => l.ok && l.ja_exportado).length;
+  const falhas = lotes.filter(l => !l.ok);
+  const cor = falhas.length ? 'var(--accent-coral)' : 'var(--accent-lime)';
+  const fundo = falhas.length ? 'var(--accent-coral-bg)' : 'var(--accent-lime-bg)';
   return `
-    <div role="status" style="margin-top:8px; font-size:12px; line-height:1.45; color:var(--text); border:1px solid var(--accent-lime); background:var(--accent-lime-bg); border-radius:var(--radius-md); padding:8px 10px;">
-      <strong>✓ Exportado e guardado no servidor.</strong> ${caminho}<br>
-      Para ter o arquivo no seu computador, use <strong>Baixar</strong> logo abaixo.
+    <div role="${falhas.length ? 'alert' : 'status'}" style="margin-top:8px; font-size:12px; line-height:1.45; color:var(--text); border:1px solid ${cor}; background:${fundo}; border-radius:var(--radius-md); padding:8px 10px;">
+      <strong>${novos} ${novos === 1 ? 'lote exportado' : 'lotes exportados'} · ${repetidos} já ${repetidos === 1 ? 'exportado' : 'exportados'} · ${falhas.length} ${falhas.length === 1 ? 'falha' : 'falhas'}</strong>
+      ${falhas.map(f => `<div style="margin-top:4px;">✕ ${esc(f.rotulo)}: ${esc(f.erro || 'falha ao exportar')}</div>`).join('')}
+      ${novos ? '<div style="margin-top:4px;">Guardado no servidor. Para ter o arquivo no computador, use <strong>Baixar</strong>.</div>' : ''}
     </div>`;
 }
 
@@ -61,14 +52,35 @@ function renderBaixar(aprovados, baixando) {
     </div>`;
 }
 
-export function renderCurationQueue(items = []) {
-  const { decisoes, activeItem, exportResult, exportErro, isExporting, baixando } = store.getState();
-  const valores = Object.values(decisoes);
-  const total = items.length;
-  const aprovados = valores.filter(v => v === 'a').length;
-  const descartados = valores.filter(v => v === 'd').length;
+function dataHoraCurta(iso) {
+  const d = iso ? new Date(iso) : null;
+  return d && !Number.isNaN(d.getTime())
+    ? d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', '')
+    : '';
+}
+
+function renderGrupo(loteId, estado, s) {
+  const itens = extrairItensCuradoria(estado.resultado);
+  const pendentes = itens.filter(it => (estado.decisoes[it.id] || 'p') === 'p').length;
+  const quando = dataHoraCurta(estado.processadoEm);
+  return `
+    <div class="cl-fila-grupo">
+      <div class="cl-fila-grupo-titulo">
+        <span class="cl-fila-grupo-nome">${esc((estado.origem || '').replace(/_/g, ' '))} · ${esc(periodoCurto(estado.periodo))}</span>
+        <span class="cl-fila-grupo-meta">${quando ? `${esc(quando)} · ` : ''}${pendentes} ${pendentes === 1 ? 'pendente' : 'pendentes'}</span>
+      </div>
+      ${itens.map(it => renderQueueItem(
+        it.id, it.title, estado.decisoes[it.id] || 'p', loteId === s.loteId && it.id === s.activeItem, loteId,
+      )).join('')}
+    </div>`;
+}
+
+export function renderCurationQueue() {
+  const s = store.getState();
+  const { exportResult, exportErro, isExporting, baixando } = s;
+  const lotes = lotesSincronizados(s);
+  const { total, aprovados, descartados, pendentes } = totaisDaFila(s);
   const revisados = aprovados + descartados;
-  const pendentes = total - revisados;
 
   return `
     <div class="card cl-queue-container" style="display:flex; flex-direction:column; gap:12px;">
@@ -89,12 +101,8 @@ export function renderCurationQueue(items = []) {
         </div>
       </div>
 
-      <div class="cl-queue-list" style="max-height:380px; overflow-y:auto; padding-right:4px;">
-        ${items.map(it => {
-          const status = decisoes[it.id] || 'p';
-          const isActive = it.id === activeItem;
-          return renderQueueItem(it.id, it.title, status, isActive);
-        }).join('')}
+      <div class="cl-queue-list">
+        ${s.fila.ordem.map(id => renderGrupo(id, lotes[id], s)).join('')}
       </div>
 
       <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--line);">

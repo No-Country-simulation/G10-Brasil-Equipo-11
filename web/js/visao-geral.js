@@ -2,11 +2,13 @@
 // Carrega a Visão geral do banco (pendências de todos os lotes) e trata alertas a partir dela.
 import { store } from './store.js';
 import { api } from './api.js';
+import { invalidarFila } from './fila.js';
 
 export async function carregarVisaoGeral() {
   const atual = store.getState().visaoGeral;
   if (atual.carregando) return;
   store.setState({ visaoGeral: { ...atual, carregando: true, erro: null } });
+  invalidarFila(); // a próxima entrada na Curadoria busca a fila de novo
   try {
     const dados = await api.obterVisaoGeral();
     store.setState({ visaoGeral: { dados, carregando: false, erro: null } });

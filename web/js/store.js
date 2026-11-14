@@ -63,6 +63,7 @@ export class Store {
       visaoGeral: { dados: null, carregando: false, erro: null },
       menuRecolhido: lerMenuRecolhido(),
       menuAberto: false, // gaveta do celular
+      fila: { carregada: false, carregando: false, erro: null, avulso: false, ordem: [], lotes: {} }, // ver fila.js
       ...initialState,
     };
     this.listeners = new Set();
@@ -90,6 +91,7 @@ export class Store {
       isExporting: false,
       visaoGeral: { dados: null, carregando: false, erro: null },
       menuAberto: false,
+      fila: { carregada: false, carregando: false, erro: null, avulso: false, ordem: [], lotes: {} },
       // menuRecolhido fica: é preferência do navegador, não da sessão
     });
   }

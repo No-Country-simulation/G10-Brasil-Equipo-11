@@ -504,3 +504,14 @@ def test_erros_da_visao_geral_aparecem_mesmo_com_dados_na_tela():
 def test_abrir_lote_salvo_vai_para_a_curadoria():
     assert "abaDestino = 'curadoria'" in cliente.get("/js/lotes.js").text
     assert "'visao')" not in cliente.get("/js/insights-controller.js").text
+
+
+def test_curadoria_usa_fila_unica():
+    fila = cliente.get("/js/fila.js").text
+    for nome in ("export async function carregarFila", "export function focar", "export function proximoPendente"):
+        assert nome in fila
+    api = cliente.get("/js/api.js").text
+    assert "/api/curadoria/fila" in api and "/api/curadoria/baixar-varios" in api
+    assert "data-lote-id" in cliente.get("/js/molecules/queue-item.js").text
+    view = cliente.get("/js/views/curation-view.js").text
+    assert "btn-atualizar-fila" in view and "btn-ver-todos-pendentes" in view

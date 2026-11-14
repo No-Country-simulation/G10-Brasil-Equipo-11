@@ -106,6 +106,23 @@ export const api = {
     return { blob: await res.blob(), nome: nome || `aprovados.${formato}` };
   },
 
+  async baixarVarios(pacotes, formato) {
+    const res = await fetch(`/api/curadoria/baixar-varios?formato=${encodeURIComponent(formato)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pacotes }),
+    });
+    if (!res.ok) throw new Error(await mensagemDeErro(res, 'Falha ao gerar o arquivo.'));
+    const nome = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1];
+    return { blob: await res.blob(), nome: nome || `aprovados.${formato}` };
+  },
+
+  async obterFilaCuradoria() {
+    const res = await fetch('/api/curadoria/fila');
+    if (!res.ok) throw new Error(await mensagemDeErro(res, `Falha ao carregar a fila (${res.status})`));
+    return res.json();
+  },
+
   async salvarDecisao(loteId, chave, decisao, textos = {}, autorizacao = false) {
     const res = await fetch('/api/curadoria/decidir', {
       method: 'POST',

@@ -468,3 +468,11 @@ def test_painel_abre_na_visao_geral_e_carrega_do_banco():
     assert "sender_ai_menu_recolhido" in store
     assert "/api/visao-geral" in cliente.get("/js/api.js").text
     assert "export async function carregarVisaoGeral" in cliente.get("/js/visao-geral.js").text
+
+
+def test_visao_geral_sem_pacote_de_distribuicao_e_com_lotes_pendentes():
+    view = cliente.get("/js/views/overview-view.js").text
+    assert "Pacote de distribuição" not in view
+    assert "renderPendingBatches" in view and "visaoGeral" in view
+    assert "btn-revisar-lote" in cliente.get("/js/organisms/pending-batches.js").text
+    assert "data-lote-id" in cliente.get("/js/molecules/alert-card.js").text

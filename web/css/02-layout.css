@@ -81,3 +81,36 @@
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+/* Visão geral: lotes com pendências */
+.cl-lotes-pendentes {
+  display: flex;
+  flex-direction: column;
+}
+
+.cl-lote-linha {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.cl-lote-origem {
+  flex: 1 1 220px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cl-lote-origem .cl-mono {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.cl-lote-contagem {
+  font-size: 13px;
+  color: var(--muted);
+}

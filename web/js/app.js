@@ -14,6 +14,15 @@ import { renderInsightsView } from './views/insights-view.js';
 import { initInsightsEvents } from './insights-controller.js';
 import { abrirLoteSalvo } from './lotes.js';
 import { carregarVisaoGeral, tratarAlertaVisaoGeral } from './visao-geral.js';
+import { primeiroLoteComAtivos } from './organisms/pending-batches.js';
+
+async function abrirLoteNaCuradoria(loteId) {
+  try {
+    await abrirLoteSalvo(loteId, 'curadoria');
+  } catch (err) {
+    store.setState(s => ({ visaoGeral: { ...s.visaoGeral, erro: err.message || 'Não foi possível abrir o lote.' } }));
+  }
+}
 
 let lastRenderedView = null;
 
@@ -123,7 +132,23 @@ function initEventHandlers() {
       return;
     }
     if (e.target.closest('#btn-ir-curadoria')) {
-      store.setState({ activeTab: 'curadoria' });
+      // Revisar do topo: o lote mais antigo com ativo pendente (a lista já vem nessa ordem)
+      const lote = primeiroLoteComAtivos(store.getState().visaoGeral.dados?.lotes_pendentes);
+      if (lote) await abrirLoteNaCuradoria(lote.lote_id);
+      else store.setState({ activeTab: 'curadoria' });
+      return;
+    }
+    const btnRevisarLote = e.target.closest('.btn-revisar-lote');
+    if (btnRevisarLote) {
+      if (btnRevisarLote.dataset.destino === 'alertas') {
+        document.getElementById('bloco-alertas')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        await abrirLoteNaCuradoria(btnRevisarLote.dataset.loteId);
+      }
+      return;
+    }
+    if (e.target.closest('#btn-atualizar-visao')) {
+      carregarVisaoGeral();
       return;
     }
 

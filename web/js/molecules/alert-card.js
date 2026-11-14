@@ -4,7 +4,11 @@ import { esc } from '../atoms/escape.js';
 import { renderBadge } from '../atoms/badge.js';
 import { renderButton } from '../atoms/button.js';
 
-export function renderAlertCard(ordem, analise, statusAlerta = null) {
+// origem = { loteId, rotulo }: de qual lote o alerta veio (a Visão geral junta vários lotes)
+export function renderAlertCard(ordem, analise, statusAlerta = null, origem = null) {
+  const dataOrigem = origem
+    ? `data-lote-id="${esc(origem.loteId)}" data-tipo="${esc(analise.tipo || '')}"`
+    : '';
   const acaoNome = analise.tipo === 'reclamacao' ? 'Encaminhar ao time de conteúdo' : 'Oferecer mentoria';
   const statusLabels = {
     encaminhado: 'Encaminhado',
@@ -13,7 +17,7 @@ export function renderAlertCard(ordem, analise, statusAlerta = null) {
   };
 
   return `
-    <div class="card cl-alert-card" data-ordem="${ordem}" style="display:flex; flex-direction:column; justify-content:space-between; gap:12px; border-left: 3px solid var(--accent-amber);">
+    <div class="card cl-alert-card" data-ordem="${ordem}" ${dataOrigem} style="display:flex; flex-direction:column; justify-content:space-between; gap:12px; border-left: 3px solid var(--accent-amber);">
       <div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
           <div>
@@ -22,6 +26,7 @@ export function renderAlertCard(ordem, analise, statusAlerta = null) {
           </div>
           ${renderBadge('Alerta', 'warning')}
         </div>
+        ${origem ? `<div class="cl-mono" style="font-size:11px; color:var(--dim); margin-bottom:6px;">📡 ${esc(origem.rotulo)}</div>` : ''}
         <div style="background:var(--accent-amber-bg); color:var(--text); padding:10px 14px; border-radius:var(--radius-sm); font-size:14px; line-height:1.45;">
           “${esc(analise.texto)}”
         </div>

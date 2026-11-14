@@ -4,7 +4,7 @@ import { esc } from '../atoms/escape.js';
 import { renderBadge } from '../atoms/badge.js';
 import { store } from '../store.js';
 
-export function renderTelemetryTable(analises = []) {
+export function renderTelemetryTable(analises = [], titulo = 'Interações analisadas') {
   const { filtroRota } = store.getState();
   const rotasMap = {
     'FAQ': 'faq',
@@ -22,7 +22,7 @@ export function renderTelemetryTable(analises = []) {
   return `
     <div class="card cl-telemetry-container">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
-        <h3 class="card-title" style="margin:0;">Interações analisadas (${linhasFiltradas.length})</h3>
+        <h3 class="card-title" style="margin:0;">${esc(titulo)} (${linhasFiltradas.length})</h3>
         <div class="cl-filter-group" style="display:flex; gap:6px; flex-wrap:wrap;">
           ${opcoes.map(opt => {
             const isSelected = filtroRota === opt;
@@ -54,15 +54,15 @@ export function renderTelemetryTable(analises = []) {
           </thead>
           <tbody>
             ${linhasFiltradas.map(a => {
-              const relPercent = (a.relevancia / 10) * 100;
+              const sentimento = a.sentimento || 'Neutro';
               return `
                 <tr style="border-bottom:1px solid var(--line); transition:background var(--transition-fast);" class="hover-row">
                   <td style="padding:10px; font-weight:600;">${esc(a.autor)}</td>
                   <td style="padding:10px;"><span class="cl-mono" style="color:var(--muted); font-size:12px;">${esc(a.canal)}</span></td>
                   <td style="padding:10px; color:var(--text); line-height:1.4;">${esc(a.texto)}</td>
-                  <td style="padding:10px;">${renderBadge(a.sentimento, a.sentimento.includes('Positivo') ? 'info' : (a.sentimento.includes('Negativo') ? 'danger' : 'neutral'))}</td>
+                  <td style="padding:10px;">${renderBadge(sentimento, sentimento.includes('Positivo') ? 'info' : (sentimento.includes('Negativo') ? 'danger' : 'neutral'))}</td>
                   <td style="padding:10px; text-align:right;">
-                    <span class="tabular-nums" style="font-weight:600; color:var(--text);">${a.relevancia}/10</span>
+                    <span class="tabular-nums" style="font-weight:600; color:var(--text);">${a.relevancia ?? '—'}/10</span>
                   </td>
                 </tr>
               `;

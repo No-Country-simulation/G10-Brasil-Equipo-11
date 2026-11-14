@@ -15,7 +15,7 @@ import { initInsightsEvents } from './insights-controller.js';
 import { abrirLoteSalvo } from './lotes.js';
 import { carregarVisaoGeral, tratarAlertaVisaoGeral } from './visao-geral.js';
 import { primeiroLoteComAtivos } from './organisms/pending-batches.js';
-import { abrirCuradoria, carregarFila, focar, proximoPendente, pacotesDosLotes } from './fila.js';
+import { abrirCuradoria, carregarFila, focar, proximoPendente, pacotesDosLotes, salvarTextosAtivos } from './fila.js';
 
 let lastRenderedView = null;
 
@@ -136,7 +136,8 @@ function initEventHandlers() {
       return;
     }
     if (e.target.closest('#btn-atualizar-fila')) {
-      carregarFila({ focoLoteId: store.getState().loteId });
+      salvarTextosAtivos();
+      carregarFila(); // mantém o item em foco e as edições não decididas
       return;
     }
     if (e.target.closest('#btn-ver-todos-pendentes')) {
@@ -509,27 +510,6 @@ function salvarNoComputador(blob, nome) {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function salvarTextosAtivos() {
-  const patch = {};
-  const txtPost = document.getElementById('txt_post_copy');
-  if (txtPost) patch.post_copy = txtPost.value;
-
-  const txtNewsChamada = document.getElementById('txt_news_chamada');
-  if (txtNewsChamada) patch.news_chamada = txtNewsChamada.value;
-
-  const txtNewsResumo = document.getElementById('txt_news_resumo');
-  if (txtNewsResumo) patch.news_resumo = txtNewsResumo.value;
-
-  document.querySelectorAll('[id^="txt_faq_"]').forEach(el => {
-    const key = el.id.replace('txt_', '');
-    patch[key] = el.value;
-  });
-
-  if (Object.keys(patch).length > 0) {
-    store.setState(s => ({ textosEditados: { ...s.textosEditados, ...patch } }));
-  }
 }
 
 function decidirAtivo(decisao) {

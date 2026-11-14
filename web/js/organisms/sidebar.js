@@ -4,7 +4,7 @@ import { esc } from '../atoms/escape.js';
 import { renderThemeToggle } from '../atoms/theme-toggle.js';
 import { store } from '../store.js';
 import { carregarVisaoGeral } from '../visao-geral.js';
-import { abrirCuradoria } from '../fila.js';
+import { abrirCuradoria, salvarTextosAtivos } from '../fila.js';
 
 const svg = (d) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 
@@ -90,6 +90,7 @@ export function initSidebarEvents() {
   document.addEventListener('click', (e) => {
     const item = e.target.closest('.nav-tab-btn');
     if (item && item.dataset.tab) {
+      salvarTextosAtivos(); // sair da Curadoria não pode perder o texto digitado
       store.setState({ activeTab: item.dataset.tab, menuAberto: false });
       if (item.dataset.tab === 'visao') carregarVisaoGeral();
       if (item.dataset.tab === 'curadoria') abrirCuradoria();

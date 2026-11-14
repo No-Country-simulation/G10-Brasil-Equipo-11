@@ -10,6 +10,9 @@ const CAMPOS = ['resultado', 'decisoes', 'textosEditados', 'autorizado', 'alerta
 
 export const FILA_VAZIA = { carregada: false, carregando: false, erro: null, avulso: false, ordem: [], lotes: {} };
 
+// Sem Oracle o lote processado na sessão não tem id no banco: na fila ele usa esta chave.
+const LOCAL = '__local__';
+
 const SEM_FOCO = {
   resultado: null, loteId: null, decisoes: {}, textosEditados: {}, autorizado: false, alertas: {}, activeItem: null,
 };
@@ -31,14 +34,20 @@ function estadoDoLote(salvo) {
 }
 
 function projetar(loteId, estado, itemId) {
-  const patch = { loteId, activeItem: itemId };
+  const patch = { loteId: loteId === LOCAL ? null : loteId, activeItem: itemId };
   CAMPOS.forEach(c => { patch[c] = estado[c]; });
   return patch;
 }
 
 // Os lotes com o lote em foco atualizado a partir do que está na tela.
+export function chaveEmFoco(s = store.getState()) {
+  if (s.loteId) return s.loteId;
+  return s.fila.lotes[LOCAL] ? LOCAL : null;
+}
+
 export function lotesSincronizados(s = store.getState()) {
-  const { fila, loteId } = s;
+  const { fila } = s;
+  const loteId = chaveEmFoco(s);
   if (!loteId || !fila.lotes[loteId]) return fila.lotes;
   const atual = {};
   CAMPOS.forEach(c => { atual[c] = s[c]; });
@@ -54,18 +63,37 @@ export function primeiroPendente(estado) {
   return ids.find(id => estado.decisoes[id] === 'p') || ids[0] || null;
 }
 
-function aplicarFila(lotesApi, { avulso = false, focoLoteId = null } = {}) {
+// Texto editado e autorização marcados, mas ainda não decididos, só existem na tela:
+// ao recarregar a fila eles vêm da fila anterior, não do banco.
+function mesclarEdicoes(novo, anterior) {
+  if (!anterior) return novo;
+  return { ...novo, textosEditados: anterior.textosEditados || {}, autorizado: Boolean(anterior.autorizado) };
+}
+
+function aplicarFila(lotesApi, { avulso = false, focoLoteId = null, manterFoco = false } = {}) {
+  const s = store.getState();
+  const anteriores = lotesSincronizados(s);
   const lotes = {};
   const ordem = [];
   lotesApi.forEach(salvo => {
-    lotes[salvo.lote_id] = estadoDoLote(salvo);
+    lotes[salvo.lote_id] = mesclarEdicoes(estadoDoLote(salvo), anteriores[salvo.lote_id]);
     ordem.push(salvo.lote_id);
   });
   const temPendente = id => Object.values(lotes[id].decisoes).includes('p');
-  const foco = (focoLoteId && lotes[focoLoteId]) ? focoLoteId : (ordem.find(temPendente) || ordem[0] || null);
+  const atual = chaveEmFoco(s);
+  let foco = (focoLoteId && lotes[focoLoteId]) ? focoLoteId : null;
+  let item = foco ? primeiroPendente(lotes[foco]) : null;
+  if (!foco && manterFoco && atual && lotes[atual] && idsDoLote(lotes[atual]).includes(s.activeItem)) {
+    foco = atual;
+    item = s.activeItem;
+  }
+  if (!foco) {
+    foco = ordem.find(temPendente) || ordem[0] || null;
+    item = foco ? primeiroPendente(lotes[foco]) : null;
+  }
   store.setState({
     fila: { ...FILA_VAZIA, carregada: true, avulso, ordem, lotes },
-    ...(foco ? projetar(foco, lotes[foco], primeiroPendente(lotes[foco])) : SEM_FOCO),
+    ...(foco ? projetar(foco, lotes[foco], item) : SEM_FOCO),
     activeTab: 'curadoria',
     exportResult: null,
     exportErro: null,
@@ -79,13 +107,29 @@ export async function carregarFila({ focoLoteId = null } = {}) {
   try {
     const dados = await api.obterFilaCuradoria();
     if (dados.oracle_configurado === false) {
-      store.setState(s => ({ fila: { ...s.fila, carregando: false, erro: dados.mensagem } }));
+      filaDoLoteLocal(dados.mensagem);
       return;
     }
-    aplicarFila(dados.lotes || [], { focoLoteId });
+    aplicarFila(dados.lotes || [], { focoLoteId, manterFoco: true });
   } catch (err) {
     store.setState(s => ({ fila: { ...s.fila, carregando: false, erro: err.message } }));
   }
+}
+
+// Sem Oracle não há fila no banco: o lote processado nesta sessão (se houver) vira uma fila de um lote.
+function filaDoLoteLocal(mensagem) {
+  const s = store.getState();
+  if (!s.resultado) {
+    store.setState({ fila: { ...s.fila, carregando: false, erro: mensagem } });
+    return;
+  }
+  const chave = s.loteId || LOCAL;
+  const estado = {};
+  CAMPOS.forEach(c => { estado[c] = s[c]; });
+  store.setState({
+    fila: { ...FILA_VAZIA, carregada: true, ordem: [chave], lotes: { [chave]: estado } },
+    activeTab: 'curadoria',
+  });
 }
 
 // Entrada da Curadoria: reaproveita a fila carregada ou busca de novo.
@@ -118,7 +162,7 @@ export function proximoPendente() {
   const s = store.getState();
   const lotes = lotesSincronizados(s);
   const { ordem } = s.fila;
-  const atual = s.loteId;
+  const atual = chaveEmFoco(s);
   const candidatos = [];
   const ids = lotes[atual] ? idsDoLote(lotes[atual]) : [];
   const pos = ids.indexOf(s.activeItem);
@@ -158,7 +202,7 @@ export function pacotesDosLotes() {
   const lotes = lotesSincronizados(s);
   const agora = new Date().toISOString();
   return s.fila.ordem.map(id => ({
-    lote_id: id,
+    lote_id: id === LOCAL ? null : id,
     resultado: lotes[id].resultado,
     origem_comunidade: lotes[id].origem,
     periodo_referencia: lotes[id].periodo,
@@ -167,4 +211,26 @@ export function pacotesDosLotes() {
     textos: lotes[id].textosEditados,
     autorizado: lotes[id].autorizado,
   }));
+}
+
+// Leva para o store o que está digitado nos campos do editor (o editor não grava a cada tecla).
+export function salvarTextosAtivos() {
+  const patch = {};
+  const txtPost = document.getElementById('txt_post_copy');
+  if (txtPost) patch.post_copy = txtPost.value;
+
+  const txtNewsChamada = document.getElementById('txt_news_chamada');
+  if (txtNewsChamada) patch.news_chamada = txtNewsChamada.value;
+
+  const txtNewsResumo = document.getElementById('txt_news_resumo');
+  if (txtNewsResumo) patch.news_resumo = txtNewsResumo.value;
+
+  document.querySelectorAll('[id^="txt_faq_"]').forEach(el => {
+    const key = el.id.replace('txt_', '');
+    patch[key] = el.value;
+  });
+
+  if (Object.keys(patch).length > 0) {
+    store.setState(s => ({ textosEditados: { ...s.textosEditados, ...patch } }));
+  }
 }

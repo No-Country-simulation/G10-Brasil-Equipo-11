@@ -5,7 +5,7 @@ import { renderQueueItem } from '../molecules/queue-item.js';
 import { renderButton } from '../atoms/button.js';
 import { esc } from '../atoms/escape.js';
 import { store } from '../store.js';
-import { lotesSincronizados, totaisDaFila } from '../fila.js';
+import { chaveEmFoco, lotesSincronizados, totaisDaFila } from '../fila.js';
 import { extrairItensCuradoria } from '../views/curation-view.js';
 import { periodoCurto } from './pending-batches.js';
 
@@ -70,7 +70,7 @@ function renderGrupo(loteId, estado, s) {
         <span class="cl-fila-grupo-meta">${quando ? `${esc(quando)} · ` : ''}${pendentes} ${pendentes === 1 ? 'pendente' : 'pendentes'}</span>
       </div>
       ${itens.map(it => renderQueueItem(
-        it.id, it.title, estado.decisoes[it.id] || 'p', loteId === s.loteId && it.id === s.activeItem, loteId,
+        it.id, it.title, estado.decisoes[it.id] || 'p', loteId === chaveEmFoco(s) && it.id === s.activeItem, loteId,
       )).join('')}
     </div>`;
 }

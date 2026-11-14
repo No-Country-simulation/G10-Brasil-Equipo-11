@@ -515,3 +515,9 @@ def test_curadoria_usa_fila_unica():
     assert "data-lote-id" in cliente.get("/js/molecules/queue-item.js").text
     view = cliente.get("/js/views/curation-view.js").text
     assert "btn-atualizar-fila" in view and "btn-ver-todos-pendentes" in view
+
+
+def test_fila_recarregada_mantem_edicoes_e_funciona_sem_oracle():
+    fila = cliente.get("/js/fila.js").text
+    assert "function mesclarEdicoes" in fila  # textos e autorização não decididos sobrevivem ao recarregar
+    assert "function filaDoLoteLocal" in fila  # sem Oracle, o lote processado na sessão vira a fila

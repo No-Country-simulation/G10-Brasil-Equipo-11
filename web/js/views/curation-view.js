@@ -5,6 +5,9 @@ import { renderButton } from '../atoms/button.js';
 import { renderCurationQueue } from '../organisms/curation-queue.js';
 import { renderAssetEditor } from '../organisms/asset-editor.js';
 import { store } from '../store.js';
+import { esc } from '../atoms/escape.js';
+import { renderBadge } from '../atoms/badge.js';
+import { periodoCurto } from '../organisms/pending-batches.js';
 
 export function extrairItensCuradoria(resultado) {
   if (!resultado || !resultado.ativos_distribuicao_gerados) return [];
@@ -25,19 +28,23 @@ export function extrairItensCuradoria(resultado) {
 }
 
 export function renderCurationView() {
-  const { resultado, activeItem } = store.getState();
+  const { resultado, activeItem, origem, periodo, decisoes } = store.getState();
 
   if (!resultado) {
     return `
       <div class="card" style="padding:48px; text-align:center; max-width:600px; margin:40px auto;">
-        <h2 style="margin-bottom:8px;">Nenhum lote para curadoria</h2>
-        <p style="color:var(--muted); margin-bottom:20px;">Processe as mensagens no Console de Ingestão primeiro.</p>
-        ${renderButton({ id: 'btn-go-importar', text: 'Ir para Importar', variant: 'primary' })}
+        <h2 style="margin-bottom:8px;">Nenhum lote aberto</h2>
+        <p style="color:var(--muted); margin-bottom:20px;">Escolha um lote com pendências na Visão geral ou importe interações novas.</p>
+        <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+          ${renderButton({ id: 'btn-ir-visao', text: 'Ver lotes com pendências', variant: 'primary' })}
+          ${renderButton({ id: 'btn-go-importar', text: 'Ir para Importar', variant: 'secondary' })}
+        </div>
       </div>
     `;
   }
 
   const items = extrairItensCuradoria(resultado);
+  const pendentes = Object.values(decisoes).filter(d => d === 'p').length;
   const currentActive = activeItem || (items[0] ? items[0].id : null);
 
   return `
@@ -45,6 +52,12 @@ export function renderCurationView() {
       <div class="page-header">
         ${renderKicker('03', 'GOVERNANÇA HUMAN-IN-THE-LOOP')}
         <h1 class="page-title">Curadoria editorial</h1>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+          <span class="cl-badge cl-origem-badge" style="background:var(--bg-surface-2); color:var(--text); border:1px solid var(--line); font-size:12px; font-weight:500;">
+            📡 ${esc((origem || '').replace(/_/g, ' '))} · ${esc(periodoCurto(periodo))}
+          </span>
+          ${pendentes > 0 ? renderBadge(`${pendentes} pendentes`, 'success') : ''}
+        </div>
         <p class="page-subtitle">Rascunhos gerados pela IA. Confira se o texto condiz com a mensagem original. Nada é publicado sem sua aprovação.</p>
       </div>
 

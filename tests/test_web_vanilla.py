@@ -476,3 +476,14 @@ def test_visao_geral_sem_pacote_de_distribuicao_e_com_lotes_pendentes():
     assert "renderPendingBatches" in view and "visaoGeral" in view
     assert "btn-revisar-lote" in cliente.get("/js/organisms/pending-batches.js").text
     assert "data-lote-id" in cliente.get("/js/molecules/alert-card.js").text
+
+
+def test_menu_lateral_substitui_o_header_na_ordem_certa():
+    assert cliente.get("/js/organisms/header-bar.js").status_code == 404
+    sidebar = cliente.get("/js/organisms/sidebar.js").text
+    ordem = [sidebar.index(f"'{t}'") for t in ("visao", "importar", "curadoria", "insights")]
+    assert ordem == sorted(ordem)
+    assert "btn-recolher-menu" in sidebar and "btn-abrir-menu" in sidebar
+    assert "06-sidebar.css" in cliente.get("/").text
+    css = cliente.get("/css/06-sidebar.css").text
+    assert "@media (max-width: 768px)" in css and "prefers-reduced-motion" in css

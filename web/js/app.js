@@ -2,7 +2,7 @@
 // Ponto de entrada, orquestrador reativo e controle de eventos
 import { store } from './store.js';
 import { api } from './api.js';
-import { renderHeaderBar, initHeaderEvents } from './organisms/header-bar.js';
+import { renderSidebar, initSidebarEvents } from './organisms/sidebar.js';
 import { initThemeToggle } from './atoms/theme-toggle.js';
 import { renderLandingView } from './views/landing-view.js';
 import { initLandingEvents } from './organisms/landing-events.js';
@@ -27,7 +27,7 @@ async function abrirLoteNaCuradoria(loteId) {
 let lastRenderedView = null;
 
 function executeRender(root, state) {
-  const { activeTab, logado, publicView, theme } = state;
+  const { activeTab, logado, publicView, theme, menuRecolhido, menuAberto } = state;
 
   if (!logado) {
     document.documentElement.setAttribute('data-theme', 'dark');
@@ -44,11 +44,11 @@ function executeRender(root, state) {
     insights: renderInsightsView,
   };
 
-  const currentView = views[activeTab] || renderImportView;
+  const currentView = views[activeTab] || renderOverviewView;
 
   root.innerHTML = `
-    <div class="app-shell">
-      ${renderHeaderBar()}
+    <div class="app-shell com-sidebar${menuRecolhido ? ' recolhido' : ''}${menuAberto ? ' menu-aberto' : ''}">
+      ${renderSidebar()}
       <main class="container">
         ${currentView()}
       </main>
@@ -79,7 +79,7 @@ function renderApp() {
 }
 
 function initEventHandlers() {
-  initHeaderEvents();
+  initSidebarEvents();
   initThemeToggle();
   initLandingEvents();
 
@@ -136,6 +136,11 @@ function initEventHandlers() {
       const lote = primeiroLoteComAtivos(store.getState().visaoGeral.dados?.lotes_pendentes);
       if (lote) await abrirLoteNaCuradoria(lote.lote_id);
       else store.setState({ activeTab: 'curadoria' });
+      return;
+    }
+    if (e.target.closest('#btn-ir-visao')) {
+      store.setState({ activeTab: 'visao' });
+      carregarVisaoGeral();
       return;
     }
     const btnRevisarLote = e.target.closest('.btn-revisar-lote');

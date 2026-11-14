@@ -62,6 +62,7 @@ export class Store {
       insightsFiltros: null, // definidos na primeira abertura (insights-controller.js)
       visaoGeral: { dados: null, carregando: false, erro: null },
       menuRecolhido: lerMenuRecolhido(),
+      menuAberto: false, // gaveta do celular
       ...initialState,
     };
     this.listeners = new Set();
@@ -88,6 +89,7 @@ export class Store {
       exportErro: null,
       isExporting: false,
       visaoGeral: { dados: null, carregando: false, erro: null },
+      menuAberto: false,
       // menuRecolhido fica: é preferência do navegador, não da sessão
     });
   }

@@ -1,0 +1,284 @@
+/* web/css/06-sidebar.css
+   Shell do painel com menu lateral fixo: 240px expandido, 68px recolhido, gaveta abaixo de 768px. */
+
+.app-shell.com-sidebar {
+  --sidebar-largura: 240px;
+  padding-left: var(--sidebar-largura);
+  transition: padding-left 0.2s var(--ease-natural);
+}
+
+.app-shell.com-sidebar.recolhido {
+  --sidebar-largura: 68px;
+}
+
+.cl-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-largura);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 16px 12px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--line);
+  overflow-x: hidden;
+  overflow-y: auto;
+  transition: width 0.2s var(--ease-natural), transform 0.2s var(--ease-natural);
+}
+
+.cl-sidebar-marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  min-height: 36px;
+}
+
+.cl-sidebar-logo {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  background: var(--text);
+  -webkit-mask: url('../assets/logo_sender_ai.png') center / contain no-repeat;
+  mask: url('../assets/logo_sender_ai.png') center / contain no-repeat;
+}
+
+.cl-sidebar-nome {
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.cl-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.cl-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.cl-sidebar-item svg {
+  flex: 0 0 18px;
+}
+
+.cl-sidebar-item:hover {
+  background: var(--bg-surface-2);
+  color: var(--text);
+}
+
+.cl-sidebar-item.ativo {
+  background: var(--accent-lime-bg);
+  color: var(--accent-lime);
+  border-color: var(--accent-lime);
+  font-weight: 600;
+}
+
+.cl-sidebar-item:focus-visible,
+.cl-icon-btn:focus-visible {
+  outline: 2px solid var(--accent-lime);
+  outline-offset: 2px;
+}
+
+.cl-sidebar-selo {
+  margin-left: auto;
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: var(--accent-lime);
+  color: var(--accent-lime-ink);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.cl-sidebar-rodape {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.cl-sidebar-modo {
+  align-self: flex-start;
+  margin-left: 8px;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--accent-cyan-bg);
+  color: var(--accent-cyan);
+}
+
+.cl-sidebar-modo-mock {
+  background: var(--accent-amber-bg);
+  color: var(--accent-amber);
+}
+
+.cl-sidebar-acoes {
+  display: flex;
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.cl-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.cl-icon-btn:hover {
+  color: var(--text);
+}
+
+/* Recolhido: só ícones, rótulo vira tooltip (title) e o selo vira um ponto */
+.app-shell.recolhido .cl-sidebar-rotulo {
+  display: none;
+}
+
+.app-shell.recolhido .cl-sidebar-item {
+  justify-content: center;
+  padding: 9px 0;
+  position: relative;
+}
+
+.app-shell.recolhido .cl-sidebar-selo {
+  position: absolute;
+  top: 5px;
+  right: 9px;
+  min-width: 0;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  font-size: 0;
+}
+
+.app-shell.recolhido .cl-sidebar-marca {
+  justify-content: center;
+  padding: 4px 0;
+}
+
+.app-shell.recolhido .cl-sidebar-modo {
+  display: none;
+}
+
+.app-shell.recolhido .cl-sidebar-acoes {
+  flex-direction: column;
+  align-items: center;
+  padding: 0;
+}
+
+/* Barra superior e fundo da gaveta: só no celular */
+.cl-topbar,
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .app-shell.com-sidebar,
+  .app-shell.com-sidebar.recolhido {
+    --sidebar-largura: 260px;
+    padding-left: 0;
+  }
+
+  .cl-topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 90;
+    padding: 10px 16px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .cl-topbar-marca {
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--text);
+  }
+
+  .cl-sidebar {
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-card);
+  }
+
+  .app-shell.menu-aberto .cl-sidebar {
+    transform: translateX(0);
+  }
+
+  .app-shell.menu-aberto .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 95;
+    background: rgba(0, 0, 0, 0.45);
+  }
+
+  /* Na gaveta o menu aparece sempre expandido, mesmo se estiver recolhido no desktop */
+  .app-shell.recolhido .cl-sidebar-rotulo,
+  .app-shell.recolhido .cl-sidebar-modo {
+    display: initial;
+  }
+
+  .app-shell.recolhido .cl-sidebar-item {
+    justify-content: flex-start;
+    padding: 9px 12px;
+  }
+
+  .app-shell.recolhido .cl-sidebar-selo {
+    position: static;
+    width: auto;
+    height: auto;
+    min-width: 22px;
+    padding: 1px 7px;
+    font-size: 11px;
+  }
+
+  .app-shell.recolhido .cl-sidebar-acoes {
+    flex-direction: row;
+    padding: 0 4px;
+  }
+
+  .cl-sidebar-recolher {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell.com-sidebar,
+  .cl-sidebar {
+    transition: none;
+  }
+}

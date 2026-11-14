@@ -167,6 +167,15 @@ export const api = {
     return res.json();
   },
 
+  async obterVisaoGeral() {
+    const res = await fetch('/api/visao-geral');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Falha ao carregar a Visão geral (${res.status})`);
+    }
+    return res.json();
+  },
+
   async obterInsights(filtros = {}) {
     const params = new URLSearchParams();
     if (filtros.inicio) params.set('inicio', filtros.inicio);

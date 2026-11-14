@@ -1,11 +1,19 @@
 // web/js/store.js
 // Gerenciador de estado reativo unificado em Vanilla JS (< 80 linhas)
 
+function lerMenuRecolhido() {
+  try {
+    return localStorage.getItem('sender_ai_menu_recolhido') === '1';
+  } catch {
+    return false;
+  }
+}
+
 export class Store {
   constructor(initialState = {}) {
     this.state = {
       theme: localStorage.getItem('sender_ai_theme') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'),
-      activeTab: 'importar',
+      activeTab: 'visao',
       arquivo: null,
       leitura: null,
       resultado: null,
@@ -52,6 +60,8 @@ export class Store {
       insightsModoDemo: false,
       insightsErro: null,
       insightsFiltros: null, // definidos na primeira abertura (insights-controller.js)
+      visaoGeral: { dados: null, carregando: false, erro: null },
+      menuRecolhido: lerMenuRecolhido(),
       ...initialState,
     };
     this.listeners = new Set();
@@ -63,7 +73,7 @@ export class Store {
       publicView: 'landing',
       authErro: null,
       usuario: null,
-      activeTab: 'importar',
+      activeTab: 'visao',
       arquivo: null,
       leitura: null,
       resultado: null,
@@ -77,6 +87,8 @@ export class Store {
       exportResult: null,
       exportErro: null,
       isExporting: false,
+      visaoGeral: { dados: null, carregando: false, erro: null },
+      // menuRecolhido fica: é preferência do navegador, não da sessão
     });
   }
 

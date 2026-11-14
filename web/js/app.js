@@ -13,6 +13,7 @@ import { renderCurationView, extrairItensCuradoria } from './views/curation-view
 import { renderInsightsView } from './views/insights-view.js';
 import { initInsightsEvents } from './insights-controller.js';
 import { abrirLoteSalvo } from './lotes.js';
+import { carregarVisaoGeral, tratarAlertaVisaoGeral } from './visao-geral.js';
 
 let lastRenderedView = null;
 
@@ -96,7 +97,8 @@ function initEventHandlers() {
       }
       try {
         const res = await api.login(usuario, senha);
-        store.setState({ logado: true, usuario: res.usuario, authErro: null });
+        store.setState({ logado: true, usuario: res.usuario, authErro: null, activeTab: 'visao' });
+        carregarVisaoGeral();
       } catch (err) {
         store.setState({ authErro: err.message || 'Usuário ou senha inválidos.' });
       }
@@ -234,6 +236,7 @@ function initEventHandlers() {
           exportResult: null,
           exportErro: null,
         });
+        carregarVisaoGeral();
       } catch (err) {
         alert('Falha ao processar: ' + err.message);
         store.setState({ isProcessing: false });
@@ -275,6 +278,7 @@ function initEventHandlers() {
       try {
         const res = await api.exportarAprovados(payload);
         store.setState({ exportResult: res, isExporting: false });
+        carregarVisaoGeral();
       } catch (err) {
         store.setState({ exportErro: err.message || 'Falha ao exportar.', isExporting: false });
       }
@@ -306,32 +310,14 @@ function initEventHandlers() {
       return;
     }
 
-    // 8. Tratar Alerta Humano
-    const btnAlertaAcao = e.target.closest('.btn-tratar-alerta');
-    if (btnAlertaAcao) {
-      const card = btnAlertaAcao.closest('.cl-alert-card');
-      const ordem = card?.dataset.ordem;
-      if (ordem !== undefined) {
-        const { resultado, loteId } = store.getState();
-        const analise = resultado?.analises?.[parseInt(ordem, 10)];
-        const novoStatus = analise?.tipo === 'reclamacao' ? 'encaminhado' : 'mentoria_oferecida';
-        store.setState(s => ({ alertas: { ...s.alertas, [ordem]: novoStatus } }));
-        if (loteId) {
-          api.tratarAlerta(loteId, parseInt(ordem, 10), novoStatus);
-        }
-      }
-      return;
-    }
-    const btnAlertaOk = e.target.closest('.btn-resolver-alerta');
-    if (btnAlertaOk) {
-      const card = btnAlertaOk.closest('.cl-alert-card');
-      const ordem = card?.dataset.ordem;
-      if (ordem !== undefined) {
-        store.setState(s => ({ alertas: { ...s.alertas, [ordem]: 'resolvido' } }));
-        const { loteId } = store.getState();
-        if (loteId) {
-          api.tratarAlerta(loteId, parseInt(ordem, 10), 'resolvido');
-        }
+    // 8. Tratar Alerta Humano: o card da Visão geral sabe o lote e a posição de origem
+    const btnAlerta = e.target.closest('.btn-tratar-alerta, .btn-resolver-alerta');
+    if (btnAlerta) {
+      const { loteId, ordem, tipo } = btnAlerta.closest('.cl-alert-card')?.dataset || {};
+      if (loteId && ordem !== undefined) {
+        const resolver = btnAlerta.classList.contains('btn-resolver-alerta');
+        const status = resolver ? 'resolvido' : (tipo === 'reclamacao' ? 'encaminhado' : 'mentoria_oferecida');
+        tratarAlertaVisaoGeral(loteId, parseInt(ordem, 10), status);
       }
       return;
     }
@@ -440,7 +426,8 @@ function initEventHandlers() {
       }
       try {
         const res = await api.login(usuario, senha);
-        store.setState({ logado: true, usuario: res.usuario, authErro: null });
+        store.setState({ logado: true, usuario: res.usuario, authErro: null, activeTab: 'visao' });
+        carregarVisaoGeral();
       } catch (err) {
         store.setState({ authErro: err.message || 'Usuário ou senha inválidos.' });
       }
@@ -578,6 +565,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       authConfigurado: Boolean(auth.configurado),
       authCarregando: false,
     });
+    if (auth.logado) carregarVisaoGeral();
   } catch (err) {
     console.warn('[Sender AI] Status de autenticação indisponível:', err);
     store.setState({ authCarregando: false });

@@ -460,3 +460,11 @@ def test_baixar_aprovados_respeita_as_regras_da_exportacao(monkeypatch):
     monkeypatch.setenv("ADMIN_USUARIO", "admin")
     monkeypatch.setenv("ADMIN_SENHA", "senha_forte")
     assert TestClient(app).post("/api/curadoria/baixar?formato=pdf", json=pedido).status_code == 401
+
+
+def test_painel_abre_na_visao_geral_e_carrega_do_banco():
+    store = cliente.get("/js/store.js").text
+    assert "activeTab: 'visao'" in store and "activeTab: 'importar'" not in store
+    assert "sender_ai_menu_recolhido" in store
+    assert "/api/visao-geral" in cliente.get("/js/api.js").text
+    assert "export async function carregarVisaoGeral" in cliente.get("/js/visao-geral.js").text

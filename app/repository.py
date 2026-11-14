@@ -2781,3 +2781,129 @@ def consultar_alertas_insights(
                 }
                 for row in cursor.fetchall()
             ]
+
+
+# ---------------------------------------------------------------------------
+# Visão geral: o que está pendente em todos os lotes
+# ---------------------------------------------------------------------------
+def listar_lotes_com_pendencias(modo: str, limite: int = 50) -> list[dict]:
+    """Lotes com ativos ou alertas pendentes, do mais antigo para o mais novo."""
+    if modo not in {"mock", "gemini"}:
+        raise ValueError("Modo de IA inválido.")
+    limite = max(1, min(int(limite), 100))
+
+    def ativos(tipo: str) -> str:
+        return (
+            "(SELECT COUNT(*) FROM CL_ATIVOS a WHERE a.PROCESSAMENTO_ID = p.ID "
+            f"AND a.STATUS_CURADORIA = 'PENDENTE' AND a.TIPO_ATIVO = '{tipo}')"
+        )
+
+    sql = f"""
+        SELECT ID, ORIGEM_COMUNIDADE, PERIODO_REFERENCIA, CRIADO_EM, FINALIZADO_EM,
+               POSTS, NEWSLETTERS, FAQS, ALERTAS
+        FROM (
+            SELECT p.ID, p.ORIGEM_COMUNIDADE, p.PERIODO_REFERENCIA, p.CRIADO_EM, p.FINALIZADO_EM,
+                   {ativos('POST_LINKEDIN')} AS POSTS,
+                   {ativos('NEWSLETTER')} AS NEWSLETTERS,
+                   {ativos('FAQ')} AS FAQS,
+                   (SELECT COUNT(*) FROM CL_ALERTAS al WHERE al.PROCESSAMENTO_ID = p.ID
+                       AND al.STATUS_TRIAGEM = 'PENDENTE') AS ALERTAS
+            FROM CL_PROCESSAMENTOS p
+            WHERE p.STATUS = 'SUCESSO' AND p.MODO_IA = :modo
+        )
+        WHERE POSTS + NEWSLETTERS + FAQS + ALERTAS > 0
+        ORDER BY CRIADO_EM ASC
+        FETCH FIRST :lim ROWS ONLY
+    """
+
+    with database.connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(sql, {"modo": modo, "lim": limite})
+            return [
+                {
+                    "id": row[0],
+                    "origem_comunidade": row[1],
+                    "periodo_referencia": row[2],
+                    "criado_em": row[3].isoformat() if row[3] else None,
+                    "finalizado_em": row[4].isoformat() if row[4] else None,
+                    "ativos_pendentes": {"post": int(row[5]), "newsletter": int(row[6]), "faq": int(row[7])},
+                    "alertas_pendentes": int(row[8]),
+                }
+                for row in cursor.fetchall()
+            ]
+
+
+def _inteiro_ou_none(valor: Any) -> int | None:
+    try:
+        return int(valor)
+    except (TypeError, ValueError):
+        return None
+
+
+def consultar_interacoes_recentes(inicio: date, fim: date, modo: str) -> list[dict]:
+    """Interações da janela (pela data da mensagem) com texto e relevância, as mais novas primeiro."""
+    if inicio > fim:
+        raise ValueError("A data inicial não pode ser posterior à final.")
+
+    params = {"inicio": inicio, "fim_exclusivo": fim + timedelta(days=1)}
+    condicoes = _contexto_filtros_insights(modo, None, None, params)
+    condicoes.extend([
+        "i.DATA_INTERACAO >= :inicio",
+        "i.DATA_INTERACAO < :fim_exclusivo",
+        "i.ANALISE_JSON IS NOT NULL",
+    ])
+
+    sql = f"""
+        SELECT p.ID, i.DATA_INTERACAO, i.AUTOR, i.CANAL, i.TEXTO,
+               JSON_VALUE(i.ANALISE_JSON, '$.sentimento' RETURNING VARCHAR2(80) NULL ON ERROR),
+               JSON_VALUE(i.ANALISE_JSON, '$.rota' RETURNING VARCHAR2(80) NULL ON ERROR),
+               JSON_VALUE(i.ANALISE_JSON, '$.relevancia' RETURNING VARCHAR2(20) NULL ON ERROR)
+        FROM CL_INTERACOES i
+        JOIN CL_PROCESSAMENTOS p ON p.ID = i.PROCESSAMENTO_ID
+        WHERE {' AND '.join(condicoes)}
+        ORDER BY i.DATA_INTERACAO DESC, p.ID, i.POSICAO
+    """
+
+    with database.connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(sql, params)
+            return [
+                {
+                    "lote_id": row[0],
+                    "data": row[1],
+                    "autor": row[2],
+                    "canal": row[3],
+                    "texto": _text_value(row[4]) or "",
+                    "sentimento": row[5],
+                    "rota": row[6],
+                    "relevancia": _inteiro_ou_none(row[7]),
+                }
+                for row in cursor.fetchall()
+            ]
+
+
+def contar_alertas_tratados(inicio: date, fim: date, modo: str) -> int:
+    """Alertas já tratados cujas mensagens caem na janela."""
+    if inicio > fim:
+        raise ValueError("A data inicial não pode ser posterior à final.")
+
+    params = {"inicio": inicio, "fim_exclusivo": fim + timedelta(days=1)}
+    condicoes = _contexto_filtros_insights(modo, None, None, params)
+    condicoes.extend([
+        "a.STATUS_TRIAGEM <> 'PENDENTE'",
+        "i.DATA_INTERACAO >= :inicio",
+        "i.DATA_INTERACAO < :fim_exclusivo",
+    ])
+
+    sql = f"""
+        SELECT COUNT(*)
+        FROM CL_ALERTAS a
+        JOIN CL_INTERACOES i ON i.ID = a.INTERACAO_ID
+        JOIN CL_PROCESSAMENTOS p ON p.ID = a.PROCESSAMENTO_ID
+        WHERE {' AND '.join(condicoes)}
+    """
+
+    with database.connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(sql, params)
+            return int(cursor.fetchone()[0])

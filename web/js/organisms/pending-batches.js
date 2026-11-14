@@ -7,11 +7,17 @@ const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'o
 
 export function periodoCurto(periodo) {
   const m = /^(\d{4})-(\d{2})$/.exec(periodo || '');
-  return m ? `${MESES[parseInt(m[2], 10) - 1] || m[2]}/${m[1]}` : (periodo || '');
+  return m ? `${MESES[parseInt(m[2], 10) - 1] || m[2]}/${m[1]}` : (periodo || '').replace(/_/g, ' ');
 }
 
 export function primeiroLoteComAtivos(lotes = []) {
   return lotes.find(l => l.ativos_pendentes > 0) || null;
+}
+
+function dataCurta(iso) {
+  const d = iso ? new Date(iso) : null;
+  if (!d || isNaN(d)) return '';
+  return `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
 function plural(n, um, varios) {
@@ -35,6 +41,7 @@ export function renderPendingBatches(lotes = []) {
               <div class="cl-lote-origem">
                 <strong>${esc((l.origem || '').replace(/_/g, ' '))}</strong>
                 <span class="cl-mono">${esc(periodoCurto(l.periodo))}</span>
+                ${dataCurta(l.processado_em) ? `<span class="cl-lote-data">processado ${esc(dataCurta(l.processado_em))}</span>` : ''}
               </div>
               <span class="cl-lote-contagem">${esc(partes.join(' · '))}</span>
               ${renderButton({

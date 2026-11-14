@@ -257,6 +257,11 @@
     padding: 9px 12px;
   }
 
+  .app-shell.recolhido .cl-sidebar-marca {
+    justify-content: flex-start;
+    padding: 4px 8px;
+  }
+
   .app-shell.recolhido .cl-sidebar-selo {
     position: static;
     width: auto;

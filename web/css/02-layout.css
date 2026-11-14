@@ -114,3 +114,8 @@
   font-size: 13px;
   color: var(--muted);
 }
+
+.cl-lote-data {
+  font-size: 12px;
+  color: var(--dim);
+}

@@ -487,3 +487,8 @@ def test_menu_lateral_substitui_o_header_na_ordem_certa():
     assert "06-sidebar.css" in cliente.get("/").text
     css = cliente.get("/css/06-sidebar.css").text
     assert "@media (max-width: 768px)" in css and "prefers-reduced-motion" in css
+
+
+def test_lotes_iguais_se_distinguem_pela_data_de_processamento():
+    lotes = cliente.get("/js/organisms/pending-batches.js").text
+    assert "processado_em" in lotes and "processado " in lotes

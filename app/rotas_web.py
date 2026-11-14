@@ -652,11 +652,11 @@ def obter_visao_geral():
     modo = _modo_atual()
     try:
         lotes = repository.listar_lotes_com_pendencias(modo)
+        com_alerta = [lote for lote in lotes if lote["alertas_pendentes"] > 0]
+        detalhes = repository.carregar_alertas_dos_lotes([lote["id"] for lote in com_alerta])  # uma ida ao banco
         alertas = []
-        for lote in lotes:
-            if lote["alertas_pendentes"] <= 0:
-                continue
-            item = repository.obter_processamento(lote["id"])
+        for lote in com_alerta:
+            item = detalhes.get(lote["id"])
             if item:
                 alertas.extend(_alertas_pendentes_do_lote(lote, item))
         interacoes = repository.consultar_interacoes_recentes(inicio, fim, modo)

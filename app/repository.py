@@ -2833,6 +2833,55 @@ def listar_lotes_com_pendencias(modo: str, limite: int = 50) -> list[dict]:
             ]
 
 
+def _clob_como_texto(cursor, metadata):
+    """Traz CLOB como texto no próprio fetch. Sem isso, cada linha custa uma ida ao banco."""
+    import oracledb
+
+    if metadata.type_code is oracledb.DB_TYPE_CLOB:
+        return cursor.var(oracledb.DB_TYPE_LONG, arraysize=cursor.arraysize)
+    return None
+
+
+def carregar_alertas_dos_lotes(ids: list[str]) -> dict[str, dict]:
+    """Resultado e alertas de vários lotes em duas consultas, no formato de `obter_processamento`
+    (só as chaves `id`, `resultado` e `alertas`)."""
+    ids = list(dict.fromkeys(ids))
+    if not ids:
+        return {}
+    params = {f"id{n}": valor for n, valor in enumerate(ids)}
+    em = ", ".join(f":{chave}" for chave in params)
+
+    with database.connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.outputtypehandler = _clob_como_texto
+            cursor.execute(f"SELECT ID, RESULTADO_JSON FROM CL_PROCESSAMENTOS WHERE ID IN ({em})", params)
+            lotes = {row[0]: {"id": row[0], "resultado": json_loads(row[1]), "alertas": []} for row in cursor.fetchall()}
+
+            cursor.execute(
+                f"""
+                SELECT a.PROCESSAMENTO_ID, a.ID, a.INTERACAO_ID, i.AUTOR, i.CANAL,
+                       i.TEXTO, a.STATUS_TRIAGEM, a.VERSAO
+                FROM CL_ALERTAS a
+                JOIN CL_INTERACOES i ON i.ID = a.INTERACAO_ID
+                WHERE a.PROCESSAMENTO_ID IN ({em})
+                ORDER BY a.PROCESSAMENTO_ID, i.POSICAO
+                """,
+                params,
+            )
+            for row in cursor.fetchall():
+                if row[0] in lotes:
+                    lotes[row[0]]["alertas"].append({
+                        "id": row[1],
+                        "interacao_id": row[2],
+                        "autor": row[3],
+                        "canal": row[4],
+                        "texto": _text_value(row[5]),
+                        "status": row[6],
+                        "versao": int(row[7]),
+                    })
+    return lotes
+
+
 def _inteiro_ou_none(valor: Any) -> int | None:
     try:
         return int(valor)
@@ -2866,6 +2915,7 @@ def consultar_interacoes_recentes(inicio: date, fim: date, modo: str) -> list[di
 
     with database.connection() as conn:
         with conn.cursor() as cursor:
+            cursor.outputtypehandler = _clob_como_texto
             cursor.execute(sql, params)
             return [
                 {

@@ -59,9 +59,12 @@ def oracle(monkeypatch):
     monkeypatch.setattr(repositorio, "hoje", lambda: date(2026, 11, 13))
     monkeypatch.setattr(repository, "listar_lotes_com_pendencias", lambda modo: [dict(l) for l in LOTES])
 
-    def detalhe(pid):
-        chamadas["detalhe"].append(pid)
-        return DETALHES.get(pid)
+    def detalhes(ids):
+        chamadas["detalhe"].append(list(ids))
+        return {i: DETALHES[i] for i in ids if i in DETALHES}
+
+    def proibido(pid):
+        raise AssertionError("a Visão geral não busca lote a lote")
 
     def interacoes(inicio, fim, modo):
         chamadas["janela"].append(("interacoes", inicio, fim, modo))
@@ -72,7 +75,8 @@ def oracle(monkeypatch):
         chamadas["janela"].append(("tratados", inicio, fim, modo))
         return 2
 
-    monkeypatch.setattr(repository, "obter_processamento", detalhe)
+    monkeypatch.setattr(repository, "carregar_alertas_dos_lotes", detalhes)
+    monkeypatch.setattr(repository, "obter_processamento", proibido)
     monkeypatch.setattr(repository, "consultar_interacoes_recentes", interacoes)
     monkeypatch.setattr(repository, "contar_alertas_tratados", tratados)
     return chamadas
@@ -105,7 +109,7 @@ def test_alertas_pendentes_trazem_lote_e_ordem_de_origem(oracle):
 
 def test_so_busca_detalhe_de_lote_com_alerta_pendente(oracle):
     cliente.get("/api/visao-geral")
-    assert oracle["detalhe"] == ["L1", "L2"]  # L3 só tem ativo pendente
+    assert oracle["detalhe"] == [["L1", "L2"]]  # uma busca só; L3 só tem ativo pendente
 
 
 def test_lote_sem_fontes_ativos_nao_derruba_a_rota(oracle, monkeypatch):

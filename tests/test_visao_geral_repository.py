@@ -115,3 +115,59 @@ def test_contar_alertas_tratados_na_janela(monkeypatch):
     assert repository.contar_alertas_tratados(date(2026, 11, 7), date(2026, 11, 13), "gemini") == 3
     assert "STATUS_TRIAGEM <> 'PENDENTE'" in conn.fake_cursor.sql
     assert conn.fake_cursor.params["modo"] == "gemini"
+
+
+class CursorSequencia(FakeCursor):
+    """Devolve um conjunto de linhas por execute, na ordem."""
+
+    def __init__(self, respostas):
+        super().__init__([])
+        self.respostas = list(respostas)
+        self.sqls = []
+        self.params_lista = []
+        self.outputtypehandler = None
+
+    def execute(self, sql, params=None):
+        self.sqls.append(sql)
+        self.params_lista.append(params or {})
+        self.rows = self.respostas.pop(0)
+
+
+def conectar_sequencia(monkeypatch, respostas):
+    conn = FakeConnection([])
+    conn.fake_cursor = CursorSequencia(respostas)
+
+    @contextmanager
+    def fake_connection():
+        yield conn
+
+    monkeypatch.setattr(repository.database, "connection", fake_connection)
+    return conn.fake_cursor
+
+
+def test_alertas_dos_lotes_busca_tudo_em_duas_consultas(monkeypatch):
+    cursor = conectar_sequencia(monkeypatch, [
+        [("L1", '{"analises": [{"rota": "alerta"}]}'), ("L2", '{"analises": []}')],
+        [("L1", "a-1", "int-1", "Bia", "#suporte", "Ruim", "PENDENTE", 2)],
+    ])
+    lotes = repository.carregar_alertas_dos_lotes(["L1", "L2"])
+    assert len(cursor.sqls) == 2
+    assert all(":id0" in sql and ":id1" in sql for sql in cursor.sqls)
+    assert cursor.params_lista[0] == {"id0": "L1", "id1": "L2"}
+    assert cursor.outputtypehandler is not None  # CLOB vem como texto, sem uma ida ao banco por linha
+    assert lotes["L1"]["resultado"] == {"analises": [{"rota": "alerta"}]}
+    assert lotes["L1"]["alertas"] == [{"id": "a-1", "interacao_id": "int-1", "autor": "Bia", "canal": "#suporte",
+                                       "texto": "Ruim", "status": "PENDENTE", "versao": 2}]
+    assert lotes["L2"]["alertas"] == []
+
+
+def test_alertas_dos_lotes_sem_ids_nao_consulta(monkeypatch):
+    cursor = conectar_sequencia(monkeypatch, [])
+    assert repository.carregar_alertas_dos_lotes([]) == {}
+    assert cursor.sqls == []
+
+
+def test_interacoes_recentes_le_texto_sem_ida_e_volta_por_linha(monkeypatch):
+    cursor = conectar_sequencia(monkeypatch, [[]])
+    repository.consultar_interacoes_recentes(date(2026, 11, 7), date(2026, 11, 13), "mock")
+    assert cursor.outputtypehandler is not None

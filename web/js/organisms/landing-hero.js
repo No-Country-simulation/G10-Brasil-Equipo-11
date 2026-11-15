@@ -26,12 +26,7 @@ export function renderLandingHero() {
         <div class="lp-hero-art">
           <div class="lp-orbit"><i class="lp-orbit-dot"></i></div>
           <div class="lp-orbit-scanner"></div>
-          <svg class="lp-hero-bird" width="370" height="256" viewBox="0 0 520 360" role="img" aria-label="Ilustração do pássaro Sender AI em pleno voo">
-            <path fill="var(--text)" d="M28 242C104 182 158 117 192 35c-2 73 28 116 78 128 47 11 98-13 211-102-51 83-103 141-171 166-55 20-102 12-146-9L28 242Z"/>
-            <path fill="var(--accent)" d="M211 218C146 250 89 293 25 337c99-27 172-51 239-92l-53-27Z"/>
-            <path fill="var(--text)" d="M243 163c41-36 72-54 108-50 34 3 66 25 105 7-27 35-65 54-111 52-38-1-69-5-102-9Z"/>
-            <path fill="var(--bg)" d="M270 163c24-16 46-22 69-19-16 12-32 19-54 22Z"/>
-          </svg>
+          <div class="lp-hero-bird" role="img" aria-label="Logo do Sender AI"><i></i></div>
           <div class="lp-floating-card fc1">
             <span class="lp-hud-tag">STREAM // INGESTÃO</span>
             <span class="lp-fc-label">Interações processadas</span>

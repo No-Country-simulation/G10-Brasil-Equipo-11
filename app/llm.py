@@ -7,6 +7,8 @@ A chave fica SOMENTE no .env local (ignorado pelo git). Nada aqui imprime a chav
 
 O que deixa o processamento rápido:
 - `mapear` processa as mensagens do lote em paralelo (LLM_CONCORRENCIA chamadas ao mesmo tempo);
+- `mapear_em_cadeia` começa a FAQ de cada mensagem assim que ela é classificada, sem esperar as outras;
+- `aquecer_cliente_em_segundo_plano` carrega o SDK quando o servidor sobe, e não no primeiro lote;
 - o prompt de sistema vai com `cache_control`: a partir da 2ª chamada ele é lido do cache,
   o que reduz o tempo até a resposta e o custo de entrada;
 - respostas JSON usam saída estruturada (`output_config.format`): o modelo não devolve
@@ -228,17 +230,79 @@ T = TypeVar("T")
 R = TypeVar("R")
 
 
-def mapear(funcao: Callable[[T], R], itens: Iterable[T]) -> list[R]:
+S = TypeVar("S")
+
+
+def mapear(funcao: Callable[[T], R], itens: Iterable[T], *, aquecer_cache: bool = True) -> list[R]:
     """Aplica `funcao` a cada item em paralelo, mantendo a ordem.
 
     O primeiro item roda sozinho: ele grava o prompt de sistema no cache e as chamadas
-    seguintes, já em paralelo, leem do cache. No modo simulado tudo roda em sequência.
+    seguintes, já em paralelo, leem do cache. Com `aquecer_cache=False` todos começam juntos
+    (vale para prompts curtos, em que esperar a primeira chamada custa mais do que o cache poupa).
+    No modo simulado tudo roda em sequência.
     """
     itens = list(itens)
     limite = concorrencia()
     if modo_mock() or limite <= 1 or len(itens) <= 1:
         return [funcao(item) for item in itens]
+    if not aquecer_cache:
+        with ThreadPoolExecutor(max_workers=min(limite, len(itens)),
+                                thread_name_prefix="llm") as executor:
+            return list(executor.map(funcao, itens))
     primeiro = funcao(itens[0])
     with ThreadPoolExecutor(max_workers=min(limite, len(itens) - 1),
                             thread_name_prefix="llm") as executor:
         return [primeiro, *executor.map(funcao, itens[1:])]
+
+
+def mapear_em_cadeia(primeira: Callable[[T], R], segunda: Callable[[R], S],
+                     itens: Iterable[T]) -> list[tuple[R, S]]:
+    """Aplica `primeira` a cada item e, assim que cada resultado sai, `segunda` sobre ele.
+
+    Devolve os pares (resultado da primeira, resultado da segunda) na ordem dos itens.
+    A segunda etapa de um item não espera a primeira etapa dos outros: as duas se sobrepõem
+    dentro das mesmas LLM_CONCORRENCIA chamadas simultâneas.
+
+    Como em `mapear`, a primeira chamada de `primeira` roda sozinha para gravar o prompt de
+    sistema no cache. No modo simulado tudo roda em sequência: primeiro toda a etapa 1,
+    depois toda a etapa 2.
+    """
+    itens = list(itens)
+    limite = concorrencia()
+    if modo_mock() or limite <= 1 or len(itens) <= 1:
+        resultados = [primeira(item) for item in itens]
+        return [(resultado, segunda(resultado)) for resultado in resultados]
+
+    def cadeia(item: T) -> tuple[R, S]:
+        resultado = primeira(item)
+        return resultado, segunda(resultado)
+
+    primeiro = primeira(itens[0])
+    with ThreadPoolExecutor(max_workers=min(limite, len(itens)),
+                            thread_name_prefix="llm") as executor:
+        futuros = [executor.submit(lambda: (primeiro, segunda(primeiro))),
+                   *(executor.submit(cadeia, item) for item in itens[1:])]
+        return [futuro.result() for futuro in futuros]
+
+
+def aquecer_cliente() -> None:
+    """Carrega o SDK e cria o cliente antes do primeiro lote. No modo simulado não faz nada.
+
+    Importar o SDK leva vários segundos; sem isto, quem paga é o primeiro lote depois de
+    o servidor subir. Falha aqui nunca derruba nada: o primeiro lote tenta de novo.
+    """
+    if modo_mock():
+        return
+    try:
+        _obter_cliente()
+    except Exception as erro:
+        log.warning("Não foi possível preparar o cliente do Claude (%s).", type(erro).__name__)
+
+
+def aquecer_cliente_em_segundo_plano() -> threading.Thread | None:
+    """Dispara `aquecer_cliente` numa thread, sem atrasar a subida do servidor."""
+    if modo_mock():
+        return None
+    thread = threading.Thread(target=aquecer_cliente, name="llm-aquecimento", daemon=True)
+    thread.start()
+    return thread

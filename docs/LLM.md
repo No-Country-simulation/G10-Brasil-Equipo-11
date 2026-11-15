@@ -69,11 +69,13 @@ Para medir a qualidade na base de avaliação: `python scripts/avaliar_classific
 O que deixa o lote rápido:
 
 - **Paralelismo.** As mensagens de um lote são independentes. A classificação e as FAQs rodam em `LLM_CONCORRENCIA` chamadas simultâneas, e a ordem das análises é mantida.
+- **Etapas sobrepostas.** A FAQ de cada dúvida começa assim que aquela mensagem é classificada, sem esperar a classificação das outras. A newsletter, que só depende das análises, roda junto com o post e os alertas.
+- **SDK carregado na subida.** O servidor carrega o SDK da Anthropic em segundo plano ao iniciar. Sem isso, o primeiro lote depois de ligar o servidor esperava o carregamento (vários segundos no Windows).
 - **Cache do prompt de sistema.** O prompt do classificador tem cerca de 2 mil tokens e é igual para todas as mensagens. Ele vai marcado com `cache_control`: a primeira mensagem roda sozinha e grava o cache, e as seguintes leem dele (mais rápido e cerca de 90% mais barato nessa parte).
 - **Saída estruturada.** As respostas usam um JSON Schema (`output_config.format`). A API garante JSON válido e rótulos dentro da lista, então não sobra pedido repetido por formato.
 - **Esforço ajustável.** `CLAUDE_ESFORCO_CLASSIFICACAO=low` deixa a classificação um pouco mais rápida.
 
-Estimativa para um lote de 50 mensagens: com o Gemini gratuito, mais de 5 min só de espera entre chamadas. Com o Claude e 8 chamadas simultâneas, a classificação leva o tempo de cerca de 7 chamadas em sequência (1 de aquecimento do cache + 49 divididas em 8 filas). Os números reais dependem do modelo e do limite da conta; o `teste_llm.py` mostra o tempo de cada mensagem.
+Estimativa para um lote de 50 mensagens: com o Gemini gratuito, mais de 5 min só de espera entre chamadas. Com o Claude e 8 chamadas simultâneas, a classificação leva o tempo de cerca de 7 chamadas em sequência (1 de aquecimento do cache + 49 divididas em 8 filas), e as FAQs vão sendo geradas nas mesmas 8 filas enquanto a classificação ainda roda. Os números reais dependem do modelo e do limite da conta; o `teste_llm.py` mostra o tempo de cada mensagem.
 
 > **Limite da conta.** Contas novas da Anthropic têm limite de requisições por minuto mais baixo. Se aparecerem muitos avisos de 429 no log, reduza `LLM_CONCORRENCIA` ou defina `LLM_RPM` um pouco abaixo do limite da conta.
 

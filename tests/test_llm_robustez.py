@@ -278,6 +278,138 @@ def test_lote_com_concorrencia_mantem_a_ordem_das_analises(monkeypatch):
     assert [a["rota"] for a in r["analises"]] == ["alerta" if n % 3 == 0 else "nenhuma" for n in range(12)]
 
 
+def test_mapear_sem_aquecer_o_cache_comeca_todos_juntos(monkeypatch):
+    monkeypatch.setenv("LLM_CONCORRENCIA", "4")
+    barreira = threading.Barrier(4, timeout=5)  # só passa se 4 chamadas estiverem rodando ao mesmo tempo
+
+    def junto(n):
+        barreira.wait()
+        return n * 10
+
+    assert llm.mapear(junto, range(4), aquecer_cache=False) == [0, 10, 20, 30]
+
+
+def test_mapear_em_cadeia_preserva_a_ordem_e_sobrepoe_as_etapas(monkeypatch):
+    monkeypatch.setenv("LLM_CONCORRENCIA", "4")
+    eventos, trava = [], threading.Lock()
+    ultimo_liberado = threading.Event()
+
+    def primeira(n):
+        if n == 8:
+            # A última classificação só termina depois de alguma segunda etapa já ter rodado.
+            assert ultimo_liberado.wait(5)
+        with trava:
+            eventos.append(("primeira", n))
+        return n * 10
+
+    def segunda(valor):
+        with trava:
+            eventos.append(("segunda", valor))
+        ultimo_liberado.set()
+        return valor + 1
+
+    assert llm.mapear_em_cadeia(primeira, segunda, range(9)) == [(n * 10, n * 10 + 1) for n in range(9)]
+    assert eventos[0] == ("primeira", 0)  # a primeira chamada roda sozinha (grava o cache)
+    assert eventos.index(("primeira", 8)) > min(i for i, e in enumerate(eventos) if e[0] == "segunda")
+    assert sorted(e for e in eventos if e[0] == "segunda") == [("segunda", n * 10) for n in range(9)]
+
+
+def test_mapear_em_cadeia_no_modo_simulado_faz_uma_etapa_de_cada_vez(monkeypatch):
+    monkeypatch.setenv("LLM_MODO", "mock")
+    eventos = []
+    pares = llm.mapear_em_cadeia(lambda n: eventos.append(("primeira", n)) or n,
+                                 lambda n: eventos.append(("segunda", n)) or -n, range(3))
+    assert pares == [(0, 0), (1, -1), (2, -2)]
+    assert eventos == [("primeira", n) for n in range(3)] + [("segunda", n) for n in range(3)]
+
+
+def test_mapear_em_cadeia_propaga_erro_da_segunda_etapa(monkeypatch):
+    monkeypatch.setenv("LLM_CONCORRENCIA", "4")
+
+    def segunda(n):
+        if n == 2:
+            raise RuntimeError("falhou na segunda etapa")
+        return n
+
+    with pytest.raises(RuntimeError, match="segunda etapa"):
+        llm.mapear_em_cadeia(lambda n: n, segunda, range(5))
+
+
+def test_lote_gera_cada_faq_uma_vez_na_ordem_das_duvidas(monkeypatch):
+    """As FAQs saem durante a classificação e o resultado é o mesmo de gerá-las depois."""
+    from app.grafo import processar
+
+    monkeypatch.setenv("LLM_CONCORRENCIA", "4")
+    chamadas, trava = [], threading.Lock()
+
+    def chamar(sistema, usuario, *a, **k):
+        with trava:
+            chamadas.append(sistema)
+        if sistema == ia.prompts.CLASSIFICADOR_SISTEMA:
+            tipo = "pergunta_tecnica" if "como faço" in usuario else "outro"
+            return json.dumps({"tipo": tipo, "sentimento": "Neutro", "topico": "T", "relevancia": 5})
+        if sistema == ia.prompts.FAQ_SISTEMA:
+            numero = usuario.split("dúvida ")[1].split(":")[0]
+            return json.dumps({"tema": f"Dica Rápida: {numero}", "conteudo": f"Resposta da dúvida {numero}"})
+        return json.dumps({"secao": "S", "chamada": "C", "resumo": "R"})
+
+    monkeypatch.setattr(llm, "chamar_llm", chamar)
+    textos = [f"dúvida {n}: como faço isto?" if n % 2 else f"mensagem {n}" for n in range(10)]
+    lote = LoteEntrada(origem_comunidade="T", periodo_referencia="Semana_99", interacoes=[
+        Interacao(autor=f"Autor {n}", canal="#geral", tipo="outro", texto=t) for n, t in enumerate(textos)
+    ])
+    ids = [f"id-{n}" for n in range(10)]
+    r = processar(lote, interaction_ids=ids)
+
+    faqs = r["ativos_distribuicao_gerados"]["sugestao_conteudo_faq"]
+    assert [f["tema"] for f in faqs] == [f"Dica Rápida: {n}" for n in (1, 3, 5, 7, 9)]
+    assert [f["origem"] for f in faqs] == [f"Dúvida levantada por Autor {n} em #geral" for n in (1, 3, 5, 7, 9)]
+    assert [r["fontes_ativos"][f"faq_{k}"] for k in range(5)] == [[f"id-{n}"] for n in (1, 3, 5, 7, 9)]
+    assert r["fontes_ativos"]["newsletter"] == ids
+    assert r["ativos_distribuicao_gerados"]["destaque_newsletter_semanal"]["chamada"] == "C"
+    assert chamadas.count(ia.prompts.FAQ_SISTEMA) == 5      # nenhuma FAQ gerada duas vezes
+    assert chamadas.count(ia.prompts.CLASSIFICADOR_SISTEMA) == 10
+    assert chamadas.count(ia.prompts.NEWSLETTER_SISTEMA) == 1
+
+
+def test_no_faq_gera_o_que_nao_veio_da_classificacao(monkeypatch):
+    """O nó continua funcionando sozinho, sem as FAQs adiantadas."""
+    from app import grafo
+    from app.schemas import Analise
+
+    monkeypatch.setenv("LLM_MODO", "mock")
+    analises = [Analise(autor=f"A{n}", canal="#c", texto=f"pergunta {n}?", tipo="pergunta_tecnica",
+                        sentimento="Neutro", topico="T", relevancia=5, rota="faq") for n in range(3)]
+    pronta = ia.gerar_faq(analises[1])
+    pronta.tema = "Dica Rápida: já veio pronta"
+
+    saida = grafo.no_faq({"analises": analises, "faqs_geradas": {1: pronta}, "interaction_ids": ["a", "b", "c"]})
+    temas = [f["tema"] for f in saida["ativos"]["sugestao_conteudo_faq"]]
+    assert temas == ["Dica Rápida: T", "Dica Rápida: já veio pronta", "Dica Rápida: T"]
+    assert saida["fontes_ativos"] == {"faq_0": ["a"], "faq_1": ["b"], "faq_2": ["c"]}
+
+
+def test_aquecer_cliente_cria_o_cliente_e_nao_propaga_falha(monkeypatch):
+    monkeypatch.setattr(llm, "_cliente", None)
+    criados = []
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **k: criados.append(k) or object())
+    llm.aquecer_cliente_em_segundo_plano().join(5)
+    assert len(criados) == 1 and llm._cliente is not None
+
+    def falhar():
+        raise RuntimeError("sem rede")
+
+    monkeypatch.setattr(llm, "_obter_cliente", falhar)
+    llm.aquecer_cliente()  # não levanta
+
+
+def test_aquecer_cliente_no_modo_simulado_nao_faz_nada(monkeypatch):
+    monkeypatch.setenv("LLM_MODO", "mock")
+    monkeypatch.setattr(llm, "_obter_cliente", lambda: pytest.fail("não deveria criar o cliente"))
+    assert llm.aquecer_cliente_em_segundo_plano() is None
+    llm.aquecer_cliente()
+
+
 # ---------------------------------------------------------------------------
 # Ritmo opcional das chamadas
 # ---------------------------------------------------------------------------

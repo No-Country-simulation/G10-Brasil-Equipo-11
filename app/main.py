@@ -32,7 +32,7 @@ from communitylab.adapter import carregar_lote_bytes
 from . import database, repository, storage
 from .middleware import RequestContextAndBodyLimitMiddleware
 from .grafo import processar, processar_com_registro
-from .llm import modo_mock
+from .llm import aquecer_cliente_em_segundo_plano, modo_mock
 from .rotas_web import exigir_admin, router as rotas_web_router
 from .schemas import LoteEntrada, RespostaProcessamento
 
@@ -157,6 +157,9 @@ async def lifespan(_app: FastAPI):
             logger.info(
                 "Oracle Database conectado e schema validado."
             )
+
+        # Carrega o SDK do Claude em segundo plano: o primeiro lote não paga essa espera.
+        aquecer_cliente_em_segundo_plano()
 
         yield
     finally:

@@ -28,7 +28,7 @@ export function renderImportView() {
   return `
     <div class="view-importar">
       <div class="page-header">
-        ${renderKicker('01', 'CONSOLE DE INGESTÃO')}
+        ${renderKicker('02', 'CONSOLE DE INGESTÃO')}
         <h1 class="page-title">Importar interações</h1>
         <p class="page-subtitle">Envie as mensagens da semana. O pipeline classifica cada uma e gera os ativos para você revisar.</p>
       </div>

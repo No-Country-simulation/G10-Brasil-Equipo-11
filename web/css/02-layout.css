@@ -81,3 +81,115 @@
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+/* Visão geral: lotes com pendências */
+.cl-lotes-pendentes {
+  display: flex;
+  flex-direction: column;
+}
+
+.cl-lote-linha {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.cl-lote-origem {
+  flex: 1 1 220px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cl-lote-origem .cl-mono {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.cl-lote-contagem {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.cl-lote-data {
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.cl-visao-erro {
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  border-left: 3px solid var(--accent-coral);
+  background: var(--accent-coral-bg);
+  color: var(--text);
+  font-size: 14px;
+}
+
+/* Curadoria: fila única agrupada por lote */
+.cl-curadoria-grid {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.cl-queue-list {
+  max-height: calc(100vh - 360px);
+  min-height: 200px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.cl-fila-grupo + .cl-fila-grupo {
+  margin-top: 14px;
+}
+
+.cl-fila-grupo-titulo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 2px 8px;
+  position: sticky;
+  top: 0;
+  background: var(--bg-surface);
+  z-index: 1;
+}
+
+.cl-fila-grupo-nome {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.cl-fila-grupo-meta {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.cl-fila-aviso {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--accent-amber);
+  background: var(--accent-amber-bg);
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .cl-curadoria-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cl-queue-list {
+    max-height: 320px;
+  }
+}

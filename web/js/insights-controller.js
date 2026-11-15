@@ -160,7 +160,7 @@ export function initInsightsEvents() {
     if (abrir) {
       abrir.disabled = true;
       try {
-        await abrirLoteSalvo(abrir.dataset.lote, 'visao');
+        await abrirLoteSalvo(abrir.dataset.lote, 'curadoria');
       } catch (err) {
         abrir.disabled = false;
         store.setState({ insightsErro: `Não foi possível abrir o lote: ${err.message}` });

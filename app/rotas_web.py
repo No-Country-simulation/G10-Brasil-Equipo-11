@@ -148,21 +148,27 @@ def _salvar_decisao_oracle(req: "DecisaoRequisicao") -> None:
     )
 
 
-def _alerta_da_ordem(item: dict, ordem: int) -> dict | None:
-    """Acha o alerta do Oracle a partir da posição da mensagem no lote (o que o painel conhece)."""
+def _alertas_com_ordem(item: dict) -> list[tuple[int, dict]]:
+    """Pares (posição da mensagem no lote, alerta do Oracle). O alerta é achado pela interação
+    de origem em `fontes_ativos`; sem ela, pela posição entre os alertas. Sem par, fica de fora."""
     resultado = item.get("resultado") or {}
     ordens = [i for i, a in enumerate(resultado.get("analises") or []) if a.get("rota") == "alerta"]
-    if ordem not in ordens:
-        return None
-
-    numero = ordens.index(ordem)
     alertas = item.get("alertas") or []
-    fontes = (resultado.get("fontes_ativos") or {}).get(f"alerta_{numero}") or []
-    if fontes:
-        achado = next((a for a in alertas if a["interacao_id"] == fontes[0]), None)
-        if achado:
-            return achado
-    return alertas[numero] if numero < len(alertas) else None
+    fontes = resultado.get("fontes_ativos") or {}
+    pares = []
+    for numero, ordem in enumerate(ordens):
+        origem = (fontes.get(f"alerta_{numero}") or [None])[0]
+        achado = next((a for a in alertas if a["interacao_id"] == origem), None) if origem else None
+        if achado is None and numero < len(alertas):
+            achado = alertas[numero]
+        if achado is not None:
+            pares.append((ordem, achado))
+    return pares
+
+
+def _alerta_da_ordem(item: dict, ordem: int) -> dict | None:
+    """Acha o alerta do Oracle a partir da posição da mensagem no lote (o que o painel conhece)."""
+    return next((alerta for o, alerta in _alertas_com_ordem(item) if o == ordem), None)
 
 
 def _tratar_alerta_oracle(req: "AlertaTratarRequisicao") -> None:
@@ -275,14 +281,9 @@ def _estado_do_lote(item: dict) -> dict:
     resultado["ativos_distribuicao_gerados"] = ativos
     resultado["lote_id"] = item["id"]
 
-    ordens = [i for i, a in enumerate(resultado.get("analises") or []) if a.get("rota") == "alerta"]
-    fontes = resultado.get("fontes_ativos") or {}
-    por_interacao = {a["interacao_id"]: a for a in item.get("alertas") or []}
     alertas = {}
-    for numero, ordem in enumerate(ordens):
-        origem = (fontes.get(f"alerta_{numero}") or [None])[0]
-        alerta = por_interacao.get(origem)
-        if alerta is None or alerta["status"] == "PENDENTE":
+    for ordem, alerta in _alertas_com_ordem(item):  # mesma regra usada ao tratar o alerta
+        if alerta["status"] == "PENDENTE":
             continue
         if alerta["status"] == "RESOLVIDO":
             alertas[str(ordem)] = "resolvido"
@@ -558,6 +559,51 @@ def baixar_aprovados(dados: ExportarCuradoriaRequisicao, formato: str = "pdf"):
     )
 
 
+class BaixarVariosRequisicao(BaseModel):
+    pacotes: list[ExportarCuradoriaRequisicao]
+
+
+@router.post("/api/curadoria/baixar-varios", dependencies=[Depends(exigir_admin)])
+def baixar_aprovados_de_varios_lotes(dados: BaixarVariosRequisicao, formato: str = "pdf"):
+    """Um arquivo com os aprovados de todos os lotes da fila. Lotes sem aprovados ficam de fora."""
+    from datetime import date
+    from app import exportacao_arquivos as arquivos
+    from ui import curadoria as cur
+
+    formato = formato.strip().lower()
+    if formato not in arquivos.FORMATOS:
+        raise HTTPException(400, "Formato não suportado. Use pdf, csv ou json.")
+
+    pacotes = []
+    for pedido in dados.pacotes:
+        periodo = pedido.periodo_referencia.strip()
+        if not re.fullmatch(r"^[a-zA-Z0-9_\-]+$", periodo):
+            raise HTTPException(400, f"Período de referência inválido: '{periodo}'. Caracteres inválidos detectados.")
+        if not pedido.resultado:
+            continue
+        try:
+            pacote = cur.montar_aprovados(
+                resultado=pedido.resultado, decisoes=pedido.decisoes, textos=pedido.textos,
+                origem=pedido.origem_comunidade, periodo=periodo, autorizado=pedido.autorizado,
+            )
+        except ValueError as exc:
+            raise HTTPException(422, f"{pedido.origem_comunidade}: {exc}") from exc
+        except (KeyError, TypeError) as exc:
+            raise HTTPException(422, "Um dos lotes enviados não tem o formato esperado.") from exc
+        if arquivos.total_de_ativos(pacote) > 0:
+            pacotes.append(pacote)
+
+    if not pacotes:
+        raise HTTPException(422, "Nenhum conteúdo aprovado para baixar.")
+
+    nome = arquivos.nome_do_arquivo_varios(formato, date.today())
+    return Response(
+        content=arquivos.gerar_varios(pacotes, formato),
+        media_type=arquivos.FORMATOS[formato],
+        headers={"Content-Disposition": f'attachment; filename="{nome}"'},
+    )
+
+
 @router.post("/api/curadoria/decidir", dependencies=[Depends(exigir_admin)])
 def salvar_decisao_curadoria(req: DecisaoRequisicao):
     from app import repositorio
@@ -606,6 +652,114 @@ def tratar_alerta_comunidade(req: AlertaTratarRequisicao):
         except Exception as e:
             print(f"[Supabase] Erro ao atualizar alerta: {e}")
     return {"status": "ok", "salvo_no_banco": salvo}
+
+
+# ---------------------------------------------------------------------------
+# Visão geral: o que está pendente em todos os lotes
+# ---------------------------------------------------------------------------
+JANELA_VISAO_GERAL_DIAS = 7
+
+
+def _alertas_pendentes_do_lote(lote: dict, item: dict) -> list[dict]:
+    analises = (item.get("resultado") or {}).get("analises") or []
+    pendentes = []
+    for ordem, alerta in _alertas_com_ordem(item):
+        if alerta.get("status") != "PENDENTE":
+            continue
+        analise = analises[ordem] if ordem < len(analises) else {}
+        pendentes.append({
+            "lote_id": lote["id"],
+            "ordem": ordem,
+            "origem": lote["origem_comunidade"],
+            "periodo": lote["periodo_referencia"],
+            "autor": alerta.get("autor") or analise.get("autor"),
+            "canal": alerta.get("canal") or analise.get("canal"),
+            "texto": alerta.get("texto") or analise.get("texto") or "",
+            "tipo": analise.get("tipo"),
+        })
+    return pendentes
+
+
+@router.get("/api/visao-geral", dependencies=[Depends(exigir_admin)])
+def obter_visao_geral():
+    """Pendências de todos os lotes (ativos e alertas) e as interações dos últimos 7 dias."""
+    if not oracle_ativo():
+        return {
+            "oracle_configurado": False,
+            "mensagem": "A Visão geral precisa do banco Oracle configurado (COMMUNITYLAB_DB_MODE=oracle no .env).",
+        }
+
+    from datetime import datetime, timedelta, timezone
+    from app import repositorio, repository
+
+    fim = repositorio.hoje()
+    inicio = fim - timedelta(days=JANELA_VISAO_GERAL_DIAS - 1)
+    modo = _modo_atual()
+    try:
+        lotes = repository.listar_lotes_com_pendencias(modo)
+        com_alerta = [lote for lote in lotes if lote["alertas_pendentes"] > 0]
+        detalhes = repository.carregar_alertas_dos_lotes([lote["id"] for lote in com_alerta])  # uma ida ao banco
+        alertas = []
+        for lote in com_alerta:
+            item = detalhes.get(lote["id"])
+            if item:
+                alertas.extend(_alertas_pendentes_do_lote(lote, item))
+        interacoes = repository.consultar_interacoes_recentes(inicio, fim, modo)
+        tratados = repository.contar_alertas_tratados(inicio, fim, modo)
+    except Exception as exc:
+        logger.exception("Falha ao montar a Visão geral no Oracle (%s)", type(exc).__name__)
+        raise HTTPException(503, "Não foi possível consultar a Visão geral no Oracle.") from exc
+
+    return {
+        "oracle_configurado": True,
+        "atualizado_em": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "janela": {"inicio": inicio.isoformat(), "fim": fim.isoformat()},
+        "lotes_pendentes": [
+            {
+                "lote_id": lote["id"],
+                "origem": lote["origem_comunidade"],
+                "periodo": lote["periodo_referencia"],
+                "processado_em": em_utc(lote.get("finalizado_em") or lote.get("criado_em")),
+                "ativos_pendentes": sum(lote["ativos_pendentes"].values()),
+                "ativos_por_tipo": lote["ativos_pendentes"],
+                "alertas_pendentes": lote["alertas_pendentes"],
+            }
+            for lote in lotes
+        ],
+        "alertas_pendentes": alertas,
+        "alertas_tratados_janela": tratados,
+        "interacoes": [
+            {**i, "data": i["data"].isoformat() if hasattr(i.get("data"), "isoformat") else i.get("data")}
+            for i in interacoes
+        ],
+    }
+
+
+@router.get("/api/curadoria/fila", dependencies=[Depends(exigir_admin)])
+def obter_fila_curadoria():
+    """Todos os lotes com ativos pendentes, do mais antigo ao mais novo, prontos para a Curadoria."""
+    if not oracle_ativo():
+        return {
+            "oracle_configurado": False,
+            "mensagem": "A fila de curadoria precisa do banco Oracle configurado (COMMUNITYLAB_DB_MODE=oracle no .env).",
+        }
+
+    from app import repository
+
+    try:
+        ids = [l["id"] for l in repository.listar_lotes_com_pendencias(_modo_atual())
+               if sum(l["ativos_pendentes"].values()) > 0]
+        estados = repository.carregar_estados_dos_lotes(ids)
+    except Exception as exc:
+        logger.exception("Falha ao carregar a fila de curadoria (%s)", type(exc).__name__)
+        raise HTTPException(503, "Não foi possível carregar a fila de curadoria no Oracle.") from exc
+
+    lotes = []
+    for lote_id in ids:
+        item = estados.get(lote_id)
+        if item and item.get("resultado"):
+            lotes.append(_estado_do_lote(item))
+    return {"oracle_configurado": True, "lotes": lotes}
 
 
 # ---------------------------------------------------------------------------

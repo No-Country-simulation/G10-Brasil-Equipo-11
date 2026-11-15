@@ -253,7 +253,8 @@ def test_servir_landing_page_modulos_e_css():
 
     r_css2 = cliente.get("/css/04-landing-sections.css")
     assert r_css2.status_code == 200
-    assert ".lp-dashboard" in r_css2.text
+    assert ".lp-dashboard" not in r_css2.text  # o painel antigo deu lugar ao app real (07-landing-demo.css)
+    assert ".lp-app-demo" in cliente.get("/css/07-landing-demo.css").text
     assert ".lp-cta-box" in r_css2.text
 
     arquivos_js = [
@@ -460,3 +461,95 @@ def test_baixar_aprovados_respeita_as_regras_da_exportacao(monkeypatch):
     monkeypatch.setenv("ADMIN_USUARIO", "admin")
     monkeypatch.setenv("ADMIN_SENHA", "senha_forte")
     assert TestClient(app).post("/api/curadoria/baixar?formato=pdf", json=pedido).status_code == 401
+
+
+def test_painel_abre_na_visao_geral_e_carrega_do_banco():
+    store = cliente.get("/js/store.js").text
+    assert "activeTab: 'visao'" in store and "activeTab: 'importar'" not in store
+    assert "sender_ai_menu_recolhido" in store
+    assert "/api/visao-geral" in cliente.get("/js/api.js").text
+    assert "export async function carregarVisaoGeral" in cliente.get("/js/visao-geral.js").text
+
+
+def test_visao_geral_sem_pacote_de_distribuicao_e_com_lotes_pendentes():
+    view = cliente.get("/js/views/overview-view.js").text
+    assert "Pacote de distribuição" not in view
+    assert "renderPendingBatches" in view and "visaoGeral" in view
+    assert "btn-revisar-lote" in cliente.get("/js/organisms/pending-batches.js").text
+    assert "data-lote-id" in cliente.get("/js/molecules/alert-card.js").text
+
+
+def test_menu_lateral_substitui_o_header_na_ordem_certa():
+    assert cliente.get("/js/organisms/header-bar.js").status_code == 404
+    sidebar = cliente.get("/js/organisms/sidebar.js").text
+    ordem = [sidebar.index(f"'{t}'") for t in ("visao", "importar", "curadoria", "insights")]
+    assert ordem == sorted(ordem)
+    assert "btn-recolher-menu" in sidebar and "btn-abrir-menu" in sidebar
+    assert "06-sidebar.css" in cliente.get("/").text
+    css = cliente.get("/css/06-sidebar.css").text
+    assert "@media (max-width: 768px)" in css and "prefers-reduced-motion" in css
+
+
+def test_lotes_iguais_se_distinguem_pela_data_de_processamento():
+    lotes = cliente.get("/js/organisms/pending-batches.js").text
+    assert "processado_em" in lotes and "processado " in lotes
+
+
+def test_erros_da_visao_geral_aparecem_mesmo_com_dados_na_tela():
+    view = cliente.get("/js/views/overview-view.js").text
+    assert "cl-visao-erro" in view
+    carga = cliente.get("/js/visao-geral.js").text
+    assert "salvo_no_banco !== true" in carga  # 401/409/503 não somem em silêncio
+
+
+def test_abrir_lote_salvo_vai_para_a_curadoria():
+    assert "abaDestino = 'curadoria'" in cliente.get("/js/lotes.js").text
+    assert "'visao')" not in cliente.get("/js/insights-controller.js").text
+
+
+def test_curadoria_usa_fila_unica():
+    fila = cliente.get("/js/fila.js").text
+    for nome in ("export async function carregarFila", "export function focar", "export function proximoPendente"):
+        assert nome in fila
+    api = cliente.get("/js/api.js").text
+    assert "/api/curadoria/fila" in api and "/api/curadoria/baixar-varios" in api
+    assert "data-lote-id" in cliente.get("/js/molecules/queue-item.js").text
+    view = cliente.get("/js/views/curation-view.js").text
+    assert "btn-atualizar-fila" in view and "btn-ver-todos-pendentes" in view
+
+
+def test_fila_recarregada_mantem_edicoes_e_funciona_sem_oracle():
+    fila = cliente.get("/js/fila.js").text
+    assert "function mesclarEdicoes" in fila  # textos e autorização não decididos sobrevivem ao recarregar
+    assert "function filaDoLoteLocal" in fila  # sem Oracle, o lote processado na sessão vira a fila
+
+
+def test_tema_claro_usa_verde_da_marca():
+    import re
+    from pathlib import Path
+    tokens = cliente.get("/css/00-tokens.css").text
+    escuro, claro = tokens.split('[data-theme="light"]', 1)
+    for bloco in (escuro, claro):
+        assert "--accent-lime-text:" in bloco and "--accent-lime-borda:" in bloco
+    assert "--accent-lime: #b5e04a;" in claro and "--bg-surface: #f7f9fa;" in claro
+    # verde como texto/borda usa o tom legível; o lima puro fica só para preenchimento
+    web = Path(__file__).resolve().parent.parent / "web"
+    sobras = [str(p) for p in list(web.rglob("*.js")) + list(web.rglob("*.css"))
+              if re.search(r"(?<![-\w])color:\s*var\(--accent-lime\)", p.read_text(encoding="utf-8"))]
+    assert sobras == []
+
+
+def test_landing_demo_usa_o_painel_real():
+    from pathlib import Path
+    demo = cliente.get("/js/organisms/landing-demo.js").text
+    assert "renderAppDemo" in demo
+    for antigo in ("PERIOD", "lp-dash-body", "ENDPOINT PYTHON"):
+        assert antigo not in demo
+    app = cliente.get("/js/demo/app-demo.js").text
+    assert "lp-app-demo" in app
+    for nome in ("renderOverviewView", "renderCurationView", "renderSidebar", "stopPropagation"):
+        assert nome in app
+    assert ", true)" in app or "capture: true" in app  # ouvinte em captura: o app real nunca recebe o clique
+    pasta = Path(__file__).resolve().parent.parent / "web" / "js" / "demo"
+    assert not [p.name for p in pasta.glob("*.js") if "api." in p.read_text(encoding="utf-8")]
+    assert "PERIOD_DATA" not in cliente.get("/js/organisms/landing-events.js").text

@@ -10,7 +10,7 @@ function assegurarEstilos() {
     const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = fontes;
     document.head.appendChild(l);
   }
-  const folhas = ['/css/00-tokens.css', '/css/01-reset.css', '/css/02-layout.css', '/css/03-landing.css', '/css/04-landing-sections.css'];
+  const folhas = ['/css/00-tokens.css', '/css/01-reset.css', '/css/02-layout.css', '/css/03-landing.css', '/css/04-landing-sections.css', '/css/06-sidebar.css', '/css/07-landing-demo.css'];
   folhas.forEach(f => {
     const nome = f.split('/').pop().replace('.css', '');
     if (!document.querySelector(`link[href*="${nome}"]`)) {

@@ -5,7 +5,7 @@ import { esc } from './escape.js';
 export function renderBadge(text, variant = 'neutral', extraClass = '') {
   const styles = {
     info: 'background: var(--accent-cyan-bg); color: var(--accent-cyan); border: 1px solid var(--accent-cyan);',
-    success: 'background: var(--accent-lime-bg); color: var(--accent-lime); border: 1px solid var(--accent-lime);',
+    success: 'background: var(--accent-lime-bg); color: var(--accent-lime-text); border: 1px solid var(--accent-lime-text);',
     warning: 'background: var(--accent-amber-bg); color: var(--accent-amber); border: 1px solid var(--accent-amber);',
     danger: 'background: var(--accent-coral-bg); color: var(--accent-coral); border: 1px solid var(--accent-coral);',
     neutral: 'background: var(--bg-surface-2); color: var(--muted); border: 1px solid var(--line);',

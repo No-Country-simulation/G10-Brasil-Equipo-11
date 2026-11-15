@@ -943,6 +943,38 @@ def atualizar_status_upload(
         conn.commit()
 
 
+def _ativo_da_linha(asset) -> dict:
+    return {
+        "id": asset[0],
+        "chave": asset[1],
+        "tipo": asset[2],
+        "titulo": asset[3],
+        "payload": json_loads(asset[4]),
+        "status_curadoria": asset[5],
+        "versao": asset[6],
+        "consentimento_status": asset[7],
+        "consentimento_autor": asset[8],
+        "consentimento_em": asset[9].isoformat() if asset[9] else None,
+        "consentimento_referencia": asset[10],
+    }
+
+
+def _alerta_da_linha(item) -> dict:
+    return {
+        "id": item[0],
+        "interacao_id": item[1],
+        "autor": item[2],
+        "canal": item[3],
+        "texto": _text_value(item[4]),
+        "motivo": item[5],
+        "status": item[6],
+        "versao": int(item[7]),
+        "acao": item[8],
+        "responsavel": item[9],
+        "justificativa": item[10],
+    }
+
+
 def obter_processamento(
     process_id: str,
 ) -> dict | None:
@@ -996,24 +1028,7 @@ def obter_processamento(
                 {"id": process_id},
             )
 
-            result["ativos"] = [
-                {
-                    "id": asset[0],
-                    "chave": asset[1],
-                    "tipo": asset[2],
-                    "titulo": asset[3],
-                    "payload": json_loads(asset[4]),
-                    "status_curadoria": asset[5],
-                    "versao": asset[6],
-                    "consentimento_status": asset[7],
-                    "consentimento_autor": asset[8],
-                    "consentimento_em": (
-                        asset[9].isoformat() if asset[9] else None
-                    ),
-                    "consentimento_referencia": asset[10],
-                }
-                for asset in cursor.fetchall()
-            ]
+            result["ativos"] = [_ativo_da_linha(asset) for asset in cursor.fetchall()]
 
             cursor.execute(
                 """
@@ -1029,22 +1044,7 @@ def obter_processamento(
                 {"id": process_id},
             )
 
-            result["alertas"] = [
-                {
-                    "id": item[0],
-                    "interacao_id": item[1],
-                    "autor": item[2],
-                    "canal": item[3],
-                    "texto": _text_value(item[4]),
-                    "motivo": item[5],
-                    "status": item[6],
-                    "versao": int(item[7]),
-                    "acao": item[8],
-                    "responsavel": item[9],
-                    "justificativa": item[10],
-                }
-                for item in cursor.fetchall()
-            ]
+            result["alertas"] = [_alerta_da_linha(item) for item in cursor.fetchall()]
 
             return result
 
@@ -1466,18 +1466,22 @@ def finalizar_processamento(
                 )
 
             # 2. Recupera e bloqueia as interações de origem.
-            cursor.execute(
-                """
-                SELECT ID, AUTOR, CANAL, TEXTO
-                FROM CL_INTERACOES
-                WHERE PROCESSAMENTO_ID = :id
-                ORDER BY POSICAO
-                FOR UPDATE
-                """,
-                {"id": process_id},
-            )
+            # O texto (CLOB) já vem como string: sem uma ida ao banco por linha.
+            with conn.cursor() as source_cursor:
+                source_cursor.outputtypehandler = _clob_como_texto
+                source_cursor.arraysize = max(100, len(interaction_ids))
+                source_cursor.execute(
+                    """
+                    SELECT ID, AUTOR, CANAL, TEXTO
+                    FROM CL_INTERACOES
+                    WHERE PROCESSAMENTO_ID = :id
+                    ORDER BY POSICAO
+                    FOR UPDATE
+                    """,
+                    {"id": process_id},
+                )
 
-            source_rows = cursor.fetchall()
+                source_rows = source_cursor.fetchall()
 
             if [item[0] for item in source_rows] != interaction_ids:
                 raise ValueError(
@@ -1518,33 +1522,40 @@ def finalizar_processamento(
 
             import oracledb
 
-            # 5. Persiste as análises usando cursor exclusivo.
+            # 5. Persiste as análises em um único envio, com cursor exclusivo.
             # O cursor não será reutilizado para outros CLOBs.
             with conn.cursor() as analysis_cursor:
                 analysis_cursor.setinputsizes(
                     analysis_json=oracledb.DB_TYPE_CLOB
                 )
 
-                for index, interaction_id in enumerate(interaction_ids):
-                    analysis_cursor.execute(
-                        """
-                        UPDATE CL_INTERACOES
-                        SET ANALISE_JSON = :analysis_json
-                        WHERE ID = :id
-                          AND PROCESSAMENTO_ID = :process_id
-                        """,
+                analysis_cursor.executemany(
+                    """
+                    UPDATE CL_INTERACOES
+                    SET ANALISE_JSON = :analysis_json
+                    WHERE ID = :id
+                      AND PROCESSAMENTO_ID = :process_id
+                    """,
+                    [
                         {
                             "analysis_json": json_dumps(analyses[index]),
                             "id": interaction_id,
                             "process_id": process_id,
-                        },
-                    )
+                        }
+                        for index, interaction_id in enumerate(interaction_ids)
+                    ],
+                    arraydmlrowcounts=True,
+                )
 
-                    if analysis_cursor.rowcount != 1:
-                        raise RuntimeError(
-                            "Interação de origem não localizada "
-                            "durante a persistência."
-                        )
+                # Cada interação tem de ter sido atualizada exatamente uma vez.
+                if any(
+                    count != 1
+                    for count in analysis_cursor.getarraydmlrowcounts()
+                ):
+                    raise RuntimeError(
+                        "Interação de origem não localizada "
+                        "durante a persistência."
+                    )
 
             # 6. Atualiza o processamento usando outro cursor exclusivo.
             with conn.cursor() as result_cursor:
@@ -1586,111 +1597,139 @@ def finalizar_processamento(
                         "antes do commit."
                     )
 
-            # 7. Persiste os ativos e seus relacionamentos.
-            # Um cursor exclusivo recebe somente o bind payload_json.
-            with conn.cursor() as asset_cursor:
-                asset_cursor.setinputsizes(
-                    payload_json=oracledb.DB_TYPE_CLOB
+            # 7. Persiste os ativos e seus relacionamentos, um envio por tabela.
+            asset_rows = []
+            source_link_rows = []
+            history_rows = []
+
+            for record in records:
+                payload_json = json_dumps(record["payload"])
+
+                asset_rows.append(
+                    {
+                        "id": record["id"],
+                        "process_id": process_id,
+                        "asset_key": record["key"],
+                        "kind": record["kind"],
+                        "title": str(record["title"])[:500],
+                        "payload_json": payload_json,
+                        # Posição do ativo no lote: mantém a ordem de criação (ver 7.1).
+                        "ordem": len(asset_rows),
+                    }
                 )
 
+                source_link_rows.extend(
+                    {
+                        "asset_id": record["id"],
+                        "process_id": process_id,
+                        "interaction_id": source_id,
+                        "method": (
+                            "FONTES_DO_GRAFO"
+                            if record["key"] != "newsletter"
+                            else "LOTE_COMPLETO"
+                        ),
+                    }
+                    for source_id in record["sources"]
+                )
+
+                history_rows.append(
+                    {
+                        "id": str(uuid.uuid4()),
+                        "asset_id": record["id"],
+                        "process_id": process_id,
+                        "new_payload": payload_json,
+                    }
+                )
+
+            if asset_rows:
+                # 7.1. Insere os ativos.
+                # Um cursor exclusivo recebe somente o bind payload_json.
+                # No envio em lote todas as linhas sairiam com o mesmo horário;
+                # cada ativo soma 1 microssegundo por posição para CRIADO_EM
+                # continuar crescente, como quando eram gravados um a um
+                # (as telas listam os ativos por CRIADO_EM).
+                with conn.cursor() as asset_cursor:
+                    asset_cursor.setinputsizes(
+                        payload_json=oracledb.DB_TYPE_CLOB
+                    )
+
+                    asset_cursor.executemany(
+                        """
+                        INSERT INTO CL_ATIVOS (
+                            ID, PROCESSAMENTO_ID, CHAVE_ATIVO,
+                            TIPO_ATIVO, TITULO, PAYLOAD_JSON,
+                            STATUS_CURADORIA, VERSAO,
+                            CONSENTIMENTO_STATUS,
+                            CRIADO_EM, ATUALIZADO_EM
+                        )
+                        VALUES (
+                            :id, :process_id, :asset_key,
+                            :kind, :title, :payload_json,
+                            'PENDENTE', 1, 'NAO_APLICAVEL',
+                            SYSTIMESTAMP + NUMTODSINTERVAL(:ordem / 1000000, 'SECOND'),
+                            SYSTIMESTAMP + NUMTODSINTERVAL(:ordem / 1000000, 'SECOND')
+                        )
+                        """,
+                        asset_rows,
+                    )
+
+            if source_link_rows:
+                # 7.2. Registra as fontes de cada ativo.
+                cursor.executemany(
+                    """
+                    INSERT INTO CL_ATIVO_INTERACOES (
+                        ATIVO_ID, PROCESSAMENTO_ID,
+                        INTERACAO_ID, METODO_ORIGEM
+                    )
+                    VALUES (
+                        :asset_id, :process_id,
+                        :interaction_id, :method
+                    )
+                    """,
+                    source_link_rows,
+                )
+
+            if history_rows:
+                # 7.3. Cria o histórico inicial de curadoria.
                 # Outro cursor exclusivo recebe somente new_payload.
                 with conn.cursor() as history_cursor:
                     history_cursor.setinputsizes(
                         new_payload=oracledb.DB_TYPE_CLOB
                     )
 
-                    for record in records:
-                        payload_json = json_dumps(record["payload"])
-
-                        # 7.1. Insere o ativo.
-                        asset_cursor.execute(
-                            """
-                            INSERT INTO CL_ATIVOS (
-                                ID, PROCESSAMENTO_ID, CHAVE_ATIVO,
-                                TIPO_ATIVO, TITULO, PAYLOAD_JSON,
-                                STATUS_CURADORIA, VERSAO,
-                                CONSENTIMENTO_STATUS,
-                                CRIADO_EM, ATUALIZADO_EM
-                            )
-                            VALUES (
-                                :id, :process_id, :asset_key,
-                                :kind, :title, :payload_json,
-                                'PENDENTE', 1, 'NAO_APLICAVEL',
-                                SYSTIMESTAMP, SYSTIMESTAMP
-                            )
-                            """,
-                            {
-                                "id": record["id"],
-                                "process_id": process_id,
-                                "asset_key": record["key"],
-                                "kind": record["kind"],
-                                "title": str(record["title"])[:500],
-                                "payload_json": payload_json,
-                            },
+                    history_cursor.executemany(
+                        """
+                        INSERT INTO CL_HISTORICO_CURADORIA (
+                            ID, ATIVO_ID, PROCESSAMENTO_ID, ACAO,
+                            ESTADO_ANTERIOR, NOVO_ESTADO,
+                            CONTEUDO_ANTERIOR, CONTEUDO_NOVO,
+                            AUTOR, JUSTIFICATIVA, CRIADO_EM,
+                            CONSENTIMENTO_ANTERIOR,
+                            CONSENTIMENTO_NOVO,
+                            REFERENCIA_CONSENTIMENTO
                         )
-
-                        # 7.2. Registra as fontes de cada ativo.
-                        for source_id in record["sources"]:
-                            cursor.execute(
-                                """
-                                INSERT INTO CL_ATIVO_INTERACOES (
-                                    ATIVO_ID, PROCESSAMENTO_ID,
-                                    INTERACAO_ID, METODO_ORIGEM
-                                )
-                                VALUES (
-                                    :asset_id, :process_id,
-                                    :interaction_id, :method
-                                )
-                                """,
-                                {
-                                    "asset_id": record["id"],
-                                    "process_id": process_id,
-                                    "interaction_id": source_id,
-                                    "method": (
-                                        "FONTES_DO_GRAFO"
-                                        if record["key"] != "newsletter"
-                                        else "LOTE_COMPLETO"
-                                    ),
-                                },
-                            )
-
-                        # 7.3. Cria o histórico inicial de curadoria.
-                        history_cursor.execute(
-                            """
-                            INSERT INTO CL_HISTORICO_CURADORIA (
-                                ID, ATIVO_ID, PROCESSAMENTO_ID, ACAO,
-                                ESTADO_ANTERIOR, NOVO_ESTADO,
-                                CONTEUDO_ANTERIOR, CONTEUDO_NOVO,
-                                AUTOR, JUSTIFICATIVA, CRIADO_EM,
-                                CONSENTIMENTO_ANTERIOR,
-                                CONSENTIMENTO_NOVO,
-                                REFERENCIA_CONSENTIMENTO
-                            )
-                            VALUES (
-                                :id, :asset_id, :process_id, 'CRIADO',
-                                NULL, 'PENDENTE', NULL, :new_payload,
-                                'sistema',
-                                'Ativo gerado pelo pipeline.',
-                                SYSTIMESTAMP, NULL,
-                                'NAO_APLICAVEL', NULL
-                            )
-                            """,
-                            {
-                                "id": str(uuid.uuid4()),
-                                "asset_id": record["id"],
-                                "process_id": process_id,
-                                "new_payload": payload_json,
-                            },
+                        VALUES (
+                            :id, :asset_id, :process_id, 'CRIADO',
+                            NULL, 'PENDENTE', NULL, :new_payload,
+                            'sistema',
+                            'Ativo gerado pelo pipeline.',
+                            SYSTIMESTAMP, NULL,
+                            'NAO_APLICAVEL', NULL
                         )
+                        """,
+                        history_rows,
+                    )
 
             # 8. Registra os alertas encontrados nas análises.
             # Estes comandos não utilizam binds CLOB.
+            alert_rows = []
+            alert_history_rows = []
+
             for index, analysis in enumerate(analyses):
                 if analysis.get("rota") != "alerta":
                     continue
 
                 alert_id = str(uuid.uuid4())
-                interaction_id = interaction_ids[index]
 
                 motivo = (
                     f"{analysis.get('sentimento', 'Sentimento não informado')} "
@@ -1698,7 +1737,26 @@ def finalizar_processamento(
                     f"{analysis.get('texto', '')[:100]}"
                 )
 
-                cursor.execute(
+                alert_rows.append(
+                    {
+                        "id": alert_id,
+                        "process_id": process_id,
+                        "interaction_id": interaction_ids[index],
+                        "motivo": motivo[:1000],
+                    }
+                )
+
+                alert_history_rows.append(
+                    {
+                        "id": str(uuid.uuid4()),
+                        "alert_id": alert_id,
+                        "process_id": process_id,
+                        "justification": motivo[:1000],
+                    }
+                )
+
+            if alert_rows:
+                cursor.executemany(
                     """
                     INSERT INTO CL_ALERTAS (
                         ID, PROCESSAMENTO_ID, INTERACAO_ID,
@@ -1711,15 +1769,10 @@ def finalizar_processamento(
                         SYSTIMESTAMP, SYSTIMESTAMP
                     )
                     """,
-                    {
-                        "id": alert_id,
-                        "process_id": process_id,
-                        "interaction_id": interaction_id,
-                        "motivo": motivo[:1000],
-                    },
+                    alert_rows,
                 )
 
-                cursor.execute(
+                cursor.executemany(
                     """
                     INSERT INTO CL_HISTORICO_ALERTAS (
                         ID, ALERTA_ID, PROCESSAMENTO_ID, ACAO,
@@ -1732,12 +1785,7 @@ def finalizar_processamento(
                         :justification, SYSTIMESTAMP
                     )
                     """,
-                    {
-                        "id": str(uuid.uuid4()),
-                        "alert_id": alert_id,
-                        "process_id": process_id,
-                        "justification": motivo[:1000],
-                    },
+                    alert_history_rows,
                 )
 
         # 9. Confirma todas as gravações em uma única transação.
@@ -2781,3 +2829,251 @@ def consultar_alertas_insights(
                 }
                 for row in cursor.fetchall()
             ]
+
+
+# ---------------------------------------------------------------------------
+# Visão geral: o que está pendente em todos os lotes
+# ---------------------------------------------------------------------------
+def listar_lotes_com_pendencias(modo: str, limite: int = 50) -> list[dict]:
+    """Lotes com ativos ou alertas pendentes, do mais antigo para o mais novo."""
+    if modo not in {"mock", "gemini"}:
+        raise ValueError("Modo de IA inválido.")
+    limite = max(1, min(int(limite), 100))
+
+    def ativos(tipo: str) -> str:
+        return (
+            "(SELECT COUNT(*) FROM CL_ATIVOS a WHERE a.PROCESSAMENTO_ID = p.ID "
+            f"AND a.STATUS_CURADORIA = 'PENDENTE' AND a.TIPO_ATIVO = '{tipo}')"
+        )
+
+    sql = f"""
+        SELECT ID, ORIGEM_COMUNIDADE, PERIODO_REFERENCIA, CRIADO_EM, FINALIZADO_EM,
+               POSTS, NEWSLETTERS, FAQS, ALERTAS
+        FROM (
+            SELECT p.ID, p.ORIGEM_COMUNIDADE, p.PERIODO_REFERENCIA, p.CRIADO_EM, p.FINALIZADO_EM,
+                   {ativos('POST_LINKEDIN')} AS POSTS,
+                   {ativos('NEWSLETTER')} AS NEWSLETTERS,
+                   {ativos('FAQ')} AS FAQS,
+                   (SELECT COUNT(*) FROM CL_ALERTAS al WHERE al.PROCESSAMENTO_ID = p.ID
+                       AND al.STATUS_TRIAGEM = 'PENDENTE') AS ALERTAS
+            FROM CL_PROCESSAMENTOS p
+            WHERE p.STATUS = 'SUCESSO' AND p.MODO_IA = :modo
+        )
+        WHERE POSTS + NEWSLETTERS + FAQS + ALERTAS > 0
+        ORDER BY CRIADO_EM ASC
+        FETCH FIRST :lim ROWS ONLY
+    """
+
+    with database.connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(sql, {"modo": modo, "lim": limite})
+            return [
+                {
+                    "id": row[0],
+                    "origem_comunidade": row[1],
+                    "periodo_referencia": row[2],
+                    "criado_em": row[3].isoformat() if row[3] else None,
+                    "finalizado_em": row[4].isoformat() if row[4] else None,
+                    "ativos_pendentes": {"post": int(row[5]), "newsletter": int(row[6]), "faq": int(row[7])},
+                    "alertas_pendentes": int(row[8]),
+                }
+                for row in cursor.fetchall()
+            ]
+
+
+def _clob_como_texto(cursor, metadata):
+    """Traz CLOB como texto no próprio fetch. Sem isso, cada linha custa uma ida ao banco."""
+    import oracledb
+
+    if metadata.type_code is oracledb.DB_TYPE_CLOB:
+        return cursor.var(oracledb.DB_TYPE_LONG, arraysize=cursor.arraysize)
+    return None
+
+
+def carregar_alertas_dos_lotes(ids: list[str]) -> dict[str, dict]:
+    """Resultado e alertas de vários lotes em duas consultas, no formato de `obter_processamento`
+    (só as chaves `id`, `resultado` e `alertas`)."""
+    ids = list(dict.fromkeys(ids))
+    if not ids:
+        return {}
+    params = {f"id{n}": valor for n, valor in enumerate(ids)}
+    em = ", ".join(f":{chave}" for chave in params)
+
+    with database.connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.outputtypehandler = _clob_como_texto
+            cursor.execute(f"SELECT ID, RESULTADO_JSON FROM CL_PROCESSAMENTOS WHERE ID IN ({em})", params)
+            lotes = {row[0]: {"id": row[0], "resultado": json_loads(row[1]), "alertas": []} for row in cursor.fetchall()}
+
+            cursor.execute(
+                f"""
+                SELECT a.PROCESSAMENTO_ID, a.ID, a.INTERACAO_ID, i.AUTOR, i.CANAL,
+                       i.TEXTO, a.STATUS_TRIAGEM, a.VERSAO
+                FROM CL_ALERTAS a
+                JOIN CL_INTERACOES i ON i.ID = a.INTERACAO_ID
+                WHERE a.PROCESSAMENTO_ID IN ({em})
+                ORDER BY a.PROCESSAMENTO_ID, i.POSICAO
+                """,
+                params,
+            )
+            for row in cursor.fetchall():
+                if row[0] in lotes:
+                    lotes[row[0]]["alertas"].append({
+                        "id": row[1],
+                        "interacao_id": row[2],
+                        "autor": row[3],
+                        "canal": row[4],
+                        "texto": _text_value(row[5]),
+                        "status": row[6],
+                        "versao": int(row[7]),
+                    })
+    return lotes
+
+
+def _inteiro_ou_none(valor: Any) -> int | None:
+    try:
+        return int(valor)
+    except (TypeError, ValueError):
+        return None
+
+
+def consultar_interacoes_recentes(inicio: date, fim: date, modo: str) -> list[dict]:
+    """Interações da janela (pela data da mensagem) com texto e relevância, as mais novas primeiro."""
+    if inicio > fim:
+        raise ValueError("A data inicial não pode ser posterior à final.")
+
+    params = {"inicio": inicio, "fim_exclusivo": fim + timedelta(days=1)}
+    condicoes = _contexto_filtros_insights(modo, None, None, params)
+    condicoes.extend([
+        "i.DATA_INTERACAO >= :inicio",
+        "i.DATA_INTERACAO < :fim_exclusivo",
+        "i.ANALISE_JSON IS NOT NULL",
+    ])
+
+    sql = f"""
+        SELECT p.ID, i.DATA_INTERACAO, i.AUTOR, i.CANAL, i.TEXTO,
+               JSON_VALUE(i.ANALISE_JSON, '$.sentimento' RETURNING VARCHAR2(80) NULL ON ERROR),
+               JSON_VALUE(i.ANALISE_JSON, '$.rota' RETURNING VARCHAR2(80) NULL ON ERROR),
+               JSON_VALUE(i.ANALISE_JSON, '$.relevancia' RETURNING VARCHAR2(20) NULL ON ERROR)
+        FROM CL_INTERACOES i
+        JOIN CL_PROCESSAMENTOS p ON p.ID = i.PROCESSAMENTO_ID
+        WHERE {' AND '.join(condicoes)}
+        ORDER BY i.DATA_INTERACAO DESC, p.ID, i.POSICAO
+    """
+
+    with database.connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.outputtypehandler = _clob_como_texto
+            cursor.execute(sql, params)
+            return [
+                {
+                    "lote_id": row[0],
+                    "data": row[1],
+                    "autor": row[2],
+                    "canal": row[3],
+                    "texto": _text_value(row[4]) or "",
+                    "sentimento": row[5],
+                    "rota": row[6],
+                    "relevancia": _inteiro_ou_none(row[7]),
+                }
+                for row in cursor.fetchall()
+            ]
+
+
+def contar_alertas_tratados(inicio: date, fim: date, modo: str) -> int:
+    """Alertas já tratados cujas mensagens caem na janela."""
+    if inicio > fim:
+        raise ValueError("A data inicial não pode ser posterior à final.")
+
+    params = {"inicio": inicio, "fim_exclusivo": fim + timedelta(days=1)}
+    condicoes = _contexto_filtros_insights(modo, None, None, params)
+    condicoes.extend([
+        "a.STATUS_TRIAGEM <> 'PENDENTE'",
+        "i.DATA_INTERACAO >= :inicio",
+        "i.DATA_INTERACAO < :fim_exclusivo",
+    ])
+
+    sql = f"""
+        SELECT COUNT(*)
+        FROM CL_ALERTAS a
+        JOIN CL_INTERACOES i ON i.ID = a.INTERACAO_ID
+        JOIN CL_PROCESSAMENTOS p ON p.ID = a.PROCESSAMENTO_ID
+        WHERE {' AND '.join(condicoes)}
+    """
+
+    with database.connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(sql, params)
+            return int(cursor.fetchone()[0])
+
+
+def carregar_estados_dos_lotes(ids: list[str]) -> dict[str, dict]:
+    """Vários lotes no formato de `obter_processamento`, em três consultas (sem ir lote a lote)."""
+    ids = list(dict.fromkeys(ids))
+    if not ids:
+        return {}
+    params = {f"id{n}": valor for n, valor in enumerate(ids)}
+    em = ", ".join(f":{chave}" for chave in params)
+
+    with database.connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.outputtypehandler = _clob_como_texto
+            cursor.execute(
+                f"""
+                SELECT ID, ORIGEM_COMUNIDADE, PERIODO_REFERENCIA, STATUS, MODO_IA,
+                       TOTAL_INTERACOES, RESULTADO_JSON, CRIADO_EM, FINALIZADO_EM
+                FROM CL_PROCESSAMENTOS
+                WHERE ID IN ({em})
+                """,
+                params,
+            )
+            lotes = {
+                row[0]: {
+                    "id": row[0],
+                    "origem_comunidade": row[1],
+                    "periodo_referencia": row[2],
+                    "status": row[3],
+                    "modo_ia": row[4],
+                    "total_interacoes": row[5],
+                    "resultado": json_loads(row[6]),
+                    "criado_em": row[7].isoformat() if row[7] else None,
+                    "finalizado_em": row[8].isoformat() if row[8] else None,
+                    "ativos": [],
+                    "alertas": [],
+                }
+                for row in cursor.fetchall()
+            }
+
+            cursor.execute(
+                f"""
+                SELECT PROCESSAMENTO_ID, ID, CHAVE_ATIVO, TIPO_ATIVO, TITULO,
+                       PAYLOAD_JSON, STATUS_CURADORIA, VERSAO,
+                       CONSENTIMENTO_STATUS, CONSENTIMENTO_AUTOR,
+                       CONSENTIMENTO_EM, CONSENTIMENTO_REFERENCIA
+                FROM CL_ATIVOS
+                WHERE PROCESSAMENTO_ID IN ({em})
+                ORDER BY PROCESSAMENTO_ID, CRIADO_EM, CHAVE_ATIVO
+                """,
+                params,
+            )
+            for row in cursor.fetchall():
+                if row[0] in lotes:
+                    lotes[row[0]]["ativos"].append(_ativo_da_linha(row[1:]))
+
+            cursor.execute(
+                f"""
+                SELECT a.PROCESSAMENTO_ID, a.ID, a.INTERACAO_ID, i.AUTOR, i.CANAL,
+                       i.TEXTO, a.MOTIVO, a.STATUS_TRIAGEM,
+                       a.VERSAO, a.ACAO, a.RESPONSAVEL,
+                       a.JUSTIFICATIVA
+                FROM CL_ALERTAS a
+                JOIN CL_INTERACOES i ON i.ID = a.INTERACAO_ID
+                WHERE a.PROCESSAMENTO_ID IN ({em})
+                ORDER BY a.PROCESSAMENTO_ID, i.POSICAO
+                """,
+                params,
+            )
+            for row in cursor.fetchall():
+                if row[0] in lotes:
+                    lotes[row[0]]["alertas"].append(_alerta_da_linha(row[1:]))
+    return lotes

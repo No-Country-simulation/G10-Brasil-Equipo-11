@@ -1,11 +1,16 @@
 """Orquestração com LangGraph. Dono: pessoa 2.
 
-    classificar ──┬─> gerar_case ──┐
-                  ├─> gerar_faq ───┼─> gerar_newsletter ─> salvar_oci ─> FIM
-                  └─> gerar_alerta ┘
+    classificar ──┬─> gerar_case ───────┐
+    (+ FAQs)      ├─> gerar_faq ────────┤
+                  ├─> gerar_alerta ─────┼─> salvar_oci ─> FIM
+                  └─> gerar_newsletter ─┘
 
-O roteador só abre os ramos que têm interações daquela rota no lote.
-Os ramos rodam em paralelo e se juntam na newsletter.
+O roteador só abre os ramos que têm interações daquela rota no lote; a newsletter sempre roda.
+Os ramos rodam em paralelo e se juntam antes de salvar.
+
+O que encurta o lote: a FAQ de cada dúvida começa assim que aquela mensagem é classificada
+(`mapear_em_cadeia`), sem esperar a classificação das outras, e a newsletter, que só depende
+das análises, roda junto com os outros ramos em vez de depois deles.
 
 Com Oracle ligado, quem coordena banco e Object Storage é `app.main`:
 o grafo recebe `persistir_pacote=False` e os IDs das interações para registrar
@@ -17,8 +22,8 @@ from typing import Annotated, TypedDict
 from langgraph.graph import END, START, StateGraph
 
 from . import ia
-from .llm import mapear
-from .schemas import Alerta, Analise, LoteEntrada
+from .llm import mapear, mapear_em_cadeia
+from .schemas import Alerta, Analise, LoteEntrada, SugestaoFaq
 from .storage import bucket_name, caminho_objeto, salvar_pacote
 
 
@@ -29,6 +34,8 @@ def mesclar(a: dict, b: dict) -> dict:
 class Estado(TypedDict, total=False):
     lote: LoteEntrada
     analises: list[Analise]
+    # FAQs já geradas durante a classificação, pela posição da mensagem no lote.
+    faqs_geradas: dict[int, SugestaoFaq]
     ativos: Annotated[dict, mesclar]
     armazenamento: dict
     persistir_pacote: bool
@@ -37,9 +44,22 @@ class Estado(TypedDict, total=False):
     fontes_ativos: Annotated[dict, mesclar]
 
 
+def _faq_se_for_duvida(analise: Analise) -> SugestaoFaq | None:
+    return ia.gerar_faq(analise) if analise.rota == "faq" else None
+
+
 def no_classificar(e: Estado) -> Estado:
     # As mensagens são independentes: classifica em paralelo (ordem preservada).
-    return {"analises": mapear(ia.classificar, e["lote"].interacoes)}
+    # A FAQ de uma dúvida só depende da análise dela, então começa logo em seguida.
+    pares = mapear_em_cadeia(ia.classificar, _faq_se_for_duvida, e["lote"].interacoes)
+    return {
+        "analises": [analise for analise, _ in pares],
+        "faqs_geradas": {
+            indice: faq
+            for indice, (_, faq) in enumerate(pares)
+            if faq is not None
+        },
+    }
 
 
 def roteador(e: Estado) -> list[str]:
@@ -55,7 +75,8 @@ def roteador(e: Estado) -> list[str]:
         if rota in rotas
     ]
 
-    return ramos or ["gerar_newsletter"]
+    # A newsletter só depende das análises: roda junto com os outros ramos.
+    return [*ramos, "gerar_newsletter"]
 
 
 def no_case(e: Estado) -> Estado:
@@ -92,10 +113,15 @@ def no_faq(e: Estado) -> Estado:
         if analysis.rota == "faq"
     ]
 
-    faqs = [
-        faq.model_dump()
-        for faq in mapear(ia.gerar_faq, [e["analises"][index] for index in indices])
-    ]
+    # Normalmente todas já vieram da classificação; gera aqui só as que faltarem.
+    prontas = dict(e.get("faqs_geradas") or {})
+    faltantes = [index for index in indices if index not in prontas]
+    prontas.update(zip(
+        faltantes,
+        mapear(ia.gerar_faq, [e["analises"][index] for index in faltantes], aquecer_cache=False),
+    ))
+
+    faqs = [prontas[index].model_dump() for index in indices]
 
     ids = e.get("interaction_ids", [])
 
@@ -270,10 +296,10 @@ def construir_grafo():
         "gerar_case",
         "gerar_faq",
         "gerar_alerta",
+        "gerar_newsletter",
     ):
-        grafo.add_edge(ramo, "gerar_newsletter")
+        grafo.add_edge(ramo, "salvar_oci")
 
-    grafo.add_edge("gerar_newsletter", "salvar_oci")
     grafo.add_edge("salvar_oci", END)
 
     return grafo.compile()

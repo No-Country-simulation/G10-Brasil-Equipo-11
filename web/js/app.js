@@ -2,7 +2,7 @@
 // Ponto de entrada, orquestrador reativo e controle de eventos
 import { store } from './store.js';
 import { api } from './api.js';
-import { renderHeaderBar, initHeaderEvents } from './organisms/header-bar.js';
+import { renderSidebar, initSidebarEvents } from './organisms/sidebar.js';
 import { initThemeToggle } from './atoms/theme-toggle.js';
 import { renderLandingView } from './views/landing-view.js';
 import { initLandingEvents } from './organisms/landing-events.js';
@@ -13,11 +13,14 @@ import { renderCurationView, extrairItensCuradoria } from './views/curation-view
 import { renderInsightsView } from './views/insights-view.js';
 import { initInsightsEvents } from './insights-controller.js';
 import { abrirLoteSalvo } from './lotes.js';
+import { carregarVisaoGeral, tratarAlertaVisaoGeral } from './visao-geral.js';
+import { primeiroLoteComAtivos } from './organisms/pending-batches.js';
+import { abrirCuradoria, carregarFila, focar, proximoPendente, pacotesDosLotes, salvarTextosAtivos } from './fila.js';
 
 let lastRenderedView = null;
 
 function executeRender(root, state) {
-  const { activeTab, logado, publicView, theme } = state;
+  const { activeTab, logado, publicView, theme, menuRecolhido, menuAberto } = state;
 
   if (!logado) {
     document.documentElement.setAttribute('data-theme', 'dark');
@@ -34,11 +37,11 @@ function executeRender(root, state) {
     insights: renderInsightsView,
   };
 
-  const currentView = views[activeTab] || renderImportView;
+  const currentView = views[activeTab] || renderOverviewView;
 
   root.innerHTML = `
-    <div class="app-shell">
-      ${renderHeaderBar()}
+    <div class="app-shell com-sidebar${menuRecolhido ? ' recolhido' : ''}${menuAberto ? ' menu-aberto' : ''}">
+      ${renderSidebar()}
       <main class="container">
         ${currentView()}
       </main>
@@ -69,7 +72,7 @@ function renderApp() {
 }
 
 function initEventHandlers() {
-  initHeaderEvents();
+  initSidebarEvents();
   initThemeToggle();
   initLandingEvents();
 
@@ -96,7 +99,8 @@ function initEventHandlers() {
       }
       try {
         const res = await api.login(usuario, senha);
-        store.setState({ logado: true, usuario: res.usuario, authErro: null });
+        store.setState({ logado: true, usuario: res.usuario, authErro: null, activeTab: 'visao' });
+        carregarVisaoGeral();
       } catch (err) {
         store.setState({ authErro: err.message || 'Usuário ou senha inválidos.' });
       }
@@ -121,7 +125,36 @@ function initEventHandlers() {
       return;
     }
     if (e.target.closest('#btn-ir-curadoria')) {
-      store.setState({ activeTab: 'curadoria' });
+      // Revisar do topo: o lote mais antigo com ativo pendente (a lista já vem nessa ordem)
+      const lote = primeiroLoteComAtivos(store.getState().visaoGeral.dados?.lotes_pendentes);
+      await abrirCuradoria({ focoLoteId: lote ? lote.lote_id : null });
+      return;
+    }
+    if (e.target.closest('#btn-ir-visao')) {
+      store.setState({ activeTab: 'visao' });
+      carregarVisaoGeral();
+      return;
+    }
+    if (e.target.closest('#btn-atualizar-fila')) {
+      salvarTextosAtivos();
+      carregarFila(); // mantém o item em foco e as edições não decididas
+      return;
+    }
+    if (e.target.closest('#btn-ver-todos-pendentes')) {
+      carregarFila();
+      return;
+    }
+    const btnRevisarLote = e.target.closest('.btn-revisar-lote');
+    if (btnRevisarLote) {
+      if (btnRevisarLote.dataset.destino === 'alertas') {
+        document.getElementById('bloco-alertas')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        await abrirCuradoria({ focoLoteId: btnRevisarLote.dataset.loteId });
+      }
+      return;
+    }
+    if (e.target.closest('#btn-atualizar-visao')) {
+      carregarVisaoGeral();
       return;
     }
 
@@ -234,6 +267,7 @@ function initEventHandlers() {
           exportResult: null,
           exportErro: null,
         });
+        carregarVisaoGeral();
       } catch (err) {
         alert('Falha ao processar: ' + err.message);
         store.setState({ isProcessing: false });
@@ -245,7 +279,7 @@ function initEventHandlers() {
     const queueBtn = e.target.closest('.btn-queue-item');
     if (queueBtn) {
       salvarTextosAtivos();
-      store.setState({ activeItem: queueBtn.dataset.id });
+      focar(queueBtn.dataset.loteId || store.getState().loteId, queueBtn.dataset.id);
       return;
     }
 
@@ -265,19 +299,25 @@ function initEventHandlers() {
       return;
     }
 
-    // 6. Exportar Aprovados
+    // 6. Exportar Aprovados: um lote por vez (cada lote tem o seu pacote no bucket)
     if (e.target.closest('#btn-exportar-aprovados')) {
       // Um clique por vez: o envio ao bucket leva alguns segundos.
       if (store.getState().isExporting) return;
       salvarTextosAtivos();
-      const payload = montarPacoteDeAprovados();
+      const pacotes = pacotesDosLotes().filter(p => Object.values(p.decisoes).includes('a'));
       store.setState({ isExporting: true, exportResult: null, exportErro: null });
-      try {
-        const res = await api.exportarAprovados(payload);
-        store.setState({ exportResult: res, isExporting: false });
-      } catch (err) {
-        store.setState({ exportErro: err.message || 'Falha ao exportar.', isExporting: false });
+      const lotes = [];
+      for (const pacote of pacotes) {
+        const rotulo = `${(pacote.origem_comunidade || '').replace(/_/g, ' ')} · ${pacote.periodo_referencia || ''}`;
+        try {
+          const res = await api.exportarAprovados(pacote);
+          lotes.push({ rotulo, ok: true, ja_exportado: Boolean(res.ja_exportado) });
+        } catch (err) {
+          lotes.push({ rotulo, ok: false, erro: err.message || 'Falha ao exportar.' });
+        }
       }
+      store.setState({ exportResult: { lotes }, isExporting: false });
+      carregarVisaoGeral();
       return;
     }
 
@@ -289,7 +329,7 @@ function initEventHandlers() {
       salvarTextosAtivos();
       store.setState({ baixando: formato });
       try {
-        const { blob, nome } = await api.baixarAprovados(montarPacoteDeAprovados(), formato);
+        const { blob, nome } = await api.baixarVarios(pacotesDosLotes(), formato);
         salvarNoComputador(blob, nome);
       } catch (err) {
         alert('Não foi possível baixar: ' + (err.message || 'falha ao gerar o arquivo.'));
@@ -306,32 +346,14 @@ function initEventHandlers() {
       return;
     }
 
-    // 8. Tratar Alerta Humano
-    const btnAlertaAcao = e.target.closest('.btn-tratar-alerta');
-    if (btnAlertaAcao) {
-      const card = btnAlertaAcao.closest('.cl-alert-card');
-      const ordem = card?.dataset.ordem;
-      if (ordem !== undefined) {
-        const { resultado, loteId } = store.getState();
-        const analise = resultado?.analises?.[parseInt(ordem, 10)];
-        const novoStatus = analise?.tipo === 'reclamacao' ? 'encaminhado' : 'mentoria_oferecida';
-        store.setState(s => ({ alertas: { ...s.alertas, [ordem]: novoStatus } }));
-        if (loteId) {
-          api.tratarAlerta(loteId, parseInt(ordem, 10), novoStatus);
-        }
-      }
-      return;
-    }
-    const btnAlertaOk = e.target.closest('.btn-resolver-alerta');
-    if (btnAlertaOk) {
-      const card = btnAlertaOk.closest('.cl-alert-card');
-      const ordem = card?.dataset.ordem;
-      if (ordem !== undefined) {
-        store.setState(s => ({ alertas: { ...s.alertas, [ordem]: 'resolvido' } }));
-        const { loteId } = store.getState();
-        if (loteId) {
-          api.tratarAlerta(loteId, parseInt(ordem, 10), 'resolvido');
-        }
+    // 8. Tratar Alerta Humano: o card da Visão geral sabe o lote e a posição de origem
+    const btnAlerta = e.target.closest('.btn-tratar-alerta, .btn-resolver-alerta');
+    if (btnAlerta) {
+      const { loteId, ordem, tipo } = btnAlerta.closest('.cl-alert-card')?.dataset || {};
+      if (loteId && ordem !== undefined) {
+        const resolver = btnAlerta.classList.contains('btn-resolver-alerta');
+        const status = resolver ? 'resolvido' : (tipo === 'reclamacao' ? 'encaminhado' : 'mentoria_oferecida');
+        tratarAlertaVisaoGeral(loteId, parseInt(ordem, 10), status);
       }
       return;
     }
@@ -406,7 +428,7 @@ function initEventHandlers() {
   const realcarDropzone = (ligado) => {
     const area = document.getElementById('dropzone-area');
     if (!area) return;
-    area.style.borderColor = ligado ? 'var(--accent-lime)' : '';
+    area.style.borderColor = ligado ? 'var(--accent-lime-text)' : '';
     area.style.backgroundColor = ligado ? 'var(--bg-surface-2)' : '';
   };
   document.addEventListener('dragover', (e) => {
@@ -440,7 +462,8 @@ function initEventHandlers() {
       }
       try {
         const res = await api.login(usuario, senha);
-        store.setState({ logado: true, usuario: res.usuario, authErro: null });
+        store.setState({ logado: true, usuario: res.usuario, authErro: null, activeTab: 'visao' });
+        carregarVisaoGeral();
       } catch (err) {
         store.setState({ authErro: err.message || 'Usuário ou senha inválidos.' });
       }
@@ -477,21 +500,6 @@ async function importarArquivo(file) {
   }
 }
 
-// O que a exportação e o download enviam ao backend: o lote na tela, as decisões e os textos editados.
-function montarPacoteDeAprovados() {
-  const { resultado, decisoes, textosEditados, origem, periodo, autorizado, loteId } = store.getState();
-  return {
-    lote_id: loteId,
-    resultado,
-    origem_comunidade: origem,
-    periodo_referencia: periodo,
-    aprovado_em: new Date().toISOString(),
-    decisoes,
-    textos: textosEditados,
-    autorizado,
-  };
-}
-
 // Entrega o arquivo ao navegador, que salva na pasta de downloads da pessoa.
 function salvarNoComputador(blob, nome) {
   const url = URL.createObjectURL(blob);
@@ -504,56 +512,25 @@ function salvarNoComputador(blob, nome) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function salvarTextosAtivos() {
-  const patch = {};
-  const txtPost = document.getElementById('txt_post_copy');
-  if (txtPost) patch.post_copy = txtPost.value;
-
-  const txtNewsChamada = document.getElementById('txt_news_chamada');
-  if (txtNewsChamada) patch.news_chamada = txtNewsChamada.value;
-
-  const txtNewsResumo = document.getElementById('txt_news_resumo');
-  if (txtNewsResumo) patch.news_resumo = txtNewsResumo.value;
-
-  document.querySelectorAll('[id^="txt_faq_"]').forEach(el => {
-    const key = el.id.replace('txt_', '');
-    patch[key] = el.value;
-  });
-
-  if (Object.keys(patch).length > 0) {
-    store.setState(s => ({ textosEditados: { ...s.textosEditados, ...patch } }));
-  }
-}
-
 function decidirAtivo(decisao) {
-  const { activeItem, decisoes, resultado, loteId, textosEditados, autorizado } = store.getState();
+  const { activeItem, decisoes, loteId, textosEditados, autorizado } = store.getState();
   if (!activeItem) return;
 
-  const nextDecisoes = { ...decisoes, [activeItem]: decisao };
-  const itens = extrairItensCuradoria(resultado);
-  const ids = itens.map(i => i.id);
-
-  // Avança para o próximo pendente
-  let proximo = null;
-  const currIndex = ids.indexOf(activeItem);
-  for (let offset = 1; offset <= ids.length; offset++) {
-    const candidate = ids[(currIndex + offset) % ids.length];
-    if (nextDecisoes[candidate] === 'p') {
-      proximo = candidate;
-      break;
-    }
-  }
-
   store.setState({
-    decisoes: nextDecisoes,
-    activeItem: proximo || activeItem,
+    decisoes: { ...decisoes, [activeItem]: decisao },
     // A decisão mudou: a mensagem da exportação anterior deixa de valer.
     exportResult: null,
     exportErro: null,
   });
-
+  // Grava no lote do item, com os textos e a autorização dele, antes de trocar o foco.
   if (loteId) {
     api.salvarDecisao(loteId, activeItem, decisao, textosEditados, autorizado);
+  }
+
+  // Avança para o próximo pendente: no mesmo lote e depois nos seguintes.
+  if (decisao !== 'p') {
+    const proximo = proximoPendente();
+    if (proximo) focar(proximo.loteId, proximo.itemId);
   }
 }
 
@@ -578,6 +555,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       authConfigurado: Boolean(auth.configurado),
       authCarregando: false,
     });
+    if (auth.logado) carregarVisaoGeral();
   } catch (err) {
     console.warn('[Sender AI] Status de autenticação indisponível:', err);
     store.setState({ authCarregando: false });
